@@ -1,0 +1,28 @@
+{
+  "name": "ai-web-clients",
+  "$schema": "node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "targets": {
+    "version": {
+      "executor": "@jscutlery/semver:version",
+      "options": {
+        "preset": "conventional",
+        "trackDeps": true,
+        "push": true,
+        "remote": "origin",
+        "baseBranch": "main",
+        "syncVersions": true,
+        "skipRootChangelog": false,
+        "skipProjectChangelog": false
+      }
+    },
+    "github": {
+      "executor": "@jscutlery/semver:github",
+      "options": {
+        "tag": "${tag}",
+        "notes": "${notes}"
+      },
+      "dependsOn": ["version"]
+    }
+  }
+} 

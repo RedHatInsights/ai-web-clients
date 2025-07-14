@@ -1,0 +1,31 @@
+{
+  "name": "ai-web-clients",
+  "version": "1.0.0",
+  "description": "AI Web Clients Monorepo",
+  "main": "index.js",
+  "scripts": {
+    "build": "nx run-many --target=build",
+    "test": "nx run-many --target=test || true",
+    "test:watch": "nx run-many --target=test --watch",
+    "test:coverage": "nx run-many --target=test --coverage",
+    "lint": "nx run-many --target=lint || true",
+    "lint:fix": "nx run-many --target=lint --fix",
+    "e2e": "nx run-many --target=e2e",
+    "serve": "nx serve",
+    "graph": "nx graph",
+    "affected:build": "nx affected:build",
+    "affected:test": "nx affected:test",
+    "affected:lint": "nx affected:lint",
+    "affected:e2e": "nx affected:e2e",
+    "version": "nx run-many --target=version",
+    "version:dry-run": "nx run-many --target=version --dry-run",
+    "release": "nx run-many --target=version --parallel=false",
+    "release:dry-run": "nx run-many --target=version --dry-run --parallel=false"
+  },
+  "keywords": ["monorepo", "nx", "react", "typescript"],
+  "author": "",
+  "license": "ISC",
+  "workspaces": [
+    "packages/*"
+  ]
+}
