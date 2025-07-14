@@ -4,5 +4,7 @@
   "type": "commonjs",
   "main": "./src/index.js",
   "types": "./src/index.d.ts",
-  "dependencies": {}
+  "dependencies": {
+    "@redhat-cloud-services/ai-client-common": "*"
+  }
 }

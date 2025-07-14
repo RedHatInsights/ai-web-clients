@@ -1,4 +1,4 @@
-import { IStreamingHandler } from './interfaces';
+import { IStreamingHandler } from '@redhat-cloud-services/ai-client-common';
 import { MessageChunkResponse, IFDApiError } from './types';
 import { 
   StreamingMessageChunk, 
@@ -157,7 +157,7 @@ async function processStreamResponse(
 /**
  * Default streaming handler implementation
  */
-export class DefaultStreamingHandler implements IStreamingHandler {
+export class DefaultStreamingHandler implements IStreamingHandler<MessageChunkResponse> {
   private messageBuffer = '';
   private currentMessageId = '';
   private currentConversationId = '';
@@ -209,7 +209,7 @@ export class DefaultStreamingHandler implements IStreamingHandler {
  */
 export async function processStreamWithHandler(
   response: Response,
-  handler: IStreamingHandler,
+  handler: IStreamingHandler<MessageChunkResponse>,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   conversationId: string
 ): Promise<void> {

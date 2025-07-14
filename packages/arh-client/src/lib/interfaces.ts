@@ -1,16 +1,29 @@
 import { MessageChunkResponse } from './types';
+import { 
+  IBaseClientConfig,
+  IRequestOptions,
+  IStreamingHandler as ICommonStreamingHandler
+} from '@redhat-cloud-services/ai-client-common';
 
 /**
- * Interface for custom fetch implementation that must be injected into the client.
- * Mirrors exactly the native browser fetch interface.
+ * Configuration options for the IFD client
+ * Extends the base client config with ARH-specific streaming handler
  */
-export interface IFetchFunction {
-  (input: RequestInfo | URL, init?: RequestInit): Promise<Response>;
+export interface IFDClientConfig extends IBaseClientConfig<MessageChunkResponse> {
+  // Inherits baseUrl, fetchFunction, and defaultStreamingHandler from IBaseClientConfig
 }
 
 /**
- * Interface for streaming message handler.
- * This must be implemented to handle the streaming responses from the message endpoint.
+ * ARH-specific request options that extend the base request options
+ */
+export interface RequestOptions extends IRequestOptions {
+  // Inherits headers and signal from IRequestOptions
+}
+
+/**
+ * Legacy interface - kept for backward compatibility but deprecated
+ * Use IStreamingHandler<MessageChunkResponse> from ai-client-common instead
+ * @deprecated Use IStreamingHandler<MessageChunkResponse> from ai-client-common
  */
 export interface IStreamingHandler {
   /**
@@ -45,42 +58,23 @@ export interface IStreamingHandler {
 }
 
 /**
- * Configuration options for the IFD client
- */
-export interface IFDClientConfig {
-  /**
-   * The base URL for the IFD API
-   */
-  baseUrl: string;
-
-  /**
-   * Custom fetch implementation for making HTTP requests
-   * Must include authentication headers (Bearer token) if needed
-   */
-  fetchFunction: IFetchFunction;
-}
-
-/**
- * Interface for request options that can be passed to individual methods
- */
-export interface RequestOptions {
-  /**
-   * Custom headers for this specific request
-   */
-  headers?: Record<string, string>;
-
-  /**
-   * AbortSignal to cancel the request
-   */
-  signal?: AbortSignal;
-}
-
-/**
- * Interface for streaming request options
+ * Legacy streaming request options - kept for backward compatibility but deprecated
+ * @deprecated Use ISendMessageOptions with stream: true from ai-client-common instead
  */
 export interface StreamingRequestOptions extends RequestOptions {
   /**
    * The streaming handler to process the response
+   * @deprecated Streaming handlers should be configured at client level via defaultStreamingHandler
    */
   streamingHandler: IStreamingHandler;
-} 
+}
+
+// Re-export commonly used interfaces from ai-client-common for convenience
+export { 
+  IFetchFunction,
+  IBaseClientConfig,
+  IRequestOptions
+} from '@redhat-cloud-services/ai-client-common';
+
+// Export the common streaming handler with a clear name
+export { ICommonStreamingHandler }; 

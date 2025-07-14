@@ -15,6 +15,12 @@
     "skipDefaultLibCheck": true,
     "baseUrl": ".",
     "paths": {
+      "@redhat-cloud-services/ai-client-common": [
+        "packages/ai-client-common/src/index.ts"
+      ],
+      "@redhat-cloud-services/ai-client-state": [
+        "packages/ai-client-state/src/index.ts"
+      ],
       "@redhat-cloud-services/arh-client": ["packages/arh-client/src/index.ts"]
     }
   },

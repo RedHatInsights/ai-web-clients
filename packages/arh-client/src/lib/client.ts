@@ -1,13 +1,19 @@
 import {
   IFDClientConfig,
-  RequestOptions,
-  StreamingRequestOptions,
-  IFetchFunction
+  RequestOptions
 } from './interfaces';
+import {
+  IAIClient,
+  AIClientError,
+  AIClientValidationError,
+  IStreamingHandler,
+  ISendMessageOptions,
+  IMessageResponse,
+  IFetchFunction
+} from '@redhat-cloud-services/ai-client-common';
 import {
   NewConversationResponse,
   ConversationHistoryResponse,
-  MessageRequest,
   MessageChunkResponse,
   MessageFeedbackRequest,
   MessageFeedbackResponse,
@@ -16,9 +22,7 @@ import {
   UserResponse,
   UserRequest,
   UserHistoryResponse,
-  QuotaStatusResponse,
-  IFDApiError,
-  IFDValidationError
+  QuotaStatusResponse
 } from './types';
 import { processStreamWithHandler } from './default-streaming-handler';
 
@@ -28,13 +32,22 @@ import { processStreamWithHandler } from './default-streaming-handler';
  * A flexible TypeScript client for the IFD API with dependency injection support
  * for custom fetch implementations and streaming handlers.
  */
-export class IFDClient {
+export class IFDClient implements IAIClient {
   private readonly baseUrl: string;
   private readonly fetchFunction: IFetchFunction;
+  private readonly defaultStreamingHandler?: IStreamingHandler<MessageChunkResponse>;
 
   constructor(config: IFDClientConfig) {
     this.baseUrl = config.baseUrl;
     this.fetchFunction = config.fetchFunction;
+    this.defaultStreamingHandler = config.defaultStreamingHandler;
+  }
+
+  /**
+   * Get the default streaming handler configured for this client
+   */
+  getDefaultStreamingHandler<TChunk = MessageChunkResponse>(): IStreamingHandler<TChunk> | undefined {
+    return this.defaultStreamingHandler as IStreamingHandler<TChunk> | undefined;
   }
 
   /**
@@ -84,10 +97,10 @@ export class IFDClient {
     if (response.status === 422 && typeof errorData === 'object' && errorData?.detail) {
       const detail = errorData.detail;
       if (Array.isArray(detail)) {
-        throw new IFDValidationError(detail);
+        throw new AIClientValidationError(detail);
       } else {
         // Fallback for non-array validation errors
-        throw new IFDValidationError([{
+        throw new AIClientValidationError([{
           loc: ['unknown'],
           msg: typeof detail === 'string' ? detail : 'Validation failed',
           type: 'validation_error'
@@ -95,7 +108,7 @@ export class IFDClient {
       }
     }
 
-    throw new IFDApiError(
+    throw new AIClientError(
       response.status,
       response.statusText,
       `API request failed: ${response.status} ${response.statusText}`,
@@ -117,61 +130,83 @@ export class IFDClient {
    * Send a message to a conversation (non-streaming)
    * For streaming, use sendMessageStream method
    */
+  /**
+   * Send a message to the AI service
+   * Supports both streaming and non-streaming modes based on options.stream
+   */
   async sendMessage(
     conversationId: string,
-    message: MessageRequest,
-    options?: RequestOptions
-  ): Promise<MessageChunkResponse> {
-    const requestBody = { ...message, stream: false };
-    
-    return this.makeRequest<MessageChunkResponse>(
-      `/api/ask/v1/conversation/${conversationId}/message`,
-      {
-        method: 'POST',
-        body: JSON.stringify(requestBody),
-        ...options,
-      }
-    );
-  }
-
-  /**
-   * Send a message to a conversation with streaming response
-   * This method requires a streaming handler to be provided
-   */
-  async sendMessageStream(
-    conversationId: string,
-    message: MessageRequest,
-    options: StreamingRequestOptions
-  ): Promise<void> {
-    const { streamingHandler, ...requestOptions } = options;
-    const requestBody = { ...message, stream: true };
-
-    const url = `${this.baseUrl}/api/ask/v1/conversation/${conversationId}/message`;
-    const headers = {
-      'Content-Type': 'application/json',
-      ...requestOptions.headers,
+    message: string,
+    options?: ISendMessageOptions
+  ): Promise<IMessageResponse | void> {
+    const requestBody = { 
+      input: message, 
+      received_at: new Date().toISOString(),
+      stream: options?.stream || false 
     };
 
-    try {
-      const response = await this.fetchFunction(url, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(requestBody),
-        signal: requestOptions.signal,
-      });
-
-      if (!response.ok) {
-        await this.handleErrorResponse(response);
+    if (options?.stream) {
+      // Handle streaming mode
+      const handler = this.defaultStreamingHandler;
+      if (!handler) {
+        throw new AIClientValidationError([{
+          loc: ['options', 'stream'],
+          msg: 'Streaming mode requires a streaming handler to be configured',
+          type: 'value_error'
+        }]);
       }
 
-      if (!response.body) {
-        throw new Error('Response body is null');
-      }
+      const url = `${this.baseUrl}/api/ask/v1/conversation/${conversationId}/message`;
+      const headers = {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      };
 
-      await processStreamWithHandler(response, streamingHandler, conversationId);
-    } catch (error) {
-      streamingHandler.onError?.(error as Error);
-      throw error;
+      try {
+        const response = await this.fetchFunction(url, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(requestBody),
+          signal: options.signal,
+        });
+
+        if (!response.ok) {
+          await this.handleErrorResponse(response);
+        }
+
+        if (!response.body) {
+          throw new Error('Response body is null');
+        }
+
+        await processStreamWithHandler(response, handler, conversationId);
+        return; // void for streaming
+      } catch (error) {
+        handler.onError?.(error as Error);
+        throw error;
+      }
+    } else {
+      // Handle non-streaming mode
+      const response = await this.makeRequest<MessageChunkResponse>(
+        `/api/ask/v1/conversation/${conversationId}/message`,
+        {
+          method: 'POST',
+          body: JSON.stringify(requestBody),
+          ...options,
+        }
+      );
+
+      // Convert MessageChunkResponse to IMessageResponse
+      return {
+        messageId: response.message_id,
+        content: response.output,
+        conversationId: response.conversation_id,
+        createdAt: response.received_at,
+        metadata: {
+          sources: response.sources,
+          tool_call_metadata: response.tool_call_metadata,
+          output_guard_result: response.output_guard_result
+        }
+      };
     }
   }
 

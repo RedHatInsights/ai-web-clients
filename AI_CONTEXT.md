@@ -1,9 +1,9 @@
 # AI Agent Context Documentation
 ## AI Web Clients NX Workspace
 
-> **Last Updated**: Context Version 1.1  
+> **Last Updated**: Context Version 1.2  
 > **Workspace Version**: 1.0.0  
-> **Context Version**: 1.1  
+> **Context Version**: 1.2  
 > **NX Version**: 21.2.3
 
 ---
@@ -111,6 +111,7 @@ ai-web-clients/
    - Target ES2015+ for native class support, avoiding runtime helpers
    - Zero runtime dependencies preferred for client packages
    - Only add dependencies when absolutely essential for functionality
+   - **NO FORCE INSTALLS** - Never use `--force` flag with npm/package managers
 
 5. **Import/Export Management**
    - Remove unused imports immediately
@@ -350,6 +351,12 @@ import { SharedUtility } from '@redhat-cloud-services/shared-utils';
 - **Cache Issues**: Use `npx nx reset` to clear cache
 - **Project Config**: Verify project.json targets are correct
 
+### **Version Compatibility Issues** (NEW)
+- **@jscutlery/semver Conflicts**: Version 5.6.1 only supports @nx/devkit ^18.0.0 || ^19.0.0 || ^20.0.0
+- **Resolution**: Install compatible version: `npm install -D @nx/devkit@20.8.2`
+- **Future Path**: Consider migrating to NX 21.x native release functionality
+- **General Pattern**: Check peer dependencies before upgrading major NX versions
+
 ### **Workspace Issues**
 - **Dependency Conflicts**: Use npm workspaces properly
 - **Version Mismatches**: Keep workspace dependencies aligned
@@ -369,6 +376,12 @@ import { SharedUtility } from '@redhat-cloud-services/shared-utils';
 ---
 
 ## 📝 CHANGE LOG
+
+### Version 1.2
+- **ADDED: NX version compatibility guidance** - Resolved @jscutlery/semver vs NX 21.x compatibility
+- Installed `@nx/devkit@20.8.2` (compatible with @jscutlery/semver@5.6.1)
+- Documented version constraints: @jscutlery/semver 5.6.1 only supports @nx/devkit ^18.0.0 || ^19.0.0 || ^20.0.0
+- Future consideration: NX 21.x has native release functionality that could replace @jscutlery/semver
 
 ### Version 1.1
 - **ADDED: tslib dependency avoidance policy** - Prevents unnecessary runtime dependencies
