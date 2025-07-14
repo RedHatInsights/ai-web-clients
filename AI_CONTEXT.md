@@ -1,9 +1,9 @@
 # AI Agent Context Documentation
 ## AI Web Clients NX Workspace
 
-> **Last Updated**: December 2024  
+> **Last Updated**: Context Version 1.1  
 > **Workspace Version**: 1.0.0  
-> **Context Version**: 1.0  
+> **Context Version**: 1.1  
 > **NX Version**: 21.2.3
 
 ---
@@ -106,7 +106,13 @@ ai-web-clients/
    - Comprehensive error handling with custom error classes
    - Full test coverage for public APIs
 
-4. **Import/Export Management**
+4. **Dependency Minimization** (CRITICAL)
+   - **NO `tslib` dependency** - Use `"importHelpers": false` in TypeScript config
+   - Target ES2015+ for native class support, avoiding runtime helpers
+   - Zero runtime dependencies preferred for client packages
+   - Only add dependencies when absolutely essential for functionality
+
+5. **Import/Export Management**
    - Remove unused imports immediately
    - Export only public APIs from package index
    - Use specific imports (avoid `import *`)
@@ -220,6 +226,8 @@ When creating new packages in this workspace:
    - Copy and adapt `project.json` from arh-client
    - Ensure proper NX target configuration
    - Maintain consistent package.json structure
+   - **Set `"importHelpers": false`** in tsconfig to avoid tslib dependency
+   - Keep dependencies section empty unless absolutely required
 
 ---
 
@@ -268,6 +276,8 @@ When creating new packages in this workspace:
 - Package-specific configs extend base
 - Strict mode enabled
 - Comprehensive type checking
+- **`"importHelpers": false`** - Prevents tslib dependency requirement
+- Target ES2015+ for native class inheritance support
 
 ### **ESLint Configuration**
 - Workspace-wide rules in `.eslintrc.json`
@@ -350,11 +360,23 @@ import { SharedUtility } from '@redhat-cloud-services/shared-utils';
 - **Test Failures**: Ensure proper mocking setup
 - **Lint Issues**: Follow established patterns from arh-client
 
+### **Dependency Management Issues**
+- **tslib Dependency**: NEVER add `tslib` - use `"importHelpers": false` instead
+- **Runtime Dependencies**: Question every dependency - prefer zero runtime deps
+- **TypeScript Helpers**: Target ES2015+ supports classes natively, no helpers needed
+- **Minimal Package Size**: Keep packages lean for better performance and security
+
 ---
 
 ## 📝 CHANGE LOG
 
-### Version 1.0 (December 2024)
+### Version 1.1
+- **ADDED: tslib dependency avoidance policy** - Prevents unnecessary runtime dependencies
+- Updated TypeScript configuration to use `"importHelpers": false`
+- Established zero runtime dependencies as preferred standard
+- Enhanced package development guidelines with dependency minimization rules
+
+### Version 1.0
 - Initial workspace context documentation created
 - Established NX monorepo structure
 - Implemented arh-client as reference package
@@ -365,7 +387,7 @@ import { SharedUtility } from '@redhat-cloud-services/shared-utils';
 
 ### Instructions for Future Versions
 When updating this workspace context:
-1. Add new entry to change log with date and reasoning
+1. Add new entry to change log with version number and reasoning
 2. Update relevant sections with new patterns/standards
 3. Increment context version number
 4. Test changes across all packages
