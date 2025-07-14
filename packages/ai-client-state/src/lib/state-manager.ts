@@ -54,8 +54,23 @@ function createClientStateManager(client: IAIClient, activeConversationId?: stri
     return state;
   }
 
+  function notify(event: Events) {
+    const callbacks = Subscriptions.get(event);
+    if (callbacks) {
+      callbacks.forEach((subscriber) => subscriber.callback());
+    }
+  }
+
   function setActiveConversationId(conversationId: string) {
     state.activeConversationId = conversationId;
+    
+    // Auto-create conversation if it doesn't exist
+    if (!state.conversations[conversationId]) {
+      state.conversations[conversationId] = {
+        id: conversationId,
+        messages: []
+      };
+    }
   }
 
   function getActiveConversation() {
@@ -66,11 +81,20 @@ function createClientStateManager(client: IAIClient, activeConversationId?: stri
   }
 
   async function sendMessage(message: Message, options?: MessageOptions) {
-    state.messageInProgress = true;
-    const conversation = getActiveConversation();
-    if (!conversation) {
-      throw new Error('No active conversation');
+    // Ensure we have an active conversation
+    if (!state.activeConversationId) {
+      throw new Error('No active conversation set. Call setActiveConversationId() first.');
     }
+    
+    // Auto-create conversation if it doesn't exist
+    if (!state.conversations[state.activeConversationId]) {
+      state.conversations[state.activeConversationId] = {
+        id: state.activeConversationId,
+        messages: []
+      };
+    }
+    
+    const conversation = state.conversations[state.activeConversationId];
     
     // Add user message to state immediately
     conversation.messages.push(message);
@@ -89,7 +113,7 @@ function createClientStateManager(client: IAIClient, activeConversationId?: stri
       
       if (originalHandler) {
         // Wrap the streaming handler to update state
-        const wrappedHandler = wrapStreamingHandler(
+        wrapStreamingHandler(
           originalHandler,
           {
             beforeChunk: (chunk: unknown) => {
@@ -104,9 +128,7 @@ function createClientStateManager(client: IAIClient, activeConversationId?: stri
             }
           }
         );
-        
-        // Set the wrapped handler as temporary override
-        client.setTemporaryStreamingHandler?.(wrappedHandler);
+      
         
         return client.sendMessage(conversation.id, message.content, options)
           .then((response) => {
@@ -161,19 +183,14 @@ function createClientStateManager(client: IAIClient, activeConversationId?: stri
     return getActiveConversation()?.messages || [];
   }
 
-  function notify(event: Events) {
-    const callbacks = Subscriptions.get(event);
-    if (callbacks) {
-      callbacks.forEach((subscriber) => subscriber.callback());
-    }
-  }
-
   const toBeNotified = {
     setActiveConversationId: (...args: Parameters<typeof setActiveConversationId>) => {
       setActiveConversationId(...args);
       notify(Events.ACTIVE_CONVERSATION);
     },
     sendMessage: async (...args: Parameters<typeof sendMessage>) => {
+      state.messageInProgress = true;
+      notify(Events.IN_PROGRESS);
       const res = await sendMessage(...args);
       notify(Events.MESSAGE);
       notify(Events.IN_PROGRESS);

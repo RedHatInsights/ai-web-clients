@@ -228,10 +228,6 @@ describe('ai-client-common', () => {
           return undefined; // No default handler for this test client
         }
         
-        setTemporaryStreamingHandler<TChunk = unknown>(handler: IStreamingHandler<TChunk>): void {
-          void handler; // Mark parameter as used for linting - temporary override not implemented in test
-        }
-        
         async healthCheck(options?: IRequestOptions): Promise<unknown> {
           void options; // Mark parameter as used for linting
           return { status: 'healthy' };
@@ -287,8 +283,14 @@ describe('ai-client-common', () => {
     it('should handle sendMessage in streaming mode', async () => {
       let chunks: string[] = [];
       
+      const mockHandler: IStreamingHandler<string> = {
+        onChunk: (chunk: string) => { chunks.push(chunk); },
+        onStart: () => { chunks = []; },
+        onComplete: () => { /* complete */ }
+      };
+      
       class TestClient implements IAIClient {
-        private defaultHandler?: IStreamingHandler<string>;
+        private defaultHandler: IStreamingHandler<string> = mockHandler;
         
         async sendMessage(
           conversationId: string, 
@@ -314,24 +316,12 @@ describe('ai-client-common', () => {
           return this.defaultHandler as IStreamingHandler<TChunk>;
         }
         
-        setTemporaryStreamingHandler<TChunk = unknown>(handler: IStreamingHandler<TChunk>): void {
-          this.defaultHandler = handler as IStreamingHandler<string>;
-        }
-        
         async healthCheck(): Promise<unknown> {
           return { status: 'healthy' };
         }
       }
       
       const client = new TestClient();
-      const mockHandler: IStreamingHandler<string> = {
-        onChunk: (chunk: string) => { chunks.push(chunk); },
-        onStart: () => { chunks = []; },
-        onComplete: () => { /* complete */ }
-      };
-      
-      // Set up the handler via the client's temporary handler method
-      client.setTemporaryStreamingHandler?.(mockHandler);
       
       const response = await client.sendMessage('conv-123', 'Hello AI', {
         stream: true

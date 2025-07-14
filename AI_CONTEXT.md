@@ -1,9 +1,9 @@
 # AI Agent Context Documentation
 ## AI Web Clients NX Workspace
 
-> **Last Updated**: Context Version 1.2  
+> **Last Updated**: Context Version 1.4  
 > **Workspace Version**: 1.0.0  
-> **Context Version**: 1.2  
+> **Context Version**: 1.4  
 > **NX Version**: 21.2.3
 
 ---
@@ -42,6 +42,11 @@ NX monorepo for AI-related web client libraries, starting with the IFD (Intellig
 
 ### **Current Packages**
 1. **`@redhat-cloud-services/arh-client`** - IFD API TypeScript client (production-ready)
+2. **`@redhat-cloud-services/ai-client-common`** - Common interfaces and utilities for AI clients
+3. **`@redhat-cloud-services/ai-client-state`** - State management for AI client interactions
+
+### **Current Apps**
+1. **`client-integration-tests`** - Integration test app for validating package interoperability
 
 ---
 
@@ -143,6 +148,9 @@ ai-web-clients/
    # Run commands for all packages
    npx nx run-many --target=test --all
    npx nx run-many --target=lint --all
+   
+   # Run integration tests
+   npx nx test client-integration-tests
    ```
 
 3. **Package Configuration**
@@ -302,12 +310,23 @@ When creating new packages in this workspace:
 - Error scenario coverage
 - Streaming/async functionality testing
 
+### **Integration Testing Approach**
+- **Integration Test App**: `apps/client-integration-tests` validates package interoperability
+- **NX MCP Integration**: Use NX MCP tools to generate test applications instead of manual creation
+- **Cross-Package Testing**: Verify that packages work together correctly (ARH client + state manager)
+- **Environment Limitations**: Node.js Jest environment has limitations with Web APIs (ReadableStream, etc.)
+
 ### **Test Organization**
 ```
 src/lib/
 ├── __tests__/         # Test files (optional pattern)
 ├── feature.spec.ts    # Co-located tests (preferred)
 └── feature.ts         # Source files
+
+apps/
+└── client-integration-tests/  # Cross-package integration tests
+    └── src/
+        └── *.spec.ts           # Integration test suites
 ```
 
 ---
@@ -376,6 +395,20 @@ import { SharedUtility } from '@redhat-cloud-services/shared-utils';
 ---
 
 ## 📝 CHANGE LOG
+
+### Version 1.4
+- **ADDED: Integration testing infrastructure** - Created comprehensive testing approach for package interoperability
+- Added `apps/client-integration-tests` app using NX MCP generators instead of manual creation
+- Implemented ARH client integration tests covering non-streaming messages, error handling, and configuration
+- Documented NX MCP usage patterns for generating apps and maintaining workspace consistency
+- Added test environment limitations documentation (Node.js Jest vs Web APIs)
+
+### Version 1.3
+- **REMOVED: setTemporaryStreamingHandler method** - Simplified architecture by removing temporary handler management
+- Removed `setTemporaryStreamingHandler?<TChunk>()` from IAIClient interface in ai-client-common
+- Updated test implementations to use default handlers configured at client initialization
+- State managers now use client's default handlers directly without temporary injection
+- Architecture simplified: clients configured with defaults → state managers wrap defaults → direct sendMessage calls
 
 ### Version 1.2
 - **ADDED: NX version compatibility guidance** - Resolved @jscutlery/semver vs NX 21.x compatibility

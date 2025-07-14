@@ -79,15 +79,6 @@ export interface IAIClient {
   getDefaultStreamingHandler?<TChunk = unknown>(): IStreamingHandler<TChunk> | undefined;
 
   /**
-   * Temporarily override the default streaming handler for the next sendMessage call
-   * This allows state managers and other components to wrap the default handler
-   * The override is automatically cleared after the next sendMessage call
-   * 
-   * @param handler - The streaming handler to use for the next message
-   */
-  setTemporaryStreamingHandler?<TChunk = unknown>(handler: IStreamingHandler<TChunk>): void;
-
-  /**
    * Health check endpoint - all AI services should provide this
    */
   healthCheck(options?: IRequestOptions): Promise<unknown>;

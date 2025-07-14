@@ -55,5 +55,8 @@ temp/
 
 # Lock files (keep package-lock.json, remove others)
 yarn.lock
-pnpm-lock.yaml 
+pnpm-lock.yaml
 
+
+vite.config.*.timestamp*
+vitest.config.*.timestamp*
