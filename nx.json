@@ -47,6 +47,11 @@
         "tag": "${tag}",
         "notes": "${notes}"
       }
+    },
+    "@nx/js:tsc": {
+      "cache": true,
+      "dependsOn": ["^build"],
+      "inputs": ["production", "^production"]
     }
   },
   "generators": {
@@ -60,7 +65,17 @@
       "directory": "packages"
     }
   },
+  "release": {
+    "version": {
+      "preVersionCommand": "npx nx run-many -t build"
+    }
+  },
   "plugins": [
-    "@jscutlery/semver"
+    {
+      "plugin": "@nx/eslint/plugin",
+      "options": {
+        "targetName": "lint"
+      }
+    }
   ]
-} 
+}

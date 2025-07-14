@@ -18,14 +18,6 @@ module.exports = {
     '!**/node_modules/**',
     '!**/vendor/**',
   ],
-  roots: [`<rootDir>/packages`],
-  testMatch: [
-    '<rootDir>/packages/**/__tests__/**/*.(j|t)s?(x)',
-    '<rootDir>/packages/**/*(*.)@(spec|test).(j|t)s?(x)',
-  ],
   resolver: '@nx/jest/plugins/resolver',
-  moduleNameMapping: {
-    '^@/(.*)$': '<rootDir>/packages/$1',
-  },
-  setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
+  setupFilesAfterEnv: [`${workspaceRoot}/jest.setup.js`],
 }; 

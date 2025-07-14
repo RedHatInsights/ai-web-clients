@@ -22,7 +22,17 @@
         "tag": "${tag}",
         "notes": "${notes}"
       },
-      "dependsOn": ["version"]
+      "dependsOn": [
+        "version"
+      ]
+    },
+    "local-registry": {
+      "executor": "@nx/js:verdaccio",
+      "options": {
+        "port": 4873,
+        "config": ".verdaccio/config.yml",
+        "storage": "tmp/local-registry/storage"
+      }
     }
   }
-} 
+}

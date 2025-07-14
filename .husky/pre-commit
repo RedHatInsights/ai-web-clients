@@ -1,9 +1,9 @@
 #!/bin/sh
-# Skip quality checks if no packages exist
+# Skip all quality checks if no packages exist
 if [ ! "$(ls -A packages 2>/dev/null)" ]; then
-  echo "✅ No packages found - skipping quality checks"
+  echo "✅ No packages found - skipping all quality checks"
   exit 0
 fi
 
-echo "🔍 Running quality checks..."
-echo "✅ Quality checks passed"
+echo "📦 Packages found - run quality checks manually with: nx affected --target=lint && nx affected --target=test"
+echo "✅ Pre-commit hook passed"
