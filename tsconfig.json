@@ -1,28 +1,4 @@
 {
-  "compileOnSave": false,
-  "compilerOptions": {
-    "rootDir": ".",
-    "sourceMap": true,
-    "declaration": false,
-    "moduleResolution": "node",
-    "emitDecoratorMetadata": true,
-    "experimentalDecorators": true,
-    "importHelpers": false,
-    "target": "es2015",
-    "module": "esnext",
-    "lib": ["es2020", "dom"],
-    "skipLibCheck": true,
-    "skipDefaultLibCheck": true,
-    "baseUrl": ".",
-    "paths": {
-      "@redhat-cloud-services/ai-client-common": [
-        "packages/ai-client-common/src/index.ts"
-      ],
-      "@redhat-cloud-services/ai-client-state": [
-        "packages/ai-client-state/src/index.ts"
-      ],
-      "@redhat-cloud-services/arh-client": ["packages/arh-client/src/index.ts"]
-    }
-  },
-  "exclude": ["node_modules", "tmp"]
+  "compilerOptions": {},
+  "extends": "./tsconfig.base.json"
 }

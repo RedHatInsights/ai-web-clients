@@ -35,7 +35,16 @@ interface EventSubscription {
 
 type SendMessageResponse = string | { answer: string, messageId: string };
 
-export function createClientStateManager(client: IAIClient) {
+export type StateManager = {
+    setActiveConversationId: (conversationId: string) => void;
+    getActiveConversationMessages: () => Message[];
+    sendMessage: (message: Message, options?: MessageOptions) => Promise<any>;
+    getMessageInProgress: () => boolean;
+    getState: () => ClientState;
+    subscribe: (event: Events, callback: () => void) => () => void;
+}
+
+export function createClientStateManager(client: IAIClient): StateManager {
   const state: ClientState = {
     conversations: {},
     activeConversationId: null,
@@ -214,6 +223,5 @@ export function createClientStateManager(client: IAIClient) {
     getMessageInProgress,
     getState,
     subscribe,
-    unsubscribe
   };
 }

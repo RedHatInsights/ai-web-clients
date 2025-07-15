@@ -1,9 +1,9 @@
 # AI Agent Context Documentation
 ## AI Web Clients NX Workspace
 
-> **Last Updated**: Context Version 1.4  
+> **Last Updated**: Context Version 1.5  
 > **Workspace Version**: 1.0.0  
-> **Context Version**: 1.4  
+> **Context Version**: 1.5  
 > **NX Version**: 21.2.3
 
 ---
@@ -396,6 +396,15 @@ import { SharedUtility } from '@redhat-cloud-services/shared-utils';
 
 ## 📝 CHANGE LOG
 
+### Version 1.5
+- **ADDED: React Testing Library best practices** - Critical guidance for testing context switching in React hooks
+- Documented that `renderHook` with `rerender` does NOT work for context changes
+- Established pattern: Use actual React components with `render`/`unmount`/`render` for context switching tests
+- Added when-to-use guidelines for `renderHook` vs React components in testing
+- **UPDATED: React Testing Patterns** - Added state manager prerequisites, Jest spy patterns, and real vs mocked dependency guidelines
+- Documented requirement to set active conversation before testing message sending
+- Added Jest spy expectation patterns and cleanup requirements
+
 ### Version 1.4
 - **ADDED: Integration testing infrastructure** - Created comprehensive testing approach for package interoperability
 - Added `apps/client-integration-tests` app using NX MCP generators instead of manual creation
@@ -479,3 +488,48 @@ When updating this workspace context:
 **END OF WORKSPACE CONTEXT DOCUMENTATION**
 
 > This document serves as the authoritative guide for AI agents working on any part of the AI Web Clients NX workspace. All development decisions should align with the principles and patterns established here. When in doubt, refer to the `arh-client` package as the reference implementation. 
+
+### **React Testing Patterns** (UPDATED)
+
+When working with the `ai-react-state` package and React Testing Library:
+
+#### **Context Switching Tests**
+- **NEVER use `renderHook` with `rerender` for context changes** - it doesn't properly switch contexts
+- **ALWAYS use actual React components** for testing context switching
+
+```typescript
+// ❌ WRONG - renderHook doesn't handle context switching properly
+const { result, rerender } = renderHook(() => useHook(), { wrapper: wrapper1 });
+rerender({ wrapper: wrapper2 }); // Context doesn't actually switch
+
+// ✅ CORRECT - Use actual React components
+const TestComponent = () => {
+  const value = useHook();
+  return <div data-testid="value">{value || 'null'}</div>;
+};
+
+const { unmount, getByTestId } = render(<TestComponent />, { wrapper: wrapper1 });
+// ... test first context
+unmount(); // Completely tear down React tree
+
+const { getByTestId: getByTestId2 } = render(<TestComponent />, { wrapper: wrapper2 });
+// Fresh React tree with new context
+```
+
+#### **State Manager Prerequisites**
+- **ALWAYS set active conversation** before testing message sending: `stateManager.setActiveConversationId('test-id')`
+- The state manager requires an active conversation before `sendMessage()` calls
+- Use unique conversation IDs for each test to avoid cross-test interference
+
+#### **Jest Spy Expectations**
+- When testing function calls without optional parameters, use `toHaveBeenCalledWith(param)` not `toHaveBeenCalledWith(param, undefined)`
+- JavaScript functions called with fewer parameters don't explicitly pass `undefined` to spy mocks
+
+#### **When to Use Each Approach**
+- **`renderHook`**: For testing hooks within the same context (state changes, event handling)
+- **React components with `render`**: For testing context switching, provider changes, unmounting behavior
+
+#### **Testing with Real vs Mocked Dependencies**
+- **Use real state managers**: `createClientStateManager(mockClient)` instead of manually mocked objects
+- **Use `jest.spyOn()`**: Spy on real methods instead of mocking entire objects
+- **Always clean up spies**: Call `spy.mockRestore()` after each test 

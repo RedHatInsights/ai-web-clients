@@ -69,6 +69,11 @@
       "linter": "eslint",
       "unitTestRunner": "jest",
       "e2eTestRunner": "none"
+    },
+    "@nx/react": {
+      "library": {
+        "unitTestRunner": "jest"
+      }
     }
   },
   "release": {
@@ -93,6 +98,25 @@
         "previewTargetName": "preview",
         "serveStaticTargetName": "serve-static",
         "typecheckTargetName": "typecheck",
+        "buildDepsTargetName": "build-deps",
+        "watchDepsTargetName": "watch-deps"
+      }
+    },
+    {
+      "plugin": "@nx/react/router-plugin",
+      "options": {
+        "buildTargetName": "build",
+        "devTargetName": "dev",
+        "startTargetName": "start",
+        "watchDepsTargetName": "watch-deps",
+        "buildDepsTargetName": "build-deps",
+        "typecheckTargetName": "typecheck"
+      }
+    },
+    {
+      "plugin": "@nx/rollup/plugin",
+      "options": {
+        "buildTargetName": "build",
         "buildDepsTargetName": "build-deps",
         "watchDepsTargetName": "watch-deps"
       }
