@@ -45,23 +45,23 @@ export interface IRequestOptions {
 }
 
 /**
- * Generic AI Client interface that all specific clients should implement
- * This establishes the common patterns for API clients in our workspace
+ * Common interface that all AI clients must implement
+ * Provides a standardized way to interact with different AI services
  */
 export interface IAIClient {
   /**
+   * Initialize the client and return the initial conversation ID
+   * This method is called once when the client is first used by a state manager
+   * @returns Promise that resolves to the initial conversation ID
+   */
+  init(): Promise<string>;
+
+  /**
    * Send a message to the AI service
-   * Supports both streaming and non-streaming modes based on options.stream
-   * 
-   * For streaming mode (stream: true):
-   * - If streamingHandler is provided in options, it will be used
-   * - If no streamingHandler in options, the client's defaultStreamingHandler will be used
-   * - If neither is available, an error should be thrown
-   * 
-   * @param conversationId - Unique identifier for the conversation
+   * @param conversationId - The conversation ID to send the message to
    * @param message - The message content to send
-   * @param options - Optional configuration including streaming mode
-   * @returns Promise that resolves to IMessageResponse for non-streaming, or void for streaming
+   * @param options - Optional configuration for the request
+   * @returns Promise that resolves to the AI's response
    */
   sendMessage<TChunk = unknown>(
     conversationId: string, 
@@ -70,21 +70,22 @@ export interface IAIClient {
   ): Promise<TChunk | IMessageResponse | void>;
 
   /**
-   * Get the default streaming handler configured for this client
-   * Returns undefined if no default handler is configured
-   * Useful for state managers that need to wrap the default handler
-   * 
-   * @returns The default streaming handler or undefined
+   * Get the default streaming handler for this client (if any)
+   * @returns The default streaming handler or undefined if not configured
    */
   getDefaultStreamingHandler?<TChunk = unknown>(): IStreamingHandler<TChunk> | undefined;
 
   /**
-   * Health check endpoint - all AI services should provide this
+   * Perform a health check on the AI service
+   * @param options - Optional request configuration
+   * @returns Promise that resolves to health status information
    */
   healthCheck(options?: IRequestOptions): Promise<unknown>;
 
   /**
-   * Service status endpoint - all AI services should provide this for monitoring
+   * Get the current status of the AI service
+   * @param options - Optional request configuration  
+   * @returns Promise that resolves to service status information
    */
   getServiceStatus?(options?: IRequestOptions): Promise<unknown>;
 }

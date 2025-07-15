@@ -14,6 +14,8 @@ const IntegratedChatbot = () => {
       id: '1',
       role: 'user',
       answer: `${message}`,
+    }, {
+      stream: true,
     });
   }
 
@@ -39,9 +41,10 @@ export function App() {
   const stateManager = useMemo(() => {
     const client = new IFDClient({
       baseUrl: 'http://localhost:3001',
-      fetchFunction: fetch,
+      fetchFunction: (...args) => fetch(...args),
     })
     const stateManager = createClientStateManager(client);
+    stateManager.init();
     return stateManager;
   }, []);
   return (

@@ -24,7 +24,7 @@ import {
   UserHistoryResponse,
   QuotaStatusResponse
 } from './types';
-import { processStreamWithHandler } from './default-streaming-handler';
+import { DefaultStreamingHandler, processStreamWithHandler } from './default-streaming-handler';
 
 /**
  * Intelligent Front Door (IFD) API Client
@@ -40,7 +40,7 @@ export class IFDClient implements IAIClient {
   constructor(config: IFDClientConfig) {
     this.baseUrl = config.baseUrl;
     this.fetchFunction = config.fetchFunction;
-    this.defaultStreamingHandler = config.defaultStreamingHandler;
+    this.defaultStreamingHandler = config.defaultStreamingHandler || new DefaultStreamingHandler();
   }
 
   /**
@@ -124,6 +124,28 @@ export class IFDClient implements IAIClient {
       method: 'POST',
       ...options,
     });
+  }
+
+  async init(): Promise<string> {
+    try {
+      // ARH init procedure
+      await this.healthCheck();
+      await this.getServiceStatus();
+      await this.getUserSettings();
+      const history = await this.getUserHistory();
+      await this.getConversationQuota();
+      const defaultConversation = history.find((conversation) => conversation.is_latest);
+
+      if (defaultConversation) {
+        return defaultConversation.conversation_id;
+      }
+
+      const newConversation = await this.createConversation();
+      return newConversation.conversation_id;
+    } catch (error) {
+      console.error('ARH Client initialization failed:', error);
+      throw error;
+    }
   }
 
   /**

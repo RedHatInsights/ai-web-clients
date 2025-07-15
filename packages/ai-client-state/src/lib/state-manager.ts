@@ -26,6 +26,8 @@ interface ClientState {
   conversations: Record<string, Conversation>;
   activeConversationId: string | null;
   messageInProgress: boolean;
+  isInitialized: boolean;
+  isInitializing: boolean;
 }
 
 interface EventSubscription {
@@ -33,9 +35,12 @@ interface EventSubscription {
   callback: () => void;
 }
 
-type SendMessageResponse = string | { answer: string, messageId: string };
+
 
 export type StateManager = {
+    init: () => Promise<void>;
+    isInitialized: () => boolean;
+    isInitializing: () => boolean;
     setActiveConversationId: (conversationId: string) => void;
     getActiveConversationMessages: () => Message[];
     sendMessage: (message: Message, options?: MessageOptions) => Promise<any>;
@@ -48,7 +53,9 @@ export function createClientStateManager(client: IAIClient): StateManager {
   const state: ClientState = {
     conversations: {},
     activeConversationId: null,
-    messageInProgress: false
+    messageInProgress: false,
+    isInitialized: false,
+    isInitializing: false
   };
 
   const eventSubscriptions: Record<string, EventSubscription[]> = {
@@ -66,6 +73,51 @@ export function createClientStateManager(client: IAIClient): StateManager {
         console.error('Error in event callback:', error);
       }
     });
+  }
+
+  async function init(): Promise<void> {
+    if (state.isInitialized || state.isInitializing) {
+      return;
+    }
+    
+    state.isInitializing = true;
+    notify(Events.IN_PROGRESS);
+    
+    try {
+      // Call the client's init method to get the initial conversation ID
+      const initialConversationId = await client.init();
+      
+      // Set the initial conversation as the active conversation
+      state.activeConversationId = initialConversationId;
+      
+      // Create the initial conversation if it doesn't exist
+      if (!state.conversations[initialConversationId]) {
+        state.conversations[initialConversationId] = {
+          id: initialConversationId,
+          messages: []
+        };
+      }
+      
+      state.isInitialized = true;
+      state.isInitializing = false;
+      notify(Events.IN_PROGRESS);
+      notify(Events.MESSAGE);
+      notify(Events.ACTIVE_CONVERSATION);
+    } catch (error) {
+      console.error('Client initialization failed:', error);
+      state.isInitialized = false;
+      state.isInitializing = false;
+      notify(Events.IN_PROGRESS);
+      throw error; // Re-throw so callers can handle the failure
+    }
+  }
+
+  function isInitialized() {
+    return state.isInitialized;
+  }
+
+  function isInitializing() {
+    return state.isInitializing;
   }
 
   function setActiveConversationId(conversationId: string) {
@@ -150,7 +202,7 @@ export function createClientStateManager(client: IAIClient): StateManager {
             }
           }    
           
-          return client.sendMessage<SendMessageResponse>(conversation.id, message.answer, enhancedOptions)
+          return client.sendMessage(conversation.id, message.answer, enhancedOptions)
             .then((response) => {
               return response;
             }).finally(() => {
@@ -163,14 +215,15 @@ export function createClientStateManager(client: IAIClient): StateManager {
         }
       } else {
         // Non-streaming: update bot message after response
-        return client.sendMessage<SendMessageResponse>(conversation.id, message.answer, options)
+        return client.sendMessage(conversation.id, message.answer, options)
           .then((response) => {
             if (response) {
-              if (typeof response === 'object' && 'answer' in response && 'messageId' in response) {
-                botMessage.answer = response.answer;
-                botMessage.id = response.messageId || botMessage.id;
+              if (typeof response === 'object' && response && 'answer' in response && 'messageId' in response) {
+                const typedResponse = response as { answer: string; messageId: string };
+                botMessage.answer = typedResponse.answer;
+                botMessage.id = typedResponse.messageId || botMessage.id;
               } else if (typeof response === 'string') {
-                botMessage.answer = response;
+                botMessage.answer = response as string;
               }
             }
             return response;
@@ -217,6 +270,9 @@ export function createClientStateManager(client: IAIClient): StateManager {
   }
 
   return {
+    init,
+    isInitialized,
+    isInitializing,
     setActiveConversationId,
     getActiveConversationMessages,
     sendMessage,

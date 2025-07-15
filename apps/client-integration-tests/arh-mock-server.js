@@ -161,7 +161,7 @@ app.post('/api/ask/v1/conversation/:conversationId/message', async (req, res) =>
       const chunk = chunks[i];
       
       // Add delay to simulate realistic streaming
-      await new Promise(resolve => setTimeout(resolve, 50 + Math.random() * 100));
+      await new Promise(resolve => setTimeout(resolve, 100 + Math.random() * 400));
       
       try {
         res.write(JSON.stringify(chunk) + '\n');
@@ -318,8 +318,8 @@ app.get('/api/ask/v1/user/current/history', (req, res) => {
   res.json(history);
 });
 
-// Get conversation quota
-app.get('/api/ask/v1/quota/conversation', (req, res) => {
+// Get conversations quota
+app.get('/api/ask/v1/quota/conversations', (req, res) => {
   res.json({
     limit: 10,
     used: conversations.size,
@@ -352,7 +352,8 @@ app.get('/api/ask/v1/quota/:conversationId/messages', (req, res) => {
 });
 
 // Error handling middleware
-app.use((err, req, res) => {
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
   console.error('Server error:', err);
   res.status(500).json({
     detail: [{
@@ -387,7 +388,7 @@ const server = app.listen(port, () => {
   console.log(`   GET  /api/ask/v1/user/current`);
   console.log(`   PUT  /api/ask/v1/user/current`);
   console.log(`   GET  /api/ask/v1/user/current/history`);
-  console.log(`   GET  /api/ask/v1/quota/conversation`);
+  console.log(`   GET  /api/ask/v1/quota/conversations`);
   console.log(`   GET  /api/ask/v1/quota/:conversationId/messages`);
   console.log(`\n💡 Use stream=true in message requests for streaming responses`);
   console.log(`📚 This mock server implements the ARH (Intelligent Front Door) API specification`);
