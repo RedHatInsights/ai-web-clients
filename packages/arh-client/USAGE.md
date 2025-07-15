@@ -109,9 +109,10 @@ const messageId = streamHandler.getCurrentMessageId();
 ### Custom Streaming Handler
 
 ```typescript
-import { IStreamingHandler, MessageChunkResponse } from '@redhat-cloud-services/arh-client';
+import { IStreamingHandler } from '@redhat-cloud-services/ai-client-common';
+import { MessageChunkResponse } from '@redhat-cloud-services/arh-client';
 
-class CustomStreamingHandler implements IStreamingHandler {
+class CustomStreamingHandler implements IStreamingHandler<MessageChunkResponse> {
   private messageBuffer = '';
 
   onStart(conversationId: string, messageId: string): void {

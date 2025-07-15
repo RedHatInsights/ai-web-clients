@@ -454,9 +454,12 @@ describe('ARH Client Integration Tests', () => {
         // Create a message to trigger events
         stateManager.setActiveConversationId('test-conv');
         
-        // Both callbacks should be called (though this test is limited by subscribe API)
+        // Subscribe method should return an unsubscribe function
         expect(typeof stateManager.subscribe).toBe('function');
-        expect(typeof stateManager.unsubscribe).toBe('function');
+        
+        // Test that subscribe returns an unsubscribe function
+        const unsubscribe = stateManager.subscribe(Events.MESSAGE, () => {});
+        expect(typeof unsubscribe).toBe('function');
       });
     });
 

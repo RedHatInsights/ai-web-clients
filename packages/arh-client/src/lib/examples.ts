@@ -3,8 +3,8 @@
  * These demonstrate how to use the client with custom fetch and streaming handlers
  */
 
-import { IFDClient, IFetchFunction, MessageChunkResponse, DefaultStreamingHandler } from './index';
-import { IStreamingHandler } from '@redhat-cloud-services/ai-client-common';
+import { IFDClient, MessageChunkResponse, DefaultStreamingHandler } from './index';
+import { IFetchFunction, IStreamingHandler } from '@redhat-cloud-services/ai-client-common';
 
 /**
  * Example: Custom fetch function with Bearer token authentication
@@ -59,8 +59,8 @@ export class ConsoleStreamingHandler implements IStreamingHandler<MessageChunkRe
   }
 
   onChunk(chunk: MessageChunkResponse): void {
-    this.messageBuffer = chunk.output || '';
-    console.log('Chunk received:', chunk.output);
+    this.messageBuffer = chunk.answer || '';
+    console.log('Chunk received:', chunk.answer);
   }
 
   onComplete(): void {
@@ -96,7 +96,7 @@ export class EventStreamingHandler implements IStreamingHandler<MessageChunkResp
   }
 
   onChunk(chunk: MessageChunkResponse): void {
-    this.messageBuffer = chunk.output || '';
+    this.messageBuffer = chunk.answer || '';
     this.eventTarget.dispatchEvent(new CustomEvent('stream:chunk', {
       detail: { chunk, completeMessage: this.messageBuffer }
     }));
@@ -160,7 +160,7 @@ export async function exampleUsage() {
       conversation.conversation_id, 
       'What is Red Hat OpenShift?'
     );
-    console.log('Response:', response?.content);
+    console.log('Response:', response?.answer);
     console.log('Message ID:', response?.messageId);
     console.log('Metadata:', response?.metadata);
 

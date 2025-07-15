@@ -1,5 +1,5 @@
-import { IFDClient, IFetchFunction, MessageChunkResponse, DefaultStreamingHandler } from './index';
-import { IStreamingHandler } from '@redhat-cloud-services/ai-client-common';
+import { IFDClient, MessageChunkResponse, DefaultStreamingHandler } from './index';
+import { IFetchFunction, IStreamingHandler } from '@redhat-cloud-services/ai-client-common';
 import * as defaultStreamingHandler from './default-streaming-handler';
 
 // Mock fetch function for testing
