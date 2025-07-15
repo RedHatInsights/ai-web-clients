@@ -51,7 +51,7 @@ export interface HealthCheck {
 export interface MessageChunkResponse {
   conversation_id: string;
   message_id: string;
-  output: string;
+  answer: string;
   received_at: string;
   sources: AnswerSource[];
   tool_call_metadata?: ToolCallMetadata | null;
@@ -61,13 +61,13 @@ export interface MessageChunkResponse {
 export interface MessageFeedbackRequest {
   rating: Rating;
   input: string;
-  output: string;
+  answer: string;
 }
 
 export interface MessageFeedbackResponse {
   message_id: string;
   input: string;
-  output: string;
+  answer: string;
   rating: Rating;
   received_at: string;
 }

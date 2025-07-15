@@ -60,11 +60,23 @@ function cleanAndParseLine(line: string): StreamingMessageChunk | null {
  * Process streaming response
  */
 async function processStreamResponse(
-  response: Response, 
-  onChunk: (message: MessageChunkResponse) => void,
-  onStart?: (conversationId: string, messageId: string) => void,
-  onComplete?: (finalChunk: MessageChunkResponse) => void,
-  onError?: (error: Error) => void
+  {
+    response,
+    conversationId,
+    onChunk,
+    onStart,
+    onComplete,
+    onError,
+    afterChunk
+  }: {
+    response: Response;
+    conversationId: string;
+    onChunk: (message: MessageChunkResponse) => void;
+    onStart?: (conversationId: string, messageId: string) => void;
+    onComplete?: (finalChunk: MessageChunkResponse) => void;
+    onError?: (error: Error) => void;
+    afterChunk?: (chunk: MessageChunkResponse) => void
+  }
 ): Promise<void> {
   const reader = response.body?.getReader();
   if (!reader) {
@@ -79,7 +91,6 @@ async function processStreamResponse(
     const decoder = new TextDecoder('utf-8');
     let buffer = '';
     let accumulatedAnswer = '';
-    const conversationId = '';
     let messageId = '';
     let firstChunk = true;
 
@@ -124,7 +135,7 @@ async function processStreamResponse(
             const chunkResponse: MessageChunkResponse = {
               conversation_id: conversationId,
               message_id: messageId,
-              output: accumulatedAnswer,
+              answer: accumulatedAnswer,
               received_at: parsed.created_at || new Date().toISOString(),
               sources: parsed.sources || [],
               tool_call_metadata: parsed.tool_call_metadata || null,
@@ -137,7 +148,7 @@ async function processStreamResponse(
             }
 
             onChunk(chunkResponse);
-
+            afterChunk?.(chunkResponse);
             if (parsed.end_of_stream) {
               onComplete?.(chunkResponse);
               done = true;
@@ -170,12 +181,7 @@ export class DefaultStreamingHandler implements IStreamingHandler<MessageChunkRe
   }
 
   onChunk(chunk: MessageChunkResponse): void {
-    this.messageBuffer = chunk.output;
-    console.log(`Received chunk:`, chunk.output);
-    
-    if (chunk.sources && chunk.sources.length > 0) {
-      console.log(`Sources:`, chunk.sources);
-    }
+    this.messageBuffer = chunk.answer;
   }
 
   onComplete(finalChunk: MessageChunkResponse): void {
@@ -210,14 +216,16 @@ export class DefaultStreamingHandler implements IStreamingHandler<MessageChunkRe
 export async function processStreamWithHandler(
   response: Response,
   handler: IStreamingHandler<MessageChunkResponse>,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  conversationId: string
+  conversationId: string,
+  afterChunk?: (chunk: MessageChunkResponse) => void
 ): Promise<void> {
-  await processStreamResponse(
+  await processStreamResponse({
+    conversationId,
     response,
-    (chunk) => handler.onChunk(chunk),
-    (convId, msgId) => handler.onStart?.(convId, msgId),
-    (finalChunk) => handler.onComplete?.(finalChunk),
-    (error) => handler.onError?.(error)
-  );
-} 
+    onChunk: (message) => handler.onChunk(message),
+    onStart: (conversationId, messageId) => handler.onStart?.(conversationId, messageId),
+    onComplete: (finalChunk) => handler.onComplete?.(finalChunk),
+    onError: (error) => handler.onError?.(error),
+    afterChunk
+  });
+}

@@ -136,7 +136,7 @@ describe('IFDClient', () => {
       const mockResponse: MessageChunkResponse = {
         conversation_id: conversationId,
         message_id: 'msg-123',
-        output: 'I am doing well, thank you!',
+        answer: 'I am doing well, thank you!',
         received_at: '2024-01-01T00:00:00Z',
         sources: [{ title: 'Test Source', link: 'https://example.com' }],
         tool_call_metadata: { tool_call: false },
@@ -163,7 +163,7 @@ describe('IFDClient', () => {
 
       expect(result).toEqual({
         messageId: mockResponse.message_id,
-        content: mockResponse.output,
+        answer: mockResponse.answer,
         conversationId: mockResponse.conversation_id,
         createdAt: mockResponse.received_at,
         metadata: {
@@ -292,7 +292,7 @@ describe('DefaultStreamingHandler', () => {
     const chunk1: MessageChunkResponse = {
       conversation_id: conversationId,
       message_id: messageId,
-      output: 'Hello ',
+      answer: 'Hello ',
       received_at: new Date().toISOString(),
       sources: [],
     };
@@ -300,7 +300,7 @@ describe('DefaultStreamingHandler', () => {
     const chunk2: MessageChunkResponse = {
       conversation_id: conversationId,
       message_id: messageId,
-      output: 'Hello world!',
+      answer: 'Hello world!',
       received_at: new Date().toISOString(),
       sources: [{ title: 'Test Source', link: 'https://example.com' }],
     };

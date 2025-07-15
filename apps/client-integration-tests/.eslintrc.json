@@ -3,7 +3,8 @@
   "ignorePatterns": [
     "!**/*",
     "**/vite.config.*.timestamp*",
-    "**/vitest.config.*.timestamp*"
+    "**/vitest.config.*.timestamp*",
+    "node_modules/**/.eslintrc*"
   ],
   "overrides": [
     {
@@ -16,7 +17,34 @@
     },
     {
       "files": ["*.js", "*.jsx"],
-      "rules": {}
+      "env": {
+        "node": true,
+        "commonjs": true,
+        "es6": true
+      },
+      "parserOptions": {
+        "ecmaVersion": 2020,
+        "sourceType": "script"
+      },
+      "rules": {
+        "no-undef": "off"
+      }
+    },
+    {
+      "files": ["*mock-server.js", "*server.js"],
+      "env": {
+        "node": true,
+        "commonjs": true,
+        "es6": true
+      },
+      "parserOptions": {
+        "ecmaVersion": 2020,
+        "sourceType": "script"
+      },
+      "rules": {
+        "no-undef": "off",
+        "no-console": "off"
+      }
     }
   ]
 }

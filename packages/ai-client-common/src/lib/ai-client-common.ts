@@ -63,11 +63,11 @@ export interface IAIClient {
    * @param options - Optional configuration including streaming mode
    * @returns Promise that resolves to IMessageResponse for non-streaming, or void for streaming
    */
-  sendMessage(
+  sendMessage<TChunk = unknown>(
     conversationId: string, 
     message: string, 
-    options?: ISendMessageOptions
-  ): Promise<IMessageResponse | void>;
+    options?: ISendMessageOptions<TChunk>
+  ): Promise<TChunk | IMessageResponse | void>;
 
   /**
    * Get the default streaming handler configured for this client
@@ -141,7 +141,7 @@ export interface IStreamingHandler<TChunk = unknown> {
   /**
    * Handle a single chunk of streaming data
    */
-  onChunk(chunk: TChunk): void;
+  onChunk(chunk: TChunk, afterChunk?: (chunk: TChunk) => void): void;
 
   /**
    * Called when the stream starts
@@ -184,9 +184,9 @@ export interface IMessageResponse {
   messageId: string;
   
   /**
-   * The response content/text
+   * The response answer/text
    */
-  content: string;
+  answer: string;
   
   /**
    * Conversation identifier this message belongs to
@@ -204,149 +204,18 @@ export interface IMessageResponse {
   metadata?: Record<string, unknown>;
 }
 
+export interface IErrorMessageResponse {
+  error: any;
+}
+
 /**
  * Options for sending messages, supporting both streaming and non-streaming modes
  */
-export interface ISendMessageOptions extends IRequestOptions {
+export interface ISendMessageOptions<TChunk = unknown> extends IRequestOptions {
   /**
    * Whether to use streaming mode for the response
    * When true, the client's default streaming handler will be used
    */
   stream?: boolean;
-}
-
-/**
- * Partial streaming handler interface for hooking into specific events
- * Allows state managers and other components to intercept streaming events
- */
-export interface IStreamingHandlerHooks<TChunk = unknown> {
-  /**
-   * Called before the original onChunk handler
-   * Can be used for state updates, logging, etc.
-   */
-  beforeChunk?: (chunk: TChunk) => void;
-  
-  /**
-   * Called after the original onChunk handler
-   */
   afterChunk?: (chunk: TChunk) => void;
-  
-  /**
-   * Called before the original onStart handler
-   */
-  beforeStart?: (conversationId?: string, messageId?: string) => void;
-  
-  /**
-   * Called after the original onStart handler
-   */
-  afterStart?: (conversationId?: string, messageId?: string) => void;
-  
-  /**
-   * Called before the original onComplete handler
-   */
-  beforeComplete?: (finalChunk: TChunk) => void;
-  
-  /**
-   * Called after the original onComplete handler
-   */
-  afterComplete?: (finalChunk: TChunk) => void;
-  
-  /**
-   * Called before the original onError handler
-   */
-  beforeError?: (error: Error) => void;
-  
-  /**
-   * Called after the original onError handler
-   */
-  afterError?: (error: Error) => void;
-  
-  /**
-   * Called before the original onAbort handler
-   */
-  beforeAbort?: () => void;
-  
-  /**
-   * Called after the original onAbort handler
-   */
-  afterAbort?: () => void;
-}
-
-/**
- * Wraps an existing streaming handler with additional hooks
- * Useful for state managers that need to intercept streaming events
- * while preserving the original handler's behavior
- * 
- * @param originalHandler - The original streaming handler to wrap
- * @param hooks - Additional hooks to call before/after the original handler methods
- * @returns A new streaming handler that calls both the hooks and original handler
- */
-export function wrapStreamingHandler<TChunk = unknown>(
-  originalHandler: IStreamingHandler<TChunk>,
-  hooks: IStreamingHandlerHooks<TChunk>
-): IStreamingHandler<TChunk> {
-  return {
-    onChunk: (chunk: TChunk) => {
-      hooks.beforeChunk?.(chunk);
-      originalHandler.onChunk(chunk);
-      hooks.afterChunk?.(chunk);
-    },
-    
-    onStart: (conversationId?: string, messageId?: string) => {
-      hooks.beforeStart?.(conversationId, messageId);
-      originalHandler.onStart?.(conversationId, messageId);
-      hooks.afterStart?.(conversationId, messageId);
-    },
-    
-    onComplete: (finalChunk: TChunk) => {
-      hooks.beforeComplete?.(finalChunk);
-      originalHandler.onComplete?.(finalChunk);
-      hooks.afterComplete?.(finalChunk);
-    },
-    
-    onError: (error: Error) => {
-      hooks.beforeError?.(error);
-      originalHandler.onError?.(error);
-      hooks.afterError?.(error);
-    },
-    
-    onAbort: () => {
-      hooks.beforeAbort?.();
-      originalHandler.onAbort?.();
-      hooks.afterAbort?.();
-    }
-  };
-}
-
-/**
- * Creates a streaming handler that calls multiple handlers in sequence
- * Useful when you need multiple components to react to streaming events
- * 
- * @param handlers - Array of streaming handlers to compose
- * @returns A new streaming handler that calls all provided handlers
- */
-export function composeStreamingHandlers<TChunk = unknown>(
-  ...handlers: IStreamingHandler<TChunk>[]
-): IStreamingHandler<TChunk> {
-  return {
-    onChunk: (chunk: TChunk) => {
-      handlers.forEach(handler => handler.onChunk(chunk));
-    },
-    
-    onStart: (conversationId?: string, messageId?: string) => {
-      handlers.forEach(handler => handler.onStart?.(conversationId, messageId));
-    },
-    
-    onComplete: (finalChunk: TChunk) => {
-      handlers.forEach(handler => handler.onComplete?.(finalChunk));
-    },
-    
-    onError: (error: Error) => {
-      handlers.forEach(handler => handler.onError?.(error));
-    },
-    
-    onAbort: () => {
-      handlers.forEach(handler => handler.onAbort?.());
-    }
-  };
 }

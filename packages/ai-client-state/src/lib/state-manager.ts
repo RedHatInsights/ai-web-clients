@@ -1,64 +1,62 @@
-import { IAIClient, wrapStreamingHandler } from "@redhat-cloud-services/ai-client-common";
+import { IAIClient, ISendMessageOptions } from '@redhat-cloud-services/ai-client-common';
 
-export type Message = {
+export enum Events {
+  MESSAGE = 'message',
+  ACTIVE_CONVERSATION = 'active-conversation',
+  IN_PROGRESS = 'in-progress'
+}
+
+export interface Message {
   id: string;
-  content: string;
+  answer: string;
   role: 'user' | 'bot';
 }
 
-export type MessageOptions = {
-  stream?: boolean;
-}
-
-
-export type ConversationState = {
+export interface Conversation {
   id: string;
   messages: Message[];
 }
 
-export type ClientState = {
-  client: IAIClient;
-  activeConversationId?: string;
-  conversations: Record<string, ConversationState>;
+export interface MessageOptions {
+  stream?: boolean;
+  [key: string]: unknown;
+}
+
+interface ClientState {
+  conversations: Record<string, Conversation>;
+  activeConversationId: string | null;
   messageInProgress: boolean;
 }
 
-export enum Events {
-  MESSAGE = "message",
-  ACTIVE_CONVERSATION = "active-conversation",
-  IN_PROGRESS = "in-progress",
-}
-
-
-export type SubscriptionId = ReturnType<typeof crypto.randomUUID>;
-type EventSubscriber = {
-  id: SubscriptionId;
+interface EventSubscription {
+  id: string;
   callback: () => void;
 }
 
+type SendMessageResponse = string | { answer: string, messageId: string };
 
-function createClientStateManager(client: IAIClient, activeConversationId?: string) {
-  const Subscriptions = new Map<Events, EventSubscriber[]>();
-  Subscriptions.set(Events.MESSAGE, []);
-  Subscriptions.set(Events.ACTIVE_CONVERSATION, []);
-  Subscriptions.set(Events.IN_PROGRESS, []);
-
+export function createClientStateManager(client: IAIClient) {
   const state: ClientState = {
-    client,
-    activeConversationId,
     conversations: {},
-    messageInProgress: false,
-  }
+    activeConversationId: null,
+    messageInProgress: false
+  };
 
-  function getState() {
-    return state;
-  }
+  const eventSubscriptions: Record<string, EventSubscription[]> = {
+    [Events.MESSAGE]: [],
+    [Events.ACTIVE_CONVERSATION]: [],
+    [Events.IN_PROGRESS]: []
+  };
 
   function notify(event: Events) {
-    const callbacks = Subscriptions.get(event);
-    if (callbacks) {
-      callbacks.forEach((subscriber) => subscriber.callback());
-    }
+    const subscriptions = eventSubscriptions[event] || [];
+    subscriptions.forEach(sub => {
+      try {
+        sub.callback();
+      } catch (error) {
+        console.error('Error in event callback:', error);
+      }
+    });
   }
 
   function setActiveConversationId(conversationId: string) {
@@ -71,88 +69,113 @@ function createClientStateManager(client: IAIClient, activeConversationId?: stri
         messages: []
       };
     }
-  }
-
-  function getActiveConversation() {
-    if (!state.activeConversationId) {
-      return undefined;
-    }
-    return state.conversations[state.activeConversationId];
-  }
-
-  async function sendMessage(message: Message, options?: MessageOptions) {
-    // Ensure we have an active conversation
-    if (!state.activeConversationId) {
-      throw new Error('No active conversation set. Call setActiveConversationId() first.');
-    }
     
-    // Auto-create conversation if it doesn't exist
-    if (!state.conversations[state.activeConversationId]) {
-      state.conversations[state.activeConversationId] = {
-        id: state.activeConversationId,
-        messages: []
-      };
+    notify(Events.ACTIVE_CONVERSATION);
+  }
+
+  function getActiveConversationMessages(): Message[] {
+    if (!state.activeConversationId) {
+      return [];
     }
     
     const conversation = state.conversations[state.activeConversationId];
-    
-    // Add user message to state immediately
-    conversation.messages.push(message);
-    
-    // Create bot message placeholder for streaming updates
-    const botMessage: Message = {
-      id: crypto.randomUUID(),
-      content: '',
-      role: 'bot'
-    };
-    conversation.messages.push(botMessage);
-    
-    if (options?.stream) {
-      // Get the client's default streaming handler
-      const originalHandler = client.getDefaultStreamingHandler?.();
+    return conversation ? conversation.messages : [];
+  }
+
+  function getState() {
+    return state;
+  }
+
+  async function sendMessage(message: Message, options?: MessageOptions): Promise<any> {
+    // Check if a message is already in progress
+    if (state.messageInProgress) {
+      throw new Error('A message is already being processed. Wait for it to complete before sending another message.');
+    }
+
+    // Set message in progress
+    state.messageInProgress = true;
+    notify(Events.IN_PROGRESS);
+
+    try {
+      // Ensure we have an active conversation
+      if (!state.activeConversationId) {
+        throw new Error('No active conversation set. Call setActiveConversationId() first.');
+      }
       
-      if (originalHandler) {
-        // Wrap the streaming handler to update state
-        wrapStreamingHandler(
-          originalHandler,
-          {
-            beforeChunk: (chunk: unknown) => {
-              // Update bot message content in state before the original handler
+      // Auto-create conversation if it doesn't exist
+      if (!state.conversations[state.activeConversationId]) {
+        state.conversations[state.activeConversationId] = {
+          id: state.activeConversationId,
+          messages: []
+        };
+      }
+      
+      const conversation = state.conversations[state.activeConversationId];
+      
+      // Add user message to state immediately
+      conversation.messages.push(message);
+      
+      // Create bot message placeholder for streaming updates
+      const botMessage: Message = {
+        id: crypto.randomUUID(),
+        answer: '',
+        role: 'bot'
+      };
+      conversation.messages.push(botMessage);
+      
+      if (options?.stream) {
+        // Get the client's default streaming handler
+        const originalHandler = client.getDefaultStreamingHandler?.();
+        
+        if (originalHandler) {
+          const enhancedOptions: ISendMessageOptions<string | { answer: string, messageId: string }> = {
+            ...options,
+            afterChunk: (chunk) => {
               if (typeof chunk === 'string') {
-                botMessage.content += chunk;
+                botMessage.answer += chunk;
               } else if (chunk && typeof chunk === 'object' && 'answer' in chunk) {
-                // Handle structured chunk format (like from ARH client)
-                const structuredChunk = chunk as { answer?: string };
-                botMessage.content = structuredChunk.answer || botMessage.content;
+                botMessage.answer = chunk.answer;
+                botMessage.id = chunk.messageId || botMessage.id;
+              }
+              notify(Events.MESSAGE);
+            }
+          }    
+          
+          return client.sendMessage<SendMessageResponse>(conversation.id, message.answer, enhancedOptions)
+            .then((response) => {
+              return response;
+            }).finally(() => {
+              state.messageInProgress = false;
+              notify(Events.IN_PROGRESS);
+            });
+        } else {
+          // No streaming handler available but stream was requested
+          throw new Error('Streaming requested but no default streaming handler available in client');
+        }
+      } else {
+        // Non-streaming: update bot message after response
+        return client.sendMessage<SendMessageResponse>(conversation.id, message.answer, options)
+          .then((response) => {
+            if (response) {
+              if (typeof response === 'object' && 'answer' in response && 'messageId' in response) {
+                botMessage.answer = response.answer;
+                botMessage.id = response.messageId || botMessage.id;
+              } else if (typeof response === 'string') {
+                botMessage.answer = response;
               }
             }
-          }
-        );
-      
-        
-        return client.sendMessage(conversation.id, message.content, options)
-          .then((response) => {
             return response;
           }).finally(() => {
             state.messageInProgress = false;
+            notify(Events.IN_PROGRESS);
+            notify(Events.MESSAGE);
           });
-      } else {
-        state.messageInProgress = false;
-        // No streaming handler available but stream was requested
-        throw new Error('Streaming requested but no default streaming handler available in client');
       }
-    } else {
-      // Non-streaming: update bot message after response
-      return client.sendMessage(conversation.id, message.content, options)
-        .then((response) => {
-          if (response) {
-            botMessage.content = response.content;
-            botMessage.id = response.messageId;
-          }
-          return response;
-        }).finally(() => {
-          state.messageInProgress = false;
-        });
+    } catch (error) {
+      // Make sure to reset progress flag on any error
+      state.messageInProgress = false;
+      notify(Events.IN_PROGRESS);
+      throw error;
     }
   }
 
@@ -162,51 +185,35 @@ function createClientStateManager(client: IAIClient, activeConversationId?: stri
 
   function subscribe(event: Events, callback: () => void) {
     const id = crypto.randomUUID();
-    const callbacks = Subscriptions.get(event);
-    if (!callbacks) {
-      throw new Error(`Event ${event} not found`);
+    const subscription: EventSubscription = { id, callback };
+    
+    if (!eventSubscriptions[event]) {
+      eventSubscriptions[event] = [];
     }
-    callbacks.push({ id, callback });
-    Subscriptions.set(event, callbacks);
+    
+    eventSubscriptions[event].push(subscription);
+    
+    return () => unsubscribe(event, id);
   }
 
-  function unsubscribe(event: Events, id: ReturnType<typeof crypto.randomUUID>) {
-    const callbacks = Subscriptions.get(event);
-    if (!callbacks) {
-      throw new Error(`Event ${event} not found`);
+  function unsubscribe(event: Events, subscriptionId: string) {
+    if (!eventSubscriptions[event]) {
+      return;
     }
-    callbacks.filter((subscriber) => subscriber.id !== id);
-    Subscriptions.set(event, callbacks);
-  }
-
-  function getActiveConversationMessages() {
-    return getActiveConversation()?.messages || [];
-  }
-
-  const toBeNotified = {
-    setActiveConversationId: (...args: Parameters<typeof setActiveConversationId>) => {
-      setActiveConversationId(...args);
-      notify(Events.ACTIVE_CONVERSATION);
-    },
-    sendMessage: async (...args: Parameters<typeof sendMessage>) => {
-      state.messageInProgress = true;
-      notify(Events.IN_PROGRESS);
-      const res = await sendMessage(...args);
-      notify(Events.MESSAGE);
-      notify(Events.IN_PROGRESS);
-      return res;
+    
+    const index = eventSubscriptions[event].findIndex(sub => sub.id === subscriptionId);
+    if (index !== -1) {
+      eventSubscriptions[event].splice(index, 1);
     }
-  };
+  }
 
   return {
-    client,
+    setActiveConversationId,
+    getActiveConversationMessages,
+    sendMessage,
+    getMessageInProgress,
     getState,
     subscribe,
-    unsubscribe,
-    getActiveConversationMessages,
-    getMessageInProgress,
-    ...toBeNotified,
-  }
+    unsubscribe
+  };
 }
-
-export default createClientStateManager;

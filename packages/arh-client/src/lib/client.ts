@@ -178,7 +178,7 @@ export class IFDClient implements IAIClient {
           throw new Error('Response body is null');
         }
 
-        await processStreamWithHandler(response, handler, conversationId);
+        await processStreamWithHandler(response, handler, conversationId, options.afterChunk);
         return; // void for streaming
       } catch (error) {
         handler.onError?.(error as Error);
@@ -198,7 +198,7 @@ export class IFDClient implements IAIClient {
       // Convert MessageChunkResponse to IMessageResponse
       return {
         messageId: response.message_id,
-        content: response.output,
+        answer: response.answer,
         conversationId: response.conversation_id,
         createdAt: response.received_at,
         metadata: {

@@ -12,9 +12,6 @@ import {
   HttpMethod,
   IMessageResponse,
   ISendMessageOptions,
-  IStreamingHandlerHooks,
-  wrapStreamingHandler,
-  composeStreamingHandlers,
 } from './ai-client-common';
 
 describe('ai-client-common', () => {
@@ -169,14 +166,14 @@ describe('ai-client-common', () => {
     it('should validate IMessageResponse structure', () => {
       const messageResponse: IMessageResponse = {
         messageId: 'msg-123',
-        content: 'Hello world',
+        answer: 'Hello world',
         conversationId: 'conv-456',
         createdAt: '2024-01-01T10:00:00Z',
         metadata: { model: 'gpt-4', tokens: 50 }
       };
       
       expect(typeof messageResponse.messageId).toBe('string');
-      expect(typeof messageResponse.content).toBe('string');
+      expect(typeof messageResponse.answer).toBe('string');
       expect(typeof messageResponse.conversationId).toBe('string');
       expect(typeof messageResponse.createdAt).toBe('string');
       expect(typeof messageResponse.metadata).toBe('object');
@@ -219,7 +216,7 @@ describe('ai-client-common', () => {
           }
           return {
             messageId: 'msg-123',
-            content: 'Response content',
+            answer: 'Response content',
             conversationId: 'conv-456'
           };
         }
@@ -255,7 +252,7 @@ describe('ai-client-common', () => {
           void options; // Mark parameter as used for linting
           return {
             messageId: 'msg-123',
-            content: `Response to: ${message}`,
+            answer: `Response to: ${message}`,
             conversationId
           };
         }
@@ -275,7 +272,7 @@ describe('ai-client-common', () => {
       expect(response).toBeDefined();
       if (response) {
         expect(response.messageId).toBe('msg-123');
-        expect(response.content).toBe('Response to: Hello AI');
+        expect(response.answer).toBe('Response to: Hello AI');
         expect(response.conversationId).toBe('conv-123');
       }
     });
@@ -307,7 +304,7 @@ describe('ai-client-common', () => {
           }
           return {
             messageId: 'msg-456',
-            content: 'Non-streaming response',
+            answer: 'Non-streaming response',
             conversationId
           };
         }
@@ -412,132 +409,6 @@ describe('ai-client-common', () => {
         headers: { 'Content-Type': 'application/json' }
       });
       expect(response3.status).toBe(200);
-    });
-  });
-
-  describe('Streaming Handler Utilities', () => {
-    it('should wrap streaming handler with hooks', () => {
-      const originalCalls: string[] = [];
-      const hookCalls: string[] = [];
-      
-      const originalHandler: IStreamingHandler<string> = {
-        onChunk: (chunk: string) => { originalCalls.push(`chunk:${chunk}`); },
-        onStart: (convId?: string, msgId?: string) => { originalCalls.push(`start:${convId}:${msgId}`); },
-        onComplete: (final: string) => { originalCalls.push(`complete:${final}`); },
-        onError: (error: Error) => { originalCalls.push(`error:${error.message}`); },
-        onAbort: () => { originalCalls.push('abort'); }
-      };
-      
-      const hooks: IStreamingHandlerHooks<string> = {
-        beforeChunk: (chunk: string) => { hookCalls.push(`before-chunk:${chunk}`); },
-        afterChunk: (chunk: string) => { hookCalls.push(`after-chunk:${chunk}`); },
-        beforeStart: (convId?: string, msgId?: string) => { hookCalls.push(`before-start:${convId}:${msgId}`); },
-        afterStart: (convId?: string, msgId?: string) => { hookCalls.push(`after-start:${convId}:${msgId}`); },
-        beforeComplete: (final: string) => { hookCalls.push(`before-complete:${final}`); },
-        afterComplete: (final: string) => { hookCalls.push(`after-complete:${final}`); }
-      };
-      
-      const wrappedHandler = wrapStreamingHandler(originalHandler, hooks);
-      
-      // Test onChunk
-      wrappedHandler.onChunk('test');
-      expect(hookCalls).toContain('before-chunk:test');
-      expect(originalCalls).toContain('chunk:test');
-      expect(hookCalls).toContain('after-chunk:test');
-      
-      // Test onStart
-      wrappedHandler.onStart?.('conv1', 'msg1');
-      expect(hookCalls).toContain('before-start:conv1:msg1');
-      expect(originalCalls).toContain('start:conv1:msg1');
-      expect(hookCalls).toContain('after-start:conv1:msg1');
-      
-      // Test onComplete
-      wrappedHandler.onComplete?.('final');
-      expect(hookCalls).toContain('before-complete:final');
-      expect(originalCalls).toContain('complete:final');
-      expect(hookCalls).toContain('after-complete:final');
-      
-      // Test onError
-      const error = new Error('test error');
-      wrappedHandler.onError?.(error);
-      expect(originalCalls).toContain('error:test error');
-      
-      // Test onAbort
-      wrappedHandler.onAbort?.();
-      expect(originalCalls).toContain('abort');
-    });
-
-    it('should compose multiple streaming handlers', () => {
-      const calls1: string[] = [];
-      const calls2: string[] = [];
-      const calls3: string[] = [];
-      
-      const handler1: IStreamingHandler<string> = {
-        onChunk: (chunk: string) => { calls1.push(`h1-chunk:${chunk}`); },
-        onStart: (convId?: string) => { calls1.push(`h1-start:${convId}`); },
-        onComplete: (final: string) => { calls1.push(`h1-complete:${final}`); }
-      };
-      
-      const handler2: IStreamingHandler<string> = {
-        onChunk: (chunk: string) => { calls2.push(`h2-chunk:${chunk}`); },
-        onStart: (convId?: string) => { calls2.push(`h2-start:${convId}`); }
-      };
-      
-      const handler3: IStreamingHandler<string> = {
-        onChunk: (chunk: string) => { calls3.push(`h3-chunk:${chunk}`); },
-        onError: (error: Error) => { calls3.push(`h3-error:${error.message}`); }
-      };
-      
-      const composedHandler = composeStreamingHandlers(handler1, handler2, handler3);
-      
-      // Test onChunk - should call all handlers
-      composedHandler.onChunk('test');
-      expect(calls1).toContain('h1-chunk:test');
-      expect(calls2).toContain('h2-chunk:test');
-      expect(calls3).toContain('h3-chunk:test');
-      
-      // Test onStart - should call handlers that have it
-      composedHandler.onStart?.('conv1');
-      expect(calls1).toContain('h1-start:conv1');
-      expect(calls2).toContain('h2-start:conv1');
-      expect(calls3).not.toContain('h3-start:conv1'); // handler3 doesn't have onStart
-      
-      // Test onComplete - should call handlers that have it
-      composedHandler.onComplete?.('final');
-      expect(calls1).toContain('h1-complete:final');
-      expect(calls2).not.toContain('h2-complete:final'); // handler2 doesn't have onComplete
-      
-      // Test onError - should call handlers that have it
-      const error = new Error('test error');
-      composedHandler.onError?.(error);
-      expect(calls3).toContain('h3-error:test error');
-      expect(calls1).not.toContain('h1-error:test error'); // handler1 doesn't have onError
-    });
-
-    it('should validate IStreamingHandlerHooks structure', () => {
-      const hooks: IStreamingHandlerHooks<string> = {
-        beforeChunk: (chunk: string) => { void chunk; /* process */ },
-        afterChunk: (chunk: string) => { void chunk; /* process */ },
-        beforeStart: (convId?: string, msgId?: string) => { void convId; void msgId; /* process */ },
-        afterStart: (convId?: string, msgId?: string) => { void convId; void msgId; /* process */ },
-        beforeComplete: (final: string) => { void final; /* process */ },
-        afterComplete: (final: string) => { void final; /* process */ },
-        beforeError: (error: Error) => { void error; /* process */ },
-        afterError: (error: Error) => { void error; /* process */ },
-        beforeAbort: () => { /* process */ },
-        afterAbort: () => { /* process */ }
-      };
-      
-      expect(typeof hooks.beforeChunk).toBe('function');
-      expect(typeof hooks.afterChunk).toBe('function');
-      expect(typeof hooks.beforeStart).toBe('function');
-      expect(typeof hooks.afterStart).toBe('function');
-      expect(typeof hooks.beforeComplete).toBe('function');
-      expect(typeof hooks.afterComplete).toBe('function');
-      expect(typeof hooks.beforeError).toBe('function');
-      expect(typeof hooks.afterError).toBe('function');
-      expect(typeof hooks.beforeAbort).toBe('function');
-      expect(typeof hooks.afterAbort).toBe('function');
     });
   });
 });

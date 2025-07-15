@@ -3,10 +3,14 @@
 const fs = require('fs');
 const path = require('path');
 
-const OPENAPI_URL = 'https://ifd-001-prod-api.apps.ext-waf.spoke.prod.us-east-1.aws.paas.redhat.com/openapi.json';
+const OPENAPI_URL = process.env.OPENAPI_URL;
 const OUTPUT_FILE = path.join(__dirname, 'tmp-openapi-spec.json');
 
 async function fetchOpenApiSpec() {
+  if (!OPENAPI_URL) {
+    console.error('OPENAPI_URL is not set');
+    process.exit(1);
+  }
   try {
     console.log('Fetching OpenAPI spec from:', OPENAPI_URL);
     
