@@ -26,7 +26,9 @@ describe('useActiveConversation', () => {
         onChunk: jest.fn(),
         onComplete: jest.fn(),
         onError: jest.fn()
-      })
+      }),
+      init: jest.fn(),
+      getConversationHistory: jest.fn().mockResolvedValue([]),
     };
     
     stateManager = createClientStateManager(mockClient);
