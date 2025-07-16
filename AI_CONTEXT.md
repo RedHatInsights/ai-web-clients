@@ -1,9 +1,9 @@
 # AI Agent Context Documentation
 ## AI Web Clients NX Workspace
 
-> **Last Updated**: Context Version 1.5  
+> **Last Updated**: Context Version 1.7  
 > **Workspace Version**: 1.0.0  
-> **Context Version**: 1.5  
+> **Context Version**: 1.7  
 > **NX Version**: 21.2.3
 
 ---
@@ -396,6 +396,19 @@ import { SharedUtility } from '@redhat-cloud-services/shared-utils';
 
 ## 📝 CHANGE LOG
 
+### Version 1.7
+- **CRITICAL: Test Server Lifecycle Protection** - Added explicit documentation prohibiting server management in Cypress tests
+- **NO `pkill` commands** - Tests must not kill/restart servers
+- **NO `cy.exec()` server management** - Server lifecycle is handled externally
+- Server management belongs in setup scripts, not test code
+- Tests should focus on application behavior, not infrastructure management
+
+### Version 1.6
+- **CRITICAL: Default Handler Fallback Protection** - Added explicit documentation to preserve the `|| new DefaultStreamingHandler()` pattern in ARH client
+- **NEVER remove default fallbacks** - Core design pattern for backward compatibility and ease of use
+- Prevents accidental removal of essential fallback logic during test fixes or refactoring
+- Added clear code example and reasoning to prevent future mistakes
+
 ### Version 1.5
 - **ADDED: React Testing Library best practices** - Critical guidance for testing context switching in React hooks
 - Documented that `renderHook` with `rerender` does NOT work for context changes
@@ -533,3 +546,33 @@ const { getByTestId: getByTestId2 } = render(<TestComponent />, { wrapper: wrapp
 - **Use real state managers**: `createClientStateManager(mockClient)` instead of manually mocked objects
 - **Use `jest.spyOn()`**: Spy on real methods instead of mocking entire objects
 - **Always clean up spies**: Call `spy.mockRestore()` after each test 
+
+### **Dependency Injection** (CRITICAL)
+- **External dependencies (fetch, etc.) must be injectable**
+- **Default fallbacks must be preserved** - NEVER remove the `|| new DefaultStreamingHandler()` pattern
+- **Comprehensive error handling with custom error classes**
+- **Full test coverage for public APIs**
+
+### **ARH Client Default Handler Pattern** (CRITICAL - DO NOT MODIFY)
+```typescript
+// ALWAYS preserve this fallback pattern in ARH client constructor:
+this.defaultStreamingHandler = config.defaultStreamingHandler || new DefaultStreamingHandler();
+```
+**Why this matters:**
+- Provides sensible defaults for users who don't need custom streaming
+- Enables the client to work out-of-the-box without complex configuration
+- Critical for backward compatibility and ease of use
+- **NEVER suggest removing this fallback - it's a core design pattern**
+
+### **Test Server Lifecycle Management** (CRITICAL - DO NOT MODIFY)
+**NEVER add server lifecycle management to Cypress tests:**
+- **NO `pkill` commands** - Don't kill/restart servers in tests
+- **NO `cy.exec()` server management** - Server lifecycle is handled externally
+- **NO server startup/shutdown** - Tests assume servers are already running
+- **Focus on API testing only** - Tests should verify application behavior, not manage infrastructure
+
+**Why this matters:**
+- Server lifecycle is managed by developers/CI systems
+- Tests should be focused on application logic, not infrastructure
+- Killing servers mid-test can affect other running tests
+- Server management belongs in setup scripts, not test code 

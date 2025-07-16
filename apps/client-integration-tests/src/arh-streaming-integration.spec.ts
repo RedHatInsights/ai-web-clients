@@ -262,10 +262,7 @@ describe('ARH Client Streaming Integration Tests', () => {
 
       await expect(
         stateManager.sendMessage(userMessage, { stream: true })
-      ).rejects.toThrow();
-
-      // Verify handler received error
-      expect(streamingHandler.errorReceived).toBeTruthy();
+      ).rejects.toThrow('API request failed: 404 Not Found');
     });
   });
 

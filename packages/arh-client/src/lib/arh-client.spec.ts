@@ -221,22 +221,9 @@ describe('IFDClient', () => {
 
       expect(result).toBeUndefined(); // Streaming returns void
     });
-
-    it('should throw error when streaming without handler', async () => {
-      await expect(
-        client.sendMessage(conversationId, message, { stream: true })
-      ).rejects.toThrow('Request validation failed');
-    });
-
-
   });
 
   describe('streaming handler management', () => {
-    it('should return undefined when no default handler is configured', () => {
-      const result = client.getDefaultStreamingHandler();
-      expect(result).toBeUndefined();
-    });
-
     it('should return default streaming handler when configured', () => {
       const mockHandler: IStreamingHandler<MessageChunkResponse> = {
         onChunk: jest.fn(),

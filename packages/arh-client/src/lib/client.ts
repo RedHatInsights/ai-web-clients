@@ -25,7 +25,7 @@ import {
   UserHistoryResponse,
   QuotaStatusResponse
 } from './types';
-import { processStreamWithHandler } from './default-streaming-handler';
+import { DefaultStreamingHandler, processStreamWithHandler } from './default-streaming-handler';
 
 /**
  * Intelligent Front Door (IFD) API Client
@@ -41,7 +41,7 @@ export class IFDClient implements IAIClient {
   constructor(config: IFDClientConfig) {
     this.baseUrl = config.baseUrl;
     this.fetchFunction = config.fetchFunction;
-    this.defaultStreamingHandler = config.defaultStreamingHandler;
+    this.defaultStreamingHandler = config.defaultStreamingHandler || new DefaultStreamingHandler();
   }
 
   /**
@@ -192,17 +192,17 @@ export class IFDClient implements IAIClient {
           body: JSON.stringify(requestBody),
           signal: options.signal,
         });
+        console.warn('RESPONSE', response);
 
         if (!response.ok) {
-          await this.handleErrorResponse(response);
+          return this.handleErrorResponse(response);
         }
 
         if (!response.body) {
           throw new Error('Response body is null');
         }
 
-        await processStreamWithHandler(response, handler, conversationId, options.afterChunk);
-        return; // void for streaming
+        return processStreamWithHandler(response, handler, conversationId, options.afterChunk);
       } catch (error) {
         handler.onError?.(error as Error);
         throw error;

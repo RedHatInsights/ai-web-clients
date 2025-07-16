@@ -205,7 +205,7 @@ export async function exampleUsage() {
 
     // Get conversation history
     const history = await client.getConversationHistory(conversation.conversation_id);
-    console.log('Conversation history:', history.messages.length, 'messages');
+    console.log('Conversation history:', history?.length, 'messages');
 
     // Check quotas
     const quota = await client.getConversationQuota();

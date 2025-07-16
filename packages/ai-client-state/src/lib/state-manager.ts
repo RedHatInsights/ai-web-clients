@@ -28,6 +28,7 @@ interface ClientState {
   messageInProgress: boolean;
   isInitialized: boolean;
   isInitializing: boolean;
+  client: IAIClient;
 }
 
 interface EventSubscription {
@@ -55,7 +56,8 @@ export function createClientStateManager(client: IAIClient): StateManager {
     activeConversationId: null,
     messageInProgress: false,
     isInitialized: false,
-    isInitializing: false
+    isInitializing: false,
+    client,
   };
 
   const eventSubscriptions: Record<string, EventSubscription[]> = {
@@ -169,7 +171,20 @@ export function createClientStateManager(client: IAIClient): StateManager {
     return state;
   }
 
+  function removeMessageFromConversation(messageId: string, conversationId: string) {
+    if (!state.conversations[conversationId]) {
+      return;
+    }
+    const conversation = state.conversations[conversationId];
+    if (conversation) {
+      conversation.messages = conversation.messages.filter(message => message.id !== messageId);
+    }
+  }
+
   async function sendMessage(message: Message, options?: MessageOptions): Promise<any> {
+    if (message.answer.trim().length === 0) {
+      return;
+    }
     // Check if a message is already in progress
     if (state.messageInProgress) {
       throw new Error('A message is already being processed. Wait for it to complete before sending another message.');
@@ -197,6 +212,7 @@ export function createClientStateManager(client: IAIClient): StateManager {
       
       // Add user message to state immediately
       conversation.messages.push(message);
+      notify(Events.MESSAGE);
       
       // Create bot message placeholder for streaming updates
       const botMessage: Message = {
@@ -225,9 +241,15 @@ export function createClientStateManager(client: IAIClient): StateManager {
           }    
           
           return client.sendMessage(conversation.id, message.answer, enhancedOptions)
+            .catch((error) => {
+              removeMessageFromConversation(botMessage.id, conversation.id);
+              notify(Events.MESSAGE);
+              throw error;
+            })
             .then((response) => {
               return response;
-            }).finally(() => {
+            })
+            .finally(() => {
               state.messageInProgress = false;
               notify(Events.IN_PROGRESS);
             });
@@ -238,6 +260,10 @@ export function createClientStateManager(client: IAIClient): StateManager {
       } else {
         // Non-streaming: update bot message after response
         return client.sendMessage(conversation.id, message.answer, options)
+          .catch((error) => {
+            removeMessageFromConversation(botMessage.id, conversation.id);
+            throw error;
+          })
           .then((response) => {
             if (response) {
               if (typeof response === 'object' && response && 'answer' in response && 'messageId' in response) {

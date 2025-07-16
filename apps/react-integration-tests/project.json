@@ -4,6 +4,69 @@
   "sourceRoot": "apps/react-integration-tests/src",
   "projectType": "application",
   "tags": [],
-  "// targets": "to see all targets run: nx show project react-integration-tests --web",
-  "targets": {}
+  "targets": {
+    "build": {
+      "executor": "@nx/vite:build",
+      "outputs": ["{options.outputPath}"],
+      "defaultConfiguration": "production",
+      "options": {
+        "outputPath": "dist/apps/react-integration-tests"
+      },
+      "configurations": {
+        "development": {
+          "mode": "development"
+        },
+        "production": {
+          "mode": "production"
+        }
+      }
+    },
+    "serve": {
+      "executor": "@nx/vite:dev-server",
+      "defaultConfiguration": "development",
+      "options": {
+        "buildTarget": "react-integration-tests:build"
+      },
+      "configurations": {
+        "development": {
+          "buildTarget": "react-integration-tests:build:development",
+          "hmr": true
+        },
+        "production": {
+          "buildTarget": "react-integration-tests:build:production",
+          "hmr": false
+        }
+      }
+    },
+    "preview": {
+      "executor": "@nx/vite:preview-server",
+      "defaultConfiguration": "development",
+      "options": {
+        "buildTarget": "react-integration-tests:build"
+      },
+      "configurations": {
+        "development": {
+          "buildTarget": "react-integration-tests:build:development"
+        },
+        "production": {
+          "buildTarget": "react-integration-tests:build:production"
+        }
+      }
+    },
+    "test": {
+      "executor": "@nx/vite:test",
+      "outputs": ["{options.reportsDirectory}"],
+      "options": {
+        "passWithNoTests": true,
+        "reportsDirectory": "../../coverage/apps/react-integration-tests"
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "outputs": ["{options.outputFile}"],
+      "options": {
+        "lintFilePatterns": ["apps/react-integration-tests/**/*.{ts,tsx,js,jsx}"]
+      }
+    }
+  }
 }
