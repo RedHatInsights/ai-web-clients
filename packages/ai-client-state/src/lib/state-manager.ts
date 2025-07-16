@@ -89,6 +89,7 @@ export function createClientStateManager(client: IAIClient): StateManager {
       
       // Set the initial conversation as the active conversation
       state.activeConversationId = initialConversationId;
+
       
       // Create the initial conversation if it doesn't exist
       if (!state.conversations[initialConversationId]) {
@@ -97,6 +98,27 @@ export function createClientStateManager(client: IAIClient): StateManager {
           messages: []
         };
       }
+
+      let messages: Message[] = []
+      if(initialConversationId) {
+        const history = await client.getConversationHistory(initialConversationId);
+        messages = (history || []).reduce<Message[]>((acc, historyMessage) => {
+          const humanMessage: Message = {
+            id: historyMessage.message_id,
+            answer: historyMessage.input,
+            role: 'user'
+          }
+          const botMessage: Message = {
+            id: historyMessage.message_id,
+            answer: historyMessage.answer,
+            role: 'bot'
+          }
+          acc.push(humanMessage, botMessage)
+          return acc
+        }, [])
+      }
+
+      state.conversations[initialConversationId].messages = messages;
       
       state.isInitialized = true;
       state.isInitializing = false;

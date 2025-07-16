@@ -293,7 +293,9 @@ describe('ARH Client Streaming Integration Tests', () => {
         expect(streamingHandler.finalMessage.toLocaleLowerCase()).toContain(request.toLowerCase().split(' ')[2]);
         expect(streamingHandler.chunks.length).toBeGreaterThan(0);
       }
-    });
+    // need to bump the timeout as it takes a while to stream the response
+    // the response is made artificially slow by the mock server
+    }, 10000);
 
     it('should maintain conversation context across streaming messages', async () => {
       let stateManager = createClientStateManager(client);

@@ -9,11 +9,12 @@ import {
   IStreamingHandler,
   ISendMessageOptions,
   IMessageResponse,
-  IFetchFunction
+  IFetchFunction,
+  IRequestOptions,
+  IConversationHistoryResponse
 } from '@redhat-cloud-services/ai-client-common';
 import {
   NewConversationResponse,
-  ConversationHistoryResponse,
   MessageChunkResponse,
   MessageFeedbackRequest,
   MessageFeedbackResponse,
@@ -24,7 +25,7 @@ import {
   UserHistoryResponse,
   QuotaStatusResponse
 } from './types';
-import { DefaultStreamingHandler, processStreamWithHandler } from './default-streaming-handler';
+import { processStreamWithHandler } from './default-streaming-handler';
 
 /**
  * Intelligent Front Door (IFD) API Client
@@ -40,7 +41,7 @@ export class IFDClient implements IAIClient {
   constructor(config: IFDClientConfig) {
     this.baseUrl = config.baseUrl;
     this.fetchFunction = config.fetchFunction;
-    this.defaultStreamingHandler = config.defaultStreamingHandler || new DefaultStreamingHandler();
+    this.defaultStreamingHandler = config.defaultStreamingHandler;
   }
 
   /**
@@ -237,9 +238,9 @@ export class IFDClient implements IAIClient {
    */
   async getConversationHistory(
     conversationId: string,
-    options?: RequestOptions
-  ): Promise<ConversationHistoryResponse> {
-    return this.makeRequest<ConversationHistoryResponse>(
+    options?: IRequestOptions
+  ): Promise<IConversationHistoryResponse> {
+    return this.makeRequest<IConversationHistoryResponse>(
       `/api/ask/v1/conversation/${conversationId}/history`,
       {
         method: 'GET',

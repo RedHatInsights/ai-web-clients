@@ -15,12 +15,14 @@ describe('useMessages', () => {
     jest.clearAllMocks();
 
     mockClient = {
+      init: jest.fn().mockResolvedValue('test-conversation-id'),
       sendMessage: jest.fn().mockResolvedValue({
         id: 'response-id',
         answer: 'Mock response',
         role: 'bot'
       }),
-      healthCheck: jest.fn().mockResolvedValue({ status: 'ok' })
+      healthCheck: jest.fn().mockResolvedValue({ status: 'ok' }),
+      getConversationHistory: jest.fn().mockResolvedValue([])
     };
 
     mockSendMessage = jest.spyOn(mockClient, 'sendMessage');

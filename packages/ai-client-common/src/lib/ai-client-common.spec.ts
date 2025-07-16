@@ -12,6 +12,7 @@ import {
   HttpMethod,
   IMessageResponse,
   ISendMessageOptions,
+  IConversationHistoryResponse,
 } from './ai-client-common';
 
 describe('ai-client-common', () => {
@@ -205,6 +206,10 @@ describe('ai-client-common', () => {
   describe('Interface Compliance', () => {
     it('should allow proper IAIClient implementation', () => {
       class TestClient implements IAIClient {
+        async init(): Promise<string> {
+          return 'test-conversation-id';
+        }
+
         async sendMessage(
           conversationId: string, 
           message: string, 
@@ -223,6 +228,14 @@ describe('ai-client-common', () => {
         
         getDefaultStreamingHandler<TChunk = unknown>(): IStreamingHandler<TChunk> | undefined {
           return undefined; // No default handler for this test client
+        }
+
+        async getConversationHistory(
+          conversationId: string, 
+          options?: IRequestOptions
+        ): Promise<IConversationHistoryResponse> {
+          void conversationId; void options; // Mark parameters as used for linting
+          return [];
         }
         
         async healthCheck(options?: IRequestOptions): Promise<unknown> {
@@ -244,6 +257,10 @@ describe('ai-client-common', () => {
 
     it('should handle sendMessage in non-streaming mode', async () => {
       class TestClient implements IAIClient {
+        async init(): Promise<string> {
+          return 'test-conversation-id';
+        }
+
         async sendMessage(
           conversationId: string, 
           message: string, 
@@ -259,6 +276,14 @@ describe('ai-client-common', () => {
         
         getDefaultStreamingHandler<TChunk = unknown>(): IStreamingHandler<TChunk> | undefined {
           return undefined;
+        }
+
+        async getConversationHistory(
+          conversationId: string, 
+          options?: IRequestOptions
+        ): Promise<IConversationHistoryResponse> {
+          void conversationId; void options; // Mark parameters as used for linting
+          return [];
         }
         
         async healthCheck(): Promise<unknown> {
@@ -288,6 +313,10 @@ describe('ai-client-common', () => {
       
       class TestClient implements IAIClient {
         private defaultHandler: IStreamingHandler<string> = mockHandler;
+
+        async init(): Promise<string> {
+          return 'test-conversation-id';
+        }
         
         async sendMessage(
           conversationId: string, 
@@ -311,6 +340,14 @@ describe('ai-client-common', () => {
         
         getDefaultStreamingHandler<TChunk = unknown>(): IStreamingHandler<TChunk> | undefined {
           return this.defaultHandler as IStreamingHandler<TChunk>;
+        }
+
+        async getConversationHistory(
+          conversationId: string, 
+          options?: IRequestOptions
+        ): Promise<IConversationHistoryResponse> {
+          void conversationId; void options; // Mark parameters as used for linting
+          return [];
         }
         
         async healthCheck(): Promise<unknown> {

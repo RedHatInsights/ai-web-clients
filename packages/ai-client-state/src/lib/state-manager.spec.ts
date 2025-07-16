@@ -7,9 +7,11 @@ describe('ClientStateManager', () => {
 
   beforeEach(() => {
     mockClient = {
+      init: jest.fn().mockResolvedValue('test-conversation-id'),
       sendMessage: jest.fn(),
       healthCheck: jest.fn(),
-      getDefaultStreamingHandler: jest.fn()
+      getDefaultStreamingHandler: jest.fn(),
+      getConversationHistory: jest.fn().mockResolvedValue([])
     } as jest.Mocked<IAIClient>;
 
     stateManager = createClientStateManager(mockClient);

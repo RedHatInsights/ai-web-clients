@@ -90,10 +90,17 @@ function createStreamingChunks(fullResponse, messageId, conversationId) {
 app.post('/api/ask/v1/conversation', (req, res) => {
   const conversationId = uuidv4();
   
+  // Mark all existing conversations as not latest
+  for (const conversation of conversations.values()) {
+    conversation.is_latest = false;
+  }
+  
+  // Create new conversation and mark it as latest
   conversations.set(conversationId, {
     id: conversationId,
     messages: [],
-    created_at: new Date().toISOString()
+    created_at: new Date().toISOString(),
+    is_latest: true
   });
   
   res.json({
@@ -136,16 +143,7 @@ app.post('/api/ask/v1/conversation/:conversationId/message', async (req, res) =>
   const conversation = conversations.get(conversationId);
   const messageId = uuidv4();
   const aiResponse = generateAIResponse(input);
-  
-  // Store user message
-  conversation.messages.push({
-    message_id: uuidv4(),
-    received_at,
-    input,
-    created_at: new Date().toISOString(),
-    answer: '', // User message has no answer
-    sources: []
-  });
+  const messageTimestamp = new Date().toISOString();
   
   if (stream) {
     // Set headers for streaming response
@@ -161,7 +159,7 @@ app.post('/api/ask/v1/conversation/:conversationId/message', async (req, res) =>
       const chunk = chunks[i];
       
       // Add delay to simulate realistic streaming
-      await new Promise(resolve => setTimeout(resolve, 100 + Math.random() * 400));
+      await new Promise(resolve => setTimeout(resolve, 50 + Math.random() * 400));
       
       try {
         res.write(JSON.stringify(chunk) + '\n');
@@ -170,13 +168,13 @@ app.post('/api/ask/v1/conversation/:conversationId/message', async (req, res) =>
         break;
       }
       
-      // Store the final complete message
+      // Store the complete conversation message when streaming ends
       if (chunk.end_of_stream) {
         conversation.messages.push({
           message_id: messageId,
           received_at,
           input,
-          created_at: new Date().toISOString(),
+          created_at: messageTimestamp,
           answer: chunk.answer,
           sources: chunk.sources
         });
@@ -186,31 +184,33 @@ app.post('/api/ask/v1/conversation/:conversationId/message', async (req, res) =>
     res.end();
   } else {
     // Non-streaming response
+    const sources = [{
+      title: 'Red Hat Documentation',
+      link: 'https://docs.redhat.com',
+      score: 0.95,
+      snippet: 'Official Red Hat documentation and knowledge base'
+    }];
+    
     const response = {
       message_id: messageId,
       conversation_id: conversationId,
       answer: aiResponse,
-      received_at: new Date().toISOString(),
-      sources: [{
-        title: 'Red Hat Documentation',
-        link: 'https://docs.redhat.com',
-        score: 0.95,
-        snippet: 'Official Red Hat documentation and knowledge base'
-      }],
+      received_at: messageTimestamp,
+      sources,
       tool_call_metadata: { tool_call: false },
       output_guard_result: { answer_relevance: 0.95 },
       end_of_stream: true,
       type: 'inference'
     };
     
-    // Store AI message
+    // Store complete conversation message
     conversation.messages.push({
       message_id: messageId,
       received_at,
       input,
-      created_at: new Date().toISOString(),
+      created_at: messageTimestamp,
       answer: aiResponse,
-      sources: response.sources
+      sources
     });
     
     res.json(response);
@@ -305,14 +305,14 @@ app.put('/api/ask/v1/user/current', (req, res) => {
 app.get('/api/ask/v1/user/current/history', (req, res) => {
   const { limit = 10 } = req.query;
   
-  // Convert conversations to history format
+  // Convert conversations to history format matching OpenAPI spec
   const history = Array.from(conversations.values())
     .slice(0, parseInt(limit))
     .map(conv => ({
       conversation_id: conv.id,
+      title: conv.messages.length > 0 ? conv.messages[0].input : 'New Conversation',
       created_at: conv.created_at,
-      message_count: conv.messages.length,
-      last_message: conv.messages[conv.messages.length - 1]?.received_at || conv.created_at
+      is_latest: conv.is_latest || false
     }));
   
   res.json(history);

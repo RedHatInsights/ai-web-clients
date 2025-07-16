@@ -76,6 +76,17 @@ export interface IAIClient {
   getDefaultStreamingHandler?<TChunk = unknown>(): IStreamingHandler<TChunk> | undefined;
 
   /**
+   * Get the conversation history for a specific conversation
+   * @param conversationId - The conversation ID to retrieve history for
+   * @param options - Optional request configuration
+   * @returns Promise that resolves to the conversation history
+   */
+  getConversationHistory(
+    conversationId: string, 
+    options?: IRequestOptions
+  ): Promise<IConversationHistoryResponse>;
+
+  /**
    * Perform a health check on the AI service
    * @param options - Optional request configuration
    * @returns Promise that resolves to health status information
@@ -204,6 +215,71 @@ export interface IMessageResponse {
    */
   metadata?: Record<string, unknown>;
 }
+
+/**
+ * Source citation information for AI responses
+ */
+export interface IAnswerSource {
+  /**
+   * URL to the source content
+   */
+  link?: string | null;
+  
+  /**
+   * Title of the source content
+   */
+  title?: string | null;
+  
+  /**
+   * Relevance score of the source
+   */
+  score?: number | null;
+  
+  /**
+   * Text snippet from the source
+   */
+  snippet?: string | null;
+}
+
+/**
+ * Single message in conversation history
+ */
+export interface IConversationHistoryMessage {
+  /**
+   * Unique identifier for the message
+   */
+  message_id: string;
+  
+  /**
+   * When the message was received
+   */
+  received_at: string;
+  
+  /**
+   * The user's input/question
+   */
+  input: string;
+  
+  /**
+   * When the AI response was created
+   */
+  created_at: string;
+  
+  /**
+   * The AI's answer
+   */
+  answer: string;
+  
+  /**
+   * Sources used to generate the answer
+   */
+  sources: IAnswerSource[];
+}
+
+/**
+ * Response type for conversation history requests
+ */
+export type IConversationHistoryResponse = IConversationHistoryMessage[] | null;
 
 export interface IErrorMessageResponse {
   error: any;
