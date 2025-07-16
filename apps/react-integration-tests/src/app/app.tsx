@@ -5,6 +5,7 @@ import { IFDClient } from '@redhat-cloud-services/arh-client';
 import { createClientStateManager } from '@redhat-cloud-services/ai-client-state';
 import { AIStateProvider, useInProgress, useMessages, useSendMessage } from '@redhat-cloud-services/ai-react-state';
 import { Chatbot, ChatbotContent, ChatbotFooter, Message, MessageBar, MessageBox } from '@patternfly/chatbot';
+import VanillaChatbotWrapper from './VanillaChatbotWrapper';
 
 const IntegratedChatbot = () => {
   const messages = useMessages();
@@ -78,7 +79,22 @@ export function App() {
           <span> Hello there, </span>
           Welcome react-integration-tests 👋
         </h1>
-        <IntegratedChatbot />
+        
+        <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap', marginTop: '2rem' }}>
+          <div style={{ flex: '1', minWidth: '400px' }}>
+            <h2 style={{ marginBottom: '1rem', fontSize: '1.25rem', fontWeight: 'bold' }}>
+              Vanilla JS Chatbot (Same State)
+            </h2>
+            <VanillaChatbotWrapper />
+          </div>
+          
+          <div style={{ flex: '1', minWidth: '400px' }}>
+            <h2 style={{ marginBottom: '1rem', fontSize: '1.25rem', fontWeight: 'bold' }}>
+              React PatternFly Chatbot
+            </h2>
+            <IntegratedChatbot />
+          </div>
+        </div>
       </div>
     </AIStateProvider>
   );
