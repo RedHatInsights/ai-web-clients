@@ -1,9 +1,9 @@
 # AI Agent Context Documentation
 ## AI Web Clients NX Workspace
 
-> **Last Updated**: Context Version 1.7  
+> **Last Updated**: Context Version 1.9  
 > **Workspace Version**: 1.0.0  
-> **Context Version**: 1.7  
+> **Context Version**: 1.9  
 > **NX Version**: 21.2.3
 
 ---
@@ -111,14 +111,22 @@ ai-web-clients/
    - Comprehensive error handling with custom error classes
    - Full test coverage for public APIs
 
-4. **Dependency Minimization** (CRITICAL)
+4. **fetchFunction Configuration** (CRITICAL)
+   - **ALWAYS use arrow functions** for fetchFunction parameter: `fetchFunction: (input, init) => fetch(input, init)`
+   - **NEVER use direct references** like `fetchFunction: fetch` - this can cause context loss
+   - **Alternative**: Use bound functions: `fetchFunction: fetch.bind(window)`
+   - **Authentication**: Use arrow functions with custom logic: `fetchFunction: async (input, init) => { const token = await getToken(); return fetch(input, {...init, headers: {...init?.headers, Authorization: \`Bearer ${token}\`}}); }`
+   - **NEVER set 'Content-Type' headers** - AI clients manage Content-Type internally based on endpoint requirements
+   - This prevents 'this' context issues and ensures reliable function execution
+
+5. **Dependency Minimization** (CRITICAL)
    - **NO `tslib` dependency** - Use `"importHelpers": false` in TypeScript config
    - Target ES2015+ for native class support, avoiding runtime helpers
    - Zero runtime dependencies preferred for client packages
    - Only add dependencies when absolutely essential for functionality
    - **NO FORCE INSTALLS** - Never use `--force` flag with npm/package managers
 
-5. **Import/Export Management**
+6. **Import/Export Management**
    - Remove unused imports immediately
    - Export only public APIs from package index
    - Use specific imports (avoid `import *`)
@@ -157,6 +165,33 @@ ai-web-clients/
    - Each package must have proper `project.json` with targets
    - Consistent naming: `@redhat-cloud-services/{package-name}`
    - Independent versioning and publishing
+
+### **Documentation Standards** (CRITICAL)
+
+1. **Code-Only Documentation Policy**
+   - Technical documentation must ONLY reflect actual, existing code
+   - NO code examples from unit tests - examples must be from public interfaces
+   - NO references to non-existent code or planned features
+   - Document only code with public interfaces accessible to library users
+
+2. **Documentation File Structure**
+   - **Developer documentation goes in README files** - NOT in AI_CONTEXT.md
+   - Each package must have its own README.md with comprehensive usage examples
+   - AI_CONTEXT.md is for AI agent context only, not developer documentation
+   - Split documentation appropriately: package READMEs for usage, USAGE.md for advanced examples
+   - Workspace README.md for overall project overview
+
+3. **Public API Documentation**
+   - Focus on exported functions, classes, and interfaces
+   - Document actual usage patterns that consumers can implement
+   - Verify all code examples exist in the actual codebase before documenting
+   - Remove any documentation references to internal or test-only code
+
+4. **Documentation Verification**
+   - All code examples must be traceable to actual implementation files
+   - Examples should demonstrate real public API usage
+   - No hypothetical or "could work" examples
+   - Update documentation immediately when public APIs change
 
 ### **Quality Gates**
 
@@ -395,6 +430,27 @@ import { SharedUtility } from '@redhat-cloud-services/shared-utils';
 ---
 
 ## 📝 CHANGE LOG
+
+### Version 1.9
+- **CRITICAL: fetchFunction Configuration Rule** - Added mandatory fetchFunction usage patterns to prevent context loss
+- **ALWAYS use arrow functions**: `fetchFunction: (input, init) => fetch(input, init)` - never direct references
+- **Context Safety**: Prevents 'this' context issues that can cause runtime failures
+- **Fixed violations**: Corrected all fetchFunction examples across lightspeed-client USAGE.md
+- **Authentication patterns**: Documented arrow function usage for authenticated fetch implementations
+- **Alternative**: Document bound functions as acceptable: `fetchFunction: fetch.bind(window)`
+- **CRITICAL: Content-Type Header Rule** - Added warning against setting Content-Type in fetchFunction
+- **Client Internal Management**: AI clients handle Content-Type headers internally based on endpoint requirements
+- **Fixed examples**: Removed dangerous Content-Type headers from ai-client-state authentication examples
+
+### Version 1.8
+- **ADDED: Documentation Standards** - Established critical guidelines for technical documentation integrity
+- **Code-Only Documentation Policy** - Documentation must ONLY reflect actual, existing code
+- **Documentation File Structure** - Developer documentation goes in README files, NOT in AI_CONTEXT.md
+- **Package README Requirements** - Each package must have comprehensive README.md with usage examples
+- **NO test-only examples** - Examples must come from public interfaces, not unit tests
+- **NO non-existent code references** - All documented code must actually exist in the codebase
+- **Public API focus** - Document only code accessible to library users through public interfaces
+- Added verification requirements to ensure all code examples are traceable to actual implementation
 
 ### Version 1.7
 - **CRITICAL: Test Server Lifecycle Protection** - Added explicit documentation prohibiting server management in Cypress tests

@@ -1,8 +1,273 @@
 # AI Web Clients Monorepo
 
-A monorepo for AI web client applications built with NX, TypeScript, React, Jest, and Cypress.
+NX monorepo for AI-related web client libraries, starting with the Intelligent Front Door (IFD) TypeScript client and OpenShift Lightspeed client. This workspace provides a complete ecosystem for building AI-powered web applications.
 
-## Structure
+## Packages Overview
+
+### 🤖 AI Client Libraries
+
+#### [@redhat-cloud-services/arh-client](packages/arh-client/)
+Intelligent Front Door (IFD) API TypeScript client with streaming support.
+
+- **Features**: Full IFD API coverage, dependency injection, streaming handlers
+- **Status**: Production ready
+- **Usage**: `npm install @redhat-cloud-services/arh-client`
+
+#### [@redhat-cloud-services/lightspeed-client](packages/lightspeed-client/)
+OpenShift Lightspeed API TypeScript client with comprehensive feature support.
+
+- **Features**: Complete Lightspeed API, streaming, health checks, feedback
+- **Status**: Production ready  
+- **Usage**: `npm install @redhat-cloud-services/lightspeed-client`
+
+### 🧠 State Management
+
+#### [@redhat-cloud-services/ai-client-common](packages/ai-client-common/)
+Common interfaces and utilities for all AI client packages.
+
+- **Features**: Standardized `IAIClient` interface, dependency injection interfaces, error classes
+- **Status**: Foundation package
+- **Usage**: `npm install @redhat-cloud-services/ai-client-common`
+
+#### [@redhat-cloud-services/ai-client-state](packages/ai-client-state/)
+Framework-agnostic state management for AI conversations.
+
+- **Features**: Event-driven architecture, conversation management, message flow control
+- **Status**: Production ready
+- **Usage**: `npm install @redhat-cloud-services/ai-client-state`
+
+#### [@redhat-cloud-services/ai-react-state](packages/ai-react-state/)
+React hooks and context provider for AI state management.
+
+- **Features**: React integration, custom hooks, TypeScript support
+- **Status**: Production ready
+- **Usage**: `npm install @redhat-cloud-services/ai-react-state`
+
+### 🧪 Testing Applications
+
+#### [client-integration-tests](apps/client-integration-tests/)
+Integration test application for validating package interoperability.
+
+- **Features**: Cross-package testing, live server integration, mocked responses
+- **Status**: Development tool
+- **Usage**: `npx nx test client-integration-tests`
+
+#### [react-integration-tests](apps/react-integration-tests/)
+React test application for UI component validation.
+
+- **Features**: React component testing, UI integration examples
+- **Status**: Development tool
+- **Usage**: `npx nx serve react-integration-tests`
+
+## Quick Start
+
+### 1. Basic AI Client Usage
+
+```typescript
+import { IFDClient } from '@redhat-cloud-services/arh-client';
+
+const client = new IFDClient({
+  baseUrl: 'https://your-api.com',
+  fetchFunction: (input, init) => fetch(input, init)
+});
+
+const conversation = await client.createConversation();
+const response = await client.sendMessage(conversation.conversation_id, 'Hello AI!');
+
+// Streaming usage
+await client.sendMessage(conversation.conversation_id, 'Tell me about containers', {
+  stream: true
+});
+```
+
+### 2. With State Management
+
+```typescript
+import { createClientStateManager } from '@redhat-cloud-services/ai-client-state';
+import { IFDClient } from '@redhat-cloud-services/arh-client';
+
+const client = new IFDClient({ 
+  baseUrl: 'https://your-api.com', 
+  fetchFunction: (input, init) => fetch(input, init) 
+});
+const stateManager = createClientStateManager(client);
+
+await stateManager.init();
+await stateManager.sendMessage({ id: 'msg-1', answer: 'Hello!', role: 'user' });
+
+// Streaming usage
+await stateManager.sendMessage(
+  { id: 'msg-2', answer: 'Explain Kubernetes', role: 'user' },
+  { stream: true }
+);
+```
+
+### 3. React Integration
+
+#### Option A: Initialize Outside React Scope (Recommended)
+
+```tsx
+import React from 'react';
+import { AIStateProvider, useSendMessage, useMessages } from '@redhat-cloud-services/ai-react-state';
+import { createClientStateManager } from '@redhat-cloud-services/ai-client-state';
+import { IFDClient } from '@redhat-cloud-services/arh-client';
+
+// Initialize state manager outside React scope
+const client = new IFDClient({ 
+  baseUrl: 'https://your-api.com', 
+  fetchFunction: (input, init) => fetch(input, init)
+});
+
+const stateManager = createClientStateManager(client);
+// Initialize immediately when module loads
+stateManager.init();
+
+function App() {
+  return (
+    <AIStateProvider stateManager={stateManager}>
+      <ChatInterface />
+    </AIStateProvider>
+  );
+}
+
+function ChatInterface() {
+  const sendMessage = useSendMessage();
+  const messages = useMessages();
+  
+  const handleSend = () => {
+    const message = {
+      id: `msg-${Date.now()}`,
+      answer: 'Hello AI!',
+      role: 'user' as const
+    };
+    sendMessage(message);
+  };
+  
+  const handleStreamingSend = () => {
+    const message = {
+      id: `msg-${Date.now()}`,
+      answer: 'Tell me about containers',
+      role: 'user' as const
+    };
+    sendMessage(message, { stream: true });
+  };
+  
+  return (
+    <div>
+      {messages.map(msg => <div key={msg.id}>{msg.answer}</div>)}
+      <button onClick={handleSend}>Send</button>
+      <button onClick={handleStreamingSend}>Send Streaming</button>
+    </div>
+  );
+}
+```
+
+#### Option B: Initialize with useMemo
+
+```tsx
+import React, { useMemo } from 'react';
+import { AIStateProvider, useSendMessage, useMessages } from '@redhat-cloud-services/ai-react-state';
+import { createClientStateManager } from '@redhat-cloud-services/ai-client-state';
+import { IFDClient } from '@redhat-cloud-services/arh-client';
+
+function App() {
+  const stateManager = useMemo(() => {
+    // Create client with proper fetchFunction
+    const client = new IFDClient({ 
+      baseUrl: 'https://your-api.com', 
+      fetchFunction: (input, init) => fetch(input, init)
+    });
+    
+    // Create state manager (init will be called by provider)
+    const manager = createClientStateManager(client);
+    
+    // Initialize async - this will resolve before first render
+    manager.init();
+    
+    return manager;
+  }, []);
+
+  return (
+    <AIStateProvider stateManager={stateManager}>
+      <ChatInterface />
+    </AIStateProvider>
+  );
+}
+
+function ChatInterface() {
+  const sendMessage = useSendMessage();
+  const messages = useMessages();
+  
+  const handleSend = () => {
+    const message = {
+      id: `msg-${Date.now()}`,
+      answer: 'Hello AI!',
+      role: 'user' as const
+    };
+    sendMessage(message);
+  };
+  
+  const handleStreamingSend = () => {
+    const message = {
+      id: `msg-${Date.now()}`,
+      answer: 'Tell me about containers',
+      role: 'user' as const
+    };
+    sendMessage(message, { stream: true });
+  };
+  
+  return (
+    <div>
+      {messages.map(msg => <div key={msg.id}>{msg.answer}</div>)}
+      <button onClick={handleSend}>Send</button>
+      <button onClick={handleStreamingSend}>Send Streaming</button>
+    </div>
+  );
+}
+```
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                     Your Application                    │
+├─────────────────────────────────────────────────────────┤
+│  @redhat-cloud-services/ai-react-state (React Hooks)    │
+├─────────────────────────────────────────────────────────┤
+│  @redhat-cloud-services/ai-client-state (State Mgmt)    │
+├─────────────────────────────────────────────────────────┤
+│          AI Client Implementation                       │
+│  ┌─────────────────────┐  ┌─────────────────────────┐   │
+│  │   arh-client        │  │   lightspeed-client     │   │
+│  │   (IFD API)         │  │   (Lightspeed API)      │   │
+│  └─────────────────────┘  └─────────────────────────┘   │
+├─────────────────────────────────────────────────────────┤
+│  @redhat-cloud-services/ai-client-common (Interfaces)   │
+└─────────────────────────────────────────────────────────┘
+```
+
+## Key Benefits
+
+- **🔗 Interoperability**: All packages implement common interfaces
+- **🎯 Dependency Injection**: Testable and configurable clients  
+- **📡 Streaming Support**: Real-time AI responses with custom handlers
+- **⚛️ React Ready**: Purpose-built hooks and context providers
+- **📦 Modular**: Use only what you need, from raw clients to full React integration
+- **🔒 Type Safe**: Comprehensive TypeScript coverage across all packages
+- **🧪 Well Tested**: Extensive integration tests and cross-package validation
+
+## Package Dependencies
+
+```
+ai-client-common (foundation)
+├── arh-client
+├── lightspeed-client  
+├── ai-client-state
+│   └── ai-react-state
+└── [your-custom-client]
+```
+
+## Development Workspace
 
 ```
 ai-web-clients/

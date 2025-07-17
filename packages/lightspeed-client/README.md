@@ -26,7 +26,7 @@ import { LightspeedClient } from '@redhat-cloud-services/lightspeed-client';
 // Initialize the client
 const client = new LightspeedClient({
   baseUrl: 'https://your-lightspeed-api.com',
-  fetchFunction: fetch // or your custom fetch implementation
+  fetchFunction: (input, init) => fetch(input, init) // Use arrow function to preserve context
 });
 
 // Start a conversation
