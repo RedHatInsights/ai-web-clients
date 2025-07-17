@@ -22,7 +22,7 @@ import { LightspeedClient } from '@redhat-cloud-services/lightspeed-client';
 
 const client = new LightspeedClient({
   baseUrl: 'https://lightspeed-api.openshift.com',
-  fetchFunction: fetch
+  fetchFunction: (input, init) => fetch(input, init)
 });
 ```
 
@@ -74,7 +74,7 @@ class CustomStreamingHandler implements IStreamingHandler<MessageChunkResponse> 
 
 const client = new LightspeedClient({
   baseUrl: process.env.LIGHTSPEED_API_URL,
-  fetchFunction: fetch,
+  fetchFunction: (input, init) => fetch(input, init),
   defaultStreamingHandler: new CustomStreamingHandler()
 });
 ```
@@ -213,7 +213,7 @@ import { LightspeedClient } from '@redhat-cloud-services/lightspeed-client';
 // Create the client
 const lightspeedClient = new LightspeedClient({
   baseUrl: 'https://lightspeed-api.openshift.com',
-  fetchFunction: fetch
+  fetchFunction: (input, init) => fetch(input, init)
 });
 
 // Create state manager
@@ -236,7 +236,7 @@ import { LightspeedClient } from '@redhat-cloud-services/lightspeed-client';
 
 const lightspeedClient = new LightspeedClient({
   baseUrl: process.env.REACT_APP_LIGHTSPEED_URL,
-  fetchFunction: fetch
+  fetchFunction: (input, init) => fetch(input, init)
 });
 
 function App() {

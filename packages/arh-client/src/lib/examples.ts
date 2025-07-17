@@ -139,14 +139,14 @@ export async function exampleUsage() {
   
   // Example 1: Client with default streaming handler
   const clientWithDefaultHandler = new IFDClient({
-    baseUrl: 'https://ifd-001-prod-api.apps.ext-waf.spoke.prod.us-east-1.aws.paas.redhat.com',
+    baseUrl: 'https://your-ifd-api.com',
     fetchFunction: createAuthenticatedFetch(bearerToken),
     defaultStreamingHandler: new DefaultStreamingHandler(), // Configure default handler
   });
 
   // Example 2: Client without default streaming handler
   const client = new IFDClient({
-    baseUrl: 'https://ifd-001-prod-api.apps.ext-waf.spoke.prod.us-east-1.aws.paas.redhat.com',
+    baseUrl: 'https://your-ifd-api.com',
     fetchFunction: createAuthenticatedFetch(bearerToken),
   });
 
@@ -192,7 +192,7 @@ export async function exampleUsage() {
 
     // Example 6: Create a client specifically for a custom handler when needed
     const clientWithCustomHandler = new IFDClient({
-      baseUrl: 'https://ifd-001-prod-api.apps.ext-waf.spoke.prod.us-east-1.aws.paas.redhat.com',
+      baseUrl: 'https://your-ifd-api.com',
       fetchFunction: createAuthenticatedFetch(bearerToken),
       defaultStreamingHandler: new ConsoleStreamingHandler(), // Use custom handler
     });
