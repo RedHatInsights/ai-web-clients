@@ -40,6 +40,7 @@ const IntegratedChatbot = () => {
                 role={message.role} 
                 avatar="https://placehold.co/40" 
                 content={message.answer}
+                isLoading={message.role === 'bot' && message.answer.length === 0}
                 aria-label={`${message.role === 'user' ? 'Your message' : 'AI response'}: ${message.answer}`}
               />
             ))}
