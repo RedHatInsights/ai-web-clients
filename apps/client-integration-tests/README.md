@@ -1,116 +1,183 @@
 # Client Integration Tests
 
-This directory contains integration tests for the AI web clients along with an ARH-specific mock server that implements the ARH (Intelligent Front Door) API specification.
+Integration test application for validating package interoperability and live API server testing.
 
-## ARH Mock Server
+## Overview
 
-The ARH mock server (`arh-mock-server.js`) is a complete Express.js implementation of the ARH API based on the OpenAPI specification. It supports:
+This application contains comprehensive integration tests for AI client packages in the workspace:
 
-### Features
-- ✅ All 10 API endpoints from the ARH OpenAPI spec v0.4.9
-- ✅ Streaming and non-streaming message responses
-- ✅ Realistic AI response generation with Red Hat context
-- ✅ In-memory conversation storage
-- ✅ Proper error handling and validation matching ARH API
-- ✅ CORS support for browser testing
-- 🔧 Specifically designed for testing `@redhat-cloud-services/arh-client`
+- **ARH Client Tests**: Tests for `@redhat-cloud-services/arh-client`
+- **Lightspeed Client Tests**: Tests for `@redhat-cloud-services/lightspeed-client` ✨ NEW
+- **State Manager Integration**: Tests for `@redhat-cloud-services/ai-client-state`
 
-### Endpoints
+## Test Suites
 
-- `POST /api/ask/v1/conversation` - Create new conversation
-- `POST /api/ask/v1/conversation/:id/message` - Send message (supports streaming)
-- `GET /api/ask/v1/conversation/:id/history` - Get conversation history
-- `POST /api/ask/v1/conversation/:id/message/:messageId/feedback` - Send feedback
-- `GET /api/ask/v1/health` - Health check
-- `GET /api/ask/v1/status` - Service status
-- `GET /api/ask/v1/user/current` - Get user settings
-- `PUT /api/ask/v1/user/current` - Update user settings
-- `GET /api/ask/v1/user/current/history` - Get user history
-- `GET /api/ask/v1/quota/conversation` - Get conversation quota
-- `GET /api/ask/v1/quota/:conversationId/messages` - Get message quota
+### 1. Mocked Integration Tests (Always Run)
 
-### Usage
+These tests use mocked HTTP responses and don't require external servers:
 
-#### Start the ARH mock server:
+- `arh-client-state-integration.spec.ts` - ARH client with state manager
+- `lightspeed-client-state-integration.spec.ts` - Lightspeed client with state manager
+
+### 2. Live Server Integration Tests (Optional)
+
+These tests connect to actual running servers for end-to-end validation:
+
+- `arh-streaming-integration.spec.ts` - ARH client with mock server
+- `lightspeed-streaming-integration.spec.ts` - Lightspeed client with live server
+
+## Running Tests
+
+### Run All Integration Tests
+
 ```bash
-cd apps/client-integration-tests
-npm run arh-mock-server
+npx nx test client-integration-tests
 ```
 
-The server will start on `http://localhost:3001` by default.
+### Run Specific Test Suites
 
-#### Development mode with auto-restart:
 ```bash
-npm run arh-mock-server:dev
+# ARH client tests only
+npx nx test client-integration-tests --testPathPattern="arh-client-state"
+
+# Lightspeed client tests only  
+npx nx test client-integration-tests --testPathPattern="lightspeed-client-state"
+
+# Streaming tests only
+npx nx test client-integration-tests --testPathPattern="streaming"
 ```
 
-#### Streaming Messages
-To test streaming responses, send a message with `stream: true`:
+### Live Server Testing
 
-```javascript
-const response = await fetch('http://localhost:3001/api/ask/v1/conversation/:id/message', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    input: 'Tell me about Red Hat OpenShift',
-    stream: true
-  })
+#### For ARH Client Streaming Tests
+
+1. Start the ARH mock server:
+   ```bash
+   npm run arh-mock-server
+   ```
+
+2. Run the streaming tests:
+   ```bash
+   npx nx test client-integration-tests --testPathPattern="arh-streaming"
+   ```
+
+#### For Lightspeed Client Live Tests
+
+1. Start the Lightspeed API server on `localhost:8080`
+   
+2. Run the live integration tests:
+   ```bash
+   npx nx test client-integration-tests --testPathPattern="lightspeed-streaming"
+   ```
+
+**Note**: Live Lightspeed tests may require authentication. Tests will automatically skip if the server is not available or requires credentials.
+
+## Test Architecture
+
+### Mocked Tests Pattern
+
+```typescript
+// Example from lightspeed-client-state-integration.spec.ts
+const mockFetch = jest.fn();
+const client = new LightspeedClient({
+  baseUrl: 'https://test.com',
+  fetchFunction: mockFetch
 });
 
-// Handle streaming response
-const reader = response.body.getReader();
-while (true) {
-  const { done, value } = await reader.read();
-  if (done) break;
-  
-  const chunk = new TextDecoder().decode(value);
-  const data = JSON.parse(chunk);
-  console.log('Streaming chunk:', data);
+mockFetch.mockResolvedValue({
+  ok: true,
+  status: 200,
+  json: async () => expectedResponse
+});
+```
+
+### Live Server Tests Pattern  
+
+```typescript
+// Example from lightspeed-streaming-integration.spec.ts
+const client = new LightspeedClient({
+  baseUrl: 'http://localhost:8080',
+  fetchFunction: fetch // Real fetch
+});
+
+// Tests include robust error handling for auth/config issues
+try {
+  const response = await client.sendMessage(id, 'test');
+  // ... assertions
+} catch (error) {
+  pending('Server may require authentication');
 }
 ```
 
-## Integration Tests
+### State Manager Integration
 
-The integration tests (`arh-client-state-integration.spec.ts`) test the interaction between:
-- `@redhat-cloud-services/arh-client` - ARH API client
-- `@redhat-cloud-services/ai-client-state` - State management
-- Mock server responses
+Both ARH and Lightspeed clients are tested with the state manager:
 
-### Running Tests
+```typescript
+const stateManager = createClientStateManager(client);
+await stateManager.init();
+stateManager.setActiveConversationId('test-id');
+await stateManager.sendMessage(userMessage);
 
-```bash
-# Run all integration tests
-npm test
-
-# Run tests in watch mode
-npm run test:watch
-
-# Run tests with the ARH mock server
-npm run arh-mock-server & npm test
+const messages = stateManager.getActiveConversationMessages();
+// Verify conversation flow
 ```
 
-### Test Coverage
+## Test Coverage
 
-- ✅ ARH client basic functionality
-- ✅ Non-streaming message handling
+### Lightspeed Client Features Tested
+
+- ✅ Basic client instantiation and configuration
+- ✅ Non-streaming message sending 
+- ✅ Streaming message handling (with live server)
+- ✅ Health checks (readiness + liveness)
+- ✅ Error handling (401, 422, 500 responses)
+- ✅ Feedback submission
+- ✅ Authorization checking
+- ✅ Custom headers and request options
+- ✅ Request cancellation with AbortSignal
 - ✅ State manager integration
 - ✅ Event system integration
-- ✅ Error handling
 - ✅ Multi-message conversation flows
-- 🔄 Streaming message integration (with ARH mock server)
 
-## Environment Variables
+### ARH Client Features Tested
 
-- `PORT` - ARH mock server port (default: 3001)
+- ✅ Message sending (streaming and non-streaming)
+- ✅ Custom streaming handlers
+- ✅ State manager integration
+- ✅ Error handling
+- ✅ Multiple conversation support
 
-## Architecture Notes
+## Troubleshooting
 
-This mock server is specifically designed for the ARH (Intelligent Front Door) client. Future AI clients (if any) should have their own dedicated mock servers to ensure proper isolation and API-specific testing.
+### Common Issues
 
-## Dependencies
+1. **Tests timeout**: Increase Jest timeout for live server tests
+2. **Server not available**: Live tests automatically skip if servers aren't running
+3. **Authentication errors**: Expected for live servers that require auth
+4. **Import errors**: Ensure all packages are built: `npx nx run-many --target=build --all`
 
-The ARH mock server requires:
-- `express` - Web framework
-- `uuid` - UUID generation
-- `cors` - CORS middleware
-- `nodemon` - Development auto-restart (dev dependency) 
+### Server Requirements
+
+- **ARH Mock Server**: Node.js server, configured in `arh-mock-server.js`
+- **Lightspeed Server**: Actual OpenShift Lightspeed service on port 8080
+- **Authentication**: Live servers may require valid credentials
+
+## Development Guidelines
+
+When adding new integration tests:
+
+1. **Follow existing patterns** from ARH and Lightspeed tests
+2. **Include both mocked and live server variants** when applicable  
+3. **Use robust error handling** for live server tests
+4. **Test state manager integration** for all AI clients
+5. **Cover streaming and non-streaming modes**
+6. **Verify conversation flow and events**
+7. **Test error scenarios** and edge cases
+
+## Architecture Benefits
+
+- **Package Interoperability**: Ensures clients work with state managers
+- **Real-world Validation**: Live server tests catch integration issues
+- **Regression Prevention**: Comprehensive test coverage prevents breaking changes
+- **Development Confidence**: Validates that workspace patterns work correctly 

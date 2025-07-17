@@ -6,6 +6,8 @@ import { createClientStateManager } from '@redhat-cloud-services/ai-client-state
 import { AIStateProvider, useInProgress, useMessages, useSendMessage } from '@redhat-cloud-services/ai-react-state';
 import { Chatbot, ChatbotContent, ChatbotFooter, Message, MessageBar, MessageBox } from '@patternfly/chatbot';
 import VanillaChatbotWrapper from './VanillaChatbotWrapper';
+import { LightSpeedChatbot } from './LightSpeedChatbot';
+import { PatternFlyChatbotReplica } from './PatternFlyChatbotReplica';
 
 const IntegratedChatbot = () => {
   const messages = useMessages();
@@ -87,6 +89,29 @@ export function App() {
               Vanilla JS Chatbot (Same State)
             </h2>
             <VanillaChatbotWrapper />
+          </div>
+          <div style={{ flex: '1', minWidth: '400px' }}>
+            <h2 style={{ marginBottom: '1rem', fontSize: '1.25rem', fontWeight: 'bold' }}>
+              Vanilla JS Chatbot (LightSpeed)
+            </h2>
+            <LightSpeedChatbot />
+          </div>
+          <div style={{ flex: '1', minWidth: '400px', position: 'relative' }}>
+            <h2 style={{ marginBottom: '1rem', fontSize: '1.25rem', fontWeight: 'bold' }}>
+              React PatternFly Chatbot Replica
+            </h2>
+            <PatternFlyChatbotReplica 
+              containerStyle={{ 
+                position: 'relative',
+                width: '100%',
+                height: '500px',
+                border: '1px solid var(--pf-t--global--border--color--default)',
+                borderRadius: '8px',
+                backgroundColor: 'white',
+                zIndex: 10
+              }}
+              className="custom-chatbot-replica"
+            />
           </div>
           
           <div style={{ flex: '1', minWidth: '400px' }}>

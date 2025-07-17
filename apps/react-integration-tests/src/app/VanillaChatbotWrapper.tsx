@@ -92,9 +92,8 @@ const VanillaChatbotWrapper = () => {
       ref={containerRef}
       id="vanilla-chatbot-container"
       style={{ 
-        width: '100%', 
         height: '600px',
-        border: '2px solid var(--pf-t--global--border--color--default)',
+        // border: '2px solid var(--pf-t--global--border--color--default)',
         borderRadius: 'var(--pf-t--global--border--radius--medium)',
         overflow: 'hidden'
       }}
