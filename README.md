@@ -1,6 +1,6 @@
 # AI Web Clients Monorepo
 
-NX monorepo for AI-related web client libraries, starting with the Intelligent Front Door (IFD) TypeScript client and OpenShift Lightspeed client. This workspace provides a complete ecosystem for building AI-powered web applications.
+NX monorepo for AI-related web client libraries, starting with the Intelligent Front Door (IFD) TypeScript client and OpenShift Lightspeed client. This workspace provides a complete ecosystem for building AI-powered web clients.
 
 ## Packages Overview
 
