@@ -181,7 +181,7 @@ function App() {
     // Create state manager (init will be called by provider)
     const manager = createClientStateManager(client);
     
-    // Initialize async - this will resolve before first render
+    // Initialize async - once resolved, the client is ready
     manager.init();
     
     return manager;
