@@ -7,7 +7,9 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "arh-mock-server": "node arh-mock-server.js",
-    "arh-mock-server:dev": "nodemon arh-mock-server.js"
+    "arh-mock-server:dev": "nodemon arh-mock-server.js",
+    "lightspeed-mock-server": "node lightspeed-mock-server.js",
+    "lightspeed-mock-server:dev": "nodemon lightspeed-mock-server.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

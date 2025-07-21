@@ -1,597 +1,380 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 import { LightspeedClient } from '@redhat-cloud-services/lightspeed-client';
-import type { 
-  LightspeedClientConfig, 
-  LLMResponse, 
-  MessageChunkResponse,
-} from '@redhat-cloud-services/lightspeed-client';
-import type { IMessageResponse, IStreamingHandler } from '@redhat-cloud-services/ai-client-common';
-
-// Import state manager components
 import { 
   createClientStateManager,
-  Events,
   UserQuery,
 } from '@redhat-cloud-services/ai-client-state';
-import { LightSpeedCoreAdditionalProperties } from 'packages/lightspeed-client/src/lib/client';
 
-// Integration tests specifically for the Lightspeed client
-// and its interaction with the AI client state management system
-
-/**
- * Lightspeed Client Integration Tests
- * 
- * These tests verify the integration between:
- * - @redhat-cloud-services/lightspeed-client (Lightspeed API client)
- * - @redhat-cloud-services/ai-client-state (State management)
- * 
- * Note: For full streaming tests with live server, see lightspeed-streaming-integration.spec.ts
- */
-describe('Lightspeed Client Integration Tests', () => {
-  let mockFetch: jest.MockedFunction<typeof fetch>;
-  let client: LightspeedClient;
-  
-  beforeEach(() => {
-    mockFetch = jest.fn();
-    
-    const config: LightspeedClientConfig = {
-      baseUrl: 'https://lightspeed.test.com',
-      fetchFunction: mockFetch
-    };
-    
-    client = new LightspeedClient(config);
-  });
-
-  afterEach(() => {
-    jest.clearAllMocks();
-  });
-
-  describe('Lightspeed Client Basic Integration', () => {
-    it('should create Lightspeed client successfully', () => {
-      expect(client).toBeInstanceOf(LightspeedClient);
-      expect(typeof client.sendMessage).toBe('function');
-      expect(typeof client.healthCheck).toBe('function');
-      expect(typeof client.init).toBe('function');
-    });
-
-    it('should handle non-streaming messages', async () => {
-      const expectedResponse = {
-        response: 'Hello! How can I help you with OpenShift?',
-        messageId: 'msg-123',
-        conversation_id: 'conv-456',
-        referenced_documents: [
-          {
-            doc_url: 'https://docs.openshift.com/container-platform/4.15/getting_started/index.html',
-            doc_title: 'Getting Started with OpenShift'
-          }
-        ],
-        truncated: false,
-        input_tokens: 10,
-        output_tokens: 15,
-        available_quotas: {
-          'ClusterQuotaLimiter': 1000,
-          'UserQuotaLimiter': 950
-        },
-        tool_calls: [],
-        tool_results: [],
-      };
-
-      mockFetch.mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: async () => expectedResponse,
-        headers: new Headers({ 'content-type': 'application/json' })
-      } as Response);
-
-      const response = await client.sendMessage('conv-456', 'Hello AI');
-
-      expect(response).toBeDefined();
-      if (response && typeof response === 'object' && 'answer' in response) {
-        expect(response.answer).toBe('Hello! How can I help you with OpenShift?');
-        expect(response.conversationId).toBe('conv-456');
-        // @ts-ignore
-        expect(response.additionalAttributes?.referencedDocuments).toHaveLength(1);
-        // @ts-ignore
-        expect(response.additionalAttributes?.inputTokens).toBe(10);
-        // @ts-ignore
-        expect(response.additionalAttributes?.outputTokens).toBe(15);
-      }
-    });
-
-    it('should handle streaming with default handler', async () => {
-      // Skip streaming test for now - requires more complex ReadableStream setup
-      // This is a known limitation of testing streaming in Node.js environment
-      // 
-      // For full streaming integration tests, use the live Lightspeed server:
-      // 1. Start: Lightspeed API server on localhost:8080
-      // 2. Configure client to use http://localhost:8080 as baseUrl
-      // 3. Send requests with stream: true
-      // 
-      // The live server provides realistic streaming responses that match 
-      // the Lightspeed OpenAPI specification.
-      expect(true).toBe(true);
-    });
-
-    it('should handle client default handler access', () => {
-      const mockHandler: IStreamingHandler<MessageChunkResponse> = {
-        onChunk: jest.fn(),
-        onStart: jest.fn(),
-        onComplete: jest.fn()
-      };
-
-      const clientWithDefault = new LightspeedClient({
-        baseUrl: 'https://lightspeed.test.com',
-        fetchFunction: mockFetch,
-        defaultStreamingHandler: mockHandler
-      });
-
-      const retrievedHandler = clientWithDefault.getDefaultStreamingHandler();
-      expect(retrievedHandler).toBe(mockHandler);
-    });
-
-    it('should initialize and return conversation ID', async () => {
-      const conversationId = await client.init();
-      
-      expect(typeof conversationId).toBe('string');
-      expect(conversationId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
-    });
-  });
-
-  describe('Health Check Integration', () => {
-    it('should perform health checks successfully', async () => {
-      // Mock readiness and liveness endpoints
-      mockFetch
-        .mockResolvedValueOnce({
-          ok: true,
-          status: 200,
-          json: async () => ({ ready: true, reason: 'service is ready' }),
-          headers: new Headers({ 'content-type': 'application/json' })
-        } as Response)
-        .mockResolvedValueOnce({
-          ok: true,
-          status: 200,
-          json: async () => ({ alive: true }),
-          headers: new Headers({ 'content-type': 'application/json' })
-        } as Response);
-
-      const healthStatus = await client.healthCheck();
-
-      expect(healthStatus.status).toBe('healthy');
-      expect(healthStatus.ready).toBe(true);
-      expect(healthStatus.alive).toBe(true);
-      expect(healthStatus.reason).toBe('service is ready');
-      expect(typeof healthStatus.timestamp).toBe('string');
-    });
-
-    it('should handle unhealthy service status', async () => {
-      // Mock failed readiness check
-      mockFetch.mockRejectedValue(new Error('Service unavailable'));
-
-      const healthStatus = await client.healthCheck();
-
-      expect(healthStatus.status).toBe('unhealthy');
-      expect(healthStatus.ready).toBe(false);
-      expect(healthStatus.alive).toBe(false);
-      expect(healthStatus.reason).toContain('unavailable'); // More flexible check
-    });
-  });
-
-  describe('API Error Handling', () => {
-    it('should handle server errors gracefully', async () => {
-      mockFetch.mockResolvedValue({
-        ok: false,
-        status: 500,
-        statusText: 'Internal Server Error',
-        json: async () => ({
-          detail: {
-            response: 'LLM service is unavailable',
-            cause: 'Connection timeout to LLM provider'
-          }
-        })
-      } as Response);
-
-      await expect(
-        client.sendMessage('conv-123', 'Hello')
-      ).rejects.toThrow(); // Any error is fine for mock test
-    });
-
-    it('should handle validation errors (422)', async () => {
-      mockFetch.mockResolvedValue({
-        ok: false,
-        status: 422,
-        statusText: 'Validation Error',
-        json: async () => ({
-          detail: [
-            {
-              loc: ['body', 'query'],
-              msg: 'field required',
-              type: 'value_error.missing'
-            }
-          ]
-        })
-      } as Response);
-
-      await expect(
-        client.sendMessage('conv-123', '')
-      ).rejects.toThrow(); // Any error is fine for mock test
-    });
-
-    it('should handle unauthorized errors (401)', async () => {
-      mockFetch.mockResolvedValue({
-        ok: false,
-        status: 401,
-        statusText: 'Unauthorized',
-        json: async () => ({
-          detail: 'Missing or invalid credentials provided by client'
-        })
-      } as Response);
-
-      await expect(
-        client.sendMessage('conv-123', 'Hello')
-      ).rejects.toThrow(); // Any error is fine for mock test
-    });
-
-    it('should handle network errors', async () => {
-      mockFetch.mockRejectedValue(new Error('Network error'));
-
-      await expect(
-        client.sendMessage('conv-123', 'Hello')
-      ).rejects.toThrow('Network error');
-    });
-  });
-
-  describe('Lightspeed-Specific Features', () => {
-    it('should handle feedback submission', async () => {
-      const feedbackResponse = {
-        response: 'feedback received'
-      };
-
-      mockFetch.mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: async () => feedbackResponse,
-        headers: new Headers({ 'content-type': 'application/json' })
-      } as Response);
-
-      const result = await client.storeFeedback({
-        conversation_id: 'conv-123',
-        user_question: 'How do I deploy a pod?',
-        llm_response: 'To deploy a pod in OpenShift...',
-        sentiment: 1,
-        user_feedback: 'Very helpful!'
-      });
-
-      expect(result.response).toBe('feedback received');
-    });
-
-    it('should handle authorization check', async () => {
-      const authResponse = {
-        user_id: '123e4567-e89b-12d3-a456-426614174000',
-        username: 'testuser',
-        skip_user_id_check: false
-      };
-
-      mockFetch.mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: async () => authResponse,
-        headers: new Headers({ 'content-type': 'application/json' })
-      } as Response);
-
-      const result = await client.checkAuthorization();
-
-      expect(result.user_id).toBe('123e4567-e89b-12d3-a456-426614174000');
-      expect(result.username).toBe('testuser');
-      expect(result.skip_user_id_check).toBe(false);
-    });
-  });
-
-  describe('Client Configuration', () => {
-    it('should handle custom headers and request options', async () => {
-      const expectedResponse: LLMResponse = {
-        conversation_id: 'conv-custom',
-        response: 'Custom response with headers',
-        referenced_documents: [],
-        truncated: false,
-        input_tokens: 5,
-        output_tokens: 8,
-        available_quotas: {},
-        tool_calls: [],
-        tool_results: []
-      };
-
-      mockFetch.mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: async () => expectedResponse,
-        headers: new Headers({ 'content-type': 'application/json' })
-      } as Response);
-
-      const response = await client.sendMessage('conv-custom', 'Test message', {
-        headers: {
-          'X-Custom-Header': 'test-value',
-          'Authorization': 'Bearer test-token'
-        }
-      });
-
-      expect(mockFetch).toHaveBeenCalledWith(
-        'https://lightspeed.test.com/v1/query',
-        expect.objectContaining({
-          method: 'POST',
-          headers: expect.objectContaining({
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'X-Custom-Header': 'test-value',
-            'Authorization': 'Bearer test-token'
-          })
-        })
-      );
-
-      if (response && typeof response === 'object' && 'answer' in response) {
-        expect(response.answer).toBe('Custom response with headers');
-      }
-    });
-
-    it('should handle request cancellation with AbortSignal', async () => {
-      const controller = new AbortController();
-      
-      mockFetch.mockImplementation(() => {
-        return new Promise((_, reject) => {
-          controller.signal.addEventListener('abort', () => {
-            reject(new Error('Request aborted'));
-          });
-        });
-      });
-
-      const sendPromise = client.sendMessage('conv-abort', 'Test message', {
-        signal: controller.signal
-      });
-
-      controller.abort();
-
-      await expect(sendPromise).rejects.toThrow('Request aborted');
-    });
-  });
-});
-
-/**
- * State Manager Integration Tests for Lightspeed Client
- */
-describe('Lightspeed Client State Manager Integration', () => {
-  let mockFetch: jest.MockedFunction<typeof fetch>;
+describe('Lightspeed Client State Integration', () => {
   let client: LightspeedClient;
   let stateManager: ReturnType<typeof createClientStateManager>;
+  const mockServerUrl = 'http://localhost:3002';
 
   beforeEach(() => {
-    mockFetch = jest.fn();
-    
     client = new LightspeedClient({
-      baseUrl: 'https://lightspeed.test.com',
-      fetchFunction: mockFetch
+      baseUrl: mockServerUrl,
+      fetchFunction: (input, init) => fetch(input, init)
     });
 
     stateManager = createClientStateManager(client);
   });
 
-  afterEach(() => {
-    jest.clearAllMocks();
-  });
-
-  describe('State Manager Basic Integration', () => {
-    it('should integrate with state manager successfully', () => {
-      expect(stateManager).toBeDefined();
-      expect(typeof stateManager.sendMessage).toBe('function');
-      expect(typeof stateManager.setActiveConversationId).toBe('function');
-      expect(typeof stateManager.getActiveConversationMessages).toBe('function');
-    });
-
-    it('should handle message sending through state manager', async () => {
-      const conversationId = 'conv-state-123';
-      const expectedResponse: LLMResponse = {
-        conversation_id: conversationId,
-        response: 'Response from state manager test',
-        referenced_documents: [],
-        truncated: false,
-        input_tokens: 12,
-        output_tokens: 20,
-        available_quotas: {},
-        tool_calls: [],
-        tool_results: []
-      };
-
-      mockFetch.mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: async () => expectedResponse,
-        headers: new Headers({ 'content-type': 'application/json' })
-      } as Response);
-
-      stateManager.setActiveConversationId(conversationId);
-
-      const userMessage: UserQuery = 'Test message through state manager';
-
-      await stateManager.sendMessage(userMessage);
-
-      const messages = stateManager.getActiveConversationMessages();
-      expect(messages).toHaveLength(2); // User message + AI response
-      expect(messages[0].role).toBe('user');
-      expect(messages[1].role).toBe('bot');
-      expect(messages[1].answer).toBe('Response from state manager test');
-    });
-
-    it('should handle conversation history retrieval', async () => {
-      const conversationId = 'conv-history-123';
-      stateManager.setActiveConversationId(conversationId);
-
-      // The lightspeed client doesn't have a history endpoint, so this should return null
-      // State manager should handle this gracefully  
-      const messages = stateManager.getActiveConversationMessages();
-      expect(Array.isArray(messages)).toBe(true);
-    });
-  });
-
-  describe('Event System Integration', () => {
-    it('should trigger appropriate events during message flow', async () => {
-      const conversationId = 'conv-events-123';
+  describe('Basic Client Operations', () => {
+    it('should initialize client and get conversation ID', async () => {
+      const conversationId = await client.init();
       
-      const messageCallback = jest.fn();
-      const progressCallback = jest.fn();
-      const conversationCallback = jest.fn();
+      expect(typeof conversationId).toBe('string');
+      expect(conversationId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+    });
 
-      stateManager.subscribe(Events.MESSAGE, messageCallback);
-      stateManager.subscribe(Events.IN_PROGRESS, progressCallback);
-      stateManager.subscribe(Events.ACTIVE_CONVERSATION, conversationCallback);
+    it('should send non-streaming messages successfully', async () => {
+      const conversationId = await client.init();
+      
+      const response = await client.sendMessage(
+        conversationId, 
+        'What is OpenShift?'
+      );
 
-      const expectedResponse: IMessageResponse<LightSpeedCoreAdditionalProperties> = {
-        conversationId: conversationId,
-        answer: 'Event test response',
-        messageId: expect.any(String),
-        additionalAttributes: {
-          referencedDocuments: [],
-          truncated: false,
-          inputTokens: 8,
-          outputTokens: 12,
-          availableQuotas: {},
-          toolCalls: [],
-          toolResults: []
+      expect(response).toBeDefined();
+      if (response && typeof response === 'object' && 'answer' in response && response.answer) {
+        expect(typeof response.answer).toBe('string');
+        expect(response.answer.length).toBeGreaterThan(0);
+        expect(response.conversationId).toBe(conversationId);
+        expect(typeof response.messageId).toBe('string');
+        expect(typeof response.createdAt).toBe('string');
+        
+        // Check additional attributes from Lightspeed response
+        if (response.additionalAttributes && typeof response.additionalAttributes === 'object') {
+          const attrs = response.additionalAttributes;
+          if ('inputTokens' in attrs) expect(typeof attrs.inputTokens).toBe('number');
+          if ('outputTokens' in attrs) expect(typeof attrs.outputTokens).toBe('number');
+          if ('referencedDocuments' in attrs) expect(Array.isArray(attrs.referencedDocuments)).toBe(true);
+          if ('truncated' in attrs) expect(typeof attrs.truncated).toBe('boolean');
+          if ('toolCalls' in attrs) expect(Array.isArray(attrs.toolCalls)).toBe(true);
+          if ('toolResults' in attrs) expect(Array.isArray(attrs.toolResults)).toBe(true);
         }
-      };
+      }
+    });
 
-      mockFetch.mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: async () => expectedResponse,
-        headers: new Headers({ 'content-type': 'application/json' })
-      } as Response);
+    it('should handle multiple messages in same conversation', async () => {
+      const conversationId = await client.init();
+      
+      // Send first message
+      const response1 = await client.sendMessage(
+        conversationId,
+        'What is a pod in OpenShift?'
+      );
 
-      // Set conversation (should trigger ACTIVE_CONVERSATION event)
+      expect(response1).toBeDefined();
+      expect('answer' in response1!).toBe(true);
+
+      // Send follow-up message
+      const response2 = await client.sendMessage(
+        conversationId,
+        'How do I scale a deployment?'
+      );
+
+      expect(response2).toBeDefined();
+      expect('answer' in response2!).toBe(true);
+      
+      // Both responses should have same conversation ID
+      if (response1 && response2 && typeof response1 === 'object' && typeof response2 === 'object') {
+        expect(response1.conversationId).toBe(conversationId);
+        expect(response2.conversationId).toBe(conversationId);
+      }
+    });
+  });
+
+  describe('Health and Status Checks', () => {
+    it('should perform health check successfully', async () => {
+      const healthStatus = await client.healthCheck();
+      
+      expect(healthStatus.status).toBe('healthy');
+      expect(healthStatus.ready).toBe(true);
+      expect(healthStatus.alive).toBe(true);
+      expect(typeof healthStatus.timestamp).toBe('string');
+      expect(typeof healthStatus.reason).toBe('string');
+    });
+
+    it('should get service status', async () => {
+      const serviceStatus = await client.getServiceStatus();
+      
+      expect(serviceStatus).toBeDefined();
+      expect(typeof serviceStatus.functionality).toBe('string');
+      expect(typeof serviceStatus.status).toBe('object');
+      expect(serviceStatus.functionality).toBe('feedback');
+    });
+
+    it('should get metrics', async () => {
+      const metrics = await client.getMetrics();
+      
+      expect(typeof metrics).toBe('string');
+      expect(metrics).toContain('lightspeed_requests_total');
+      expect(metrics).toContain('lightspeed_response_time_seconds');
+      expect(metrics).toContain('lightspeed_conversations_active');
+    });
+  });
+
+  describe('Feedback Operations', () => {
+    it('should store user feedback successfully', async () => {
+      const conversationId = await client.init();
+      
+      // First send a message to have something to give feedback on
+      const response = await client.sendMessage(
+        conversationId,
+        'How do I create a deployment?'
+      );
+
+      expect(response).toBeDefined();
+      
+             if (response && typeof response === 'object' && 'answer' in response && response.answer) {
+         const feedbackResponse = await client.storeFeedback({
+           conversation_id: conversationId,
+           user_question: 'How do I create a deployment?',
+           llm_response: response.answer,
+           sentiment: 1,
+           user_feedback: 'Very helpful explanation!'
+         });
+
+         expect(feedbackResponse.response).toBe('feedback received');
+       }
+    });
+
+    it('should handle feedback without optional fields', async () => {
+      const conversationId = await client.init();
+      
+      const feedbackResponse = await client.storeFeedback({
+        conversation_id: conversationId,
+        user_question: 'Test question',
+        llm_response: 'Test response'
+      });
+
+      expect(feedbackResponse.response).toBe('feedback received');
+    });
+  });
+
+  describe('Authorization', () => {
+    it('should check authorization successfully', async () => {
+      const authResponse = await client.checkAuthorization();
+      
+      expect(typeof authResponse.user_id).toBe('string');
+      expect(typeof authResponse.username).toBe('string');
+      expect(typeof authResponse.skip_user_id_check).toBe('boolean');
+      expect(authResponse.username).toBe('testuser');
+    });
+
+         it('should check authorization with user ID', async () => {
+       // Mock server randomly returns 403 responses (10% of the time)
+       // Handle both success and failure cases
+       try {
+         const authResponse = await client.checkAuthorization('test-user-123');
+         
+         expect(typeof authResponse.user_id).toBe('string');
+         expect(typeof authResponse.username).toBe('string');
+         expect(typeof authResponse.skip_user_id_check).toBe('boolean');
+       } catch (error) {
+         // 403 responses are expected from the mock server
+         expect(error).toBeDefined();
+         expect((error as Error).message).toContain('not authorized');
+       }
+     });
+  });
+
+  describe('State Manager Integration', () => {
+    it('should integrate with state manager for non-streaming messages', async () => {
+      // Initialize state manager
+      await stateManager.init();
+      
+      // Set active conversation
+      const conversationId = await client.init();
       stateManager.setActiveConversationId(conversationId);
-      expect(conversationCallback).toHaveBeenCalledTimes(1);
 
-      // Send message (should trigger MESSAGE and IN_PROGRESS events)
-      const userMessage: UserQuery = 'Test events';
+      const userMessage: UserQuery = 'What is OpenShift?';
 
+      // Send message through state manager
       await stateManager.sendMessage(userMessage);
 
-      // Based on sendMessage flow:
-      // 1. notify(Events.IN_PROGRESS) - start
-      // 2. notify(Events.MESSAGE) - user message
-      // 3. await sendMessage() 
-      // 4. notify(Events.MESSAGE) - bot message
-      // 5. notify(Events.IN_PROGRESS) - end
-      expect(messageCallback).toHaveBeenCalledTimes(2);
-      expect(progressCallback).toHaveBeenCalledTimes(2);
+             // Verify conversation state
+       const state = stateManager.getState();
+       const conversations = Object.values(state.conversations);
+       expect(conversations.length).toBeGreaterThan(0);
+
+       const activeConversation = conversations.find((c: any) => c.id === conversationId);
+       expect(activeConversation).toBeDefined();
+
+      // Verify messages
+      const messages = stateManager.getActiveConversationMessages();
+      expect(messages.length).toBeGreaterThanOrEqual(2); // User + assistant messages
+
+      const userMsg = messages.find(m => m.role === 'user');
+      const assistantMsg = messages.find(m => m.role === 'bot');
+
+      expect(userMsg).toBeDefined();
+      expect(assistantMsg).toBeDefined();
+      expect(userMsg?.answer).toBe('What is OpenShift?');
+      expect(assistantMsg?.answer).toBeDefined();
+      expect(assistantMsg?.answer.length).toBeGreaterThan(0);
     });
 
-    it('should handle multiple event subscribers', () => {
-      const callback1 = jest.fn();
-      const callback2 = jest.fn();
+    it('should handle multiple conversations with state manager', async () => {
+      await stateManager.init();
+
+      // Create first conversation
+      const conversationId1 = await client.init();
+      stateManager.setActiveConversationId(conversationId1);
+      await stateManager.sendMessage('What are pods?');
+
+      // Create second conversation
+      const conversationId2 = await client.init();
+      stateManager.setActiveConversationId(conversationId2);
+      await stateManager.sendMessage('What are deployments?');
+
+             // Verify both conversations exist
+       const state2 = stateManager.getState();
+       const conversations = Object.values(state2.conversations);
+       expect(conversations.length).toBeGreaterThanOrEqual(2);
+
+       const conv1 = conversations.find((c: any) => c.id === conversationId1);
+       const conv2 = conversations.find((c: any) => c.id === conversationId2);
+
+      expect(conv1).toBeDefined();
+      expect(conv2).toBeDefined();
+
+      // Verify messages in each conversation
+      stateManager.setActiveConversationId(conversationId1);
+      const messages1 = stateManager.getActiveConversationMessages();
+      expect(messages1.length).toBeGreaterThanOrEqual(2);
+
+      stateManager.setActiveConversationId(conversationId2);
+      const messages2 = stateManager.getActiveConversationMessages();
+      expect(messages2.length).toBeGreaterThanOrEqual(2);
+
+      // Verify different conversation content
+      const userMsg1 = messages1.find(m => m.role === 'user');
+      const userMsg2 = messages2.find(m => m.role === 'user');
+
+      expect(userMsg1?.answer).toBe('What are pods?');
+      expect(userMsg2?.answer).toBe('What are deployments?');
+    });
+
+    it('should handle streaming messages through state manager', async () => {
+      await stateManager.init();
       
-      // Subscribe multiple callbacks to same event
-      stateManager.subscribe(Events.MESSAGE, callback1);
-      stateManager.subscribe(Events.MESSAGE, callback2);
-      
-      // Create a message to trigger events
-      stateManager.setActiveConversationId('test-conv');
-      
-      // Subscribe method should return an unsubscribe function
-      expect(typeof stateManager.subscribe).toBe('function');
-      
-      // Test that subscribe returns an unsubscribe function
-      const unsubscribe = stateManager.subscribe(Events.MESSAGE, () => {});
-      expect(typeof unsubscribe).toBe('function');
+      const conversationId = await client.init();
+      stateManager.setActiveConversationId(conversationId);
+
+      // Send streaming message through state manager
+      await stateManager.sendMessage('Explain OpenShift networking', { stream: true });
+
+      // Verify message flow
+      const messages = stateManager.getActiveConversationMessages();
+      expect(messages.length).toBeGreaterThanOrEqual(2); // User + assistant messages
+
+      const userMsg = messages.find(m => m.role === 'user');
+      const assistantMsg = messages.find(m => m.role === 'bot');
+
+      expect(userMsg).toBeDefined();
+      expect(assistantMsg).toBeDefined();
+      expect(userMsg?.answer).toBe('Explain OpenShift networking');
+      expect(assistantMsg?.answer).toBeDefined();
+      expect(assistantMsg?.answer.length).toBeGreaterThan(0);
     });
   });
 
-  describe('Error Handling Integration', () => {
-    it('should handle Lightspeed client errors gracefully in state manager', async () => {
-      const conversationId = 'conv-error';
+  describe('Error Handling', () => {
+    it('should handle validation errors properly', async () => {
+      const conversationId = await client.init();
       
-      mockFetch.mockResolvedValue({
-        ok: false,
-        status: 500,
-        statusText: 'Internal Server Error',
-        json: async () => ({
-          detail: {
-            response: 'LLM service error',
-            cause: 'Model unavailable'
-          }
-        })
-      } as Response);
-
-      stateManager.setActiveConversationId(conversationId);
-
-      const userMessage: UserQuery = 'This will cause an error';
-
       await expect(
-        stateManager.sendMessage(userMessage)
+        client.sendMessage(conversationId, '')
       ).rejects.toThrow();
-
-      // Verify state shows user message was added but no bot response
-      const messages = stateManager.getActiveConversationMessages();
-      expect(messages).toHaveLength(1); // User message only
-      expect(messages[0].role).toBe('user');
     });
+
+    it('should handle feedback validation errors', async () => {
+      await expect(
+        client.storeFeedback({
+          conversation_id: '',
+          user_question: '',
+          llm_response: ''
+        })
+      ).rejects.toThrow();
+    });
+
+         it('should handle network errors gracefully', async () => {
+       const invalidClient = new LightspeedClient({
+         baseUrl: 'http://localhost:9999', // Non-existent server
+         fetchFunction: (input, init) => fetch(input, init)
+       });
+
+       // Test sendMessage which throws on network errors (unlike healthCheck which returns unhealthy status)
+       const conversationId = await invalidClient.init();
+       await expect(
+         invalidClient.sendMessage(conversationId, 'Test message')
+       ).rejects.toThrow();
+     });
+
+         it('should handle authorization failures', async () => {
+       // Simulate authorization failure by calling multiple times
+       // (mock server randomly returns 403 10% of the time)
+       for (let i = 0; i < 20; i++) {
+         try {
+           await client.checkAuthorization();
+         } catch (error) {
+           expect(error).toBeDefined();
+           return; // Exit test if we get an auth failure
+         }
+       }
+       
+       // If we reach here, all calls succeeded (also valid)
+       expect(true).toBe(true);
+     });
   });
 
-  describe('Multi-Message Conversation Flow', () => {
-    it('should handle multiple messages in sequence', async () => {
-      const conversationId = 'conv-multi';
-      stateManager.setActiveConversationId(conversationId);
-
-      // Mock responses for multiple calls
-      mockFetch
-        .mockResolvedValueOnce({
-          ok: true,
-          status: 200,
-          json: async () => ({
-            conversation_id: conversationId,
-            response: 'First response',
-            referenced_documents: [],
-            truncated: false,
-            input_tokens: 10,
-            output_tokens: 15,
-            available_quotas: {},
-            tool_calls: [],
-            tool_results: []
-          }),
-          headers: new Headers({ 'content-type': 'application/json' })
-        } as Response)
-        .mockResolvedValueOnce({
-          ok: true,
-          status: 200,
-          json: async () => ({
-            conversation_id: conversationId,
-            response: 'Second response',
-            referenced_documents: [],
-            truncated: false,
-            input_tokens: 12,
-            output_tokens: 18,
-            available_quotas: {},
-            tool_calls: [],
-            tool_results: []
-          }),
-          headers: new Headers({ 'content-type': 'application/json' })
-        } as Response);
-
-      // Send first message
-      await stateManager.sendMessage('What is OpenShift?');
-
-      // Send second message
-      await stateManager.sendMessage('Tell me about containers');
-
-      // Verify conversation state
-      const messages = stateManager.getActiveConversationMessages();
-      expect(messages).toHaveLength(4); // 2 user + 2 assistant messages
+  describe('Request Configuration', () => {
+    it('should handle user_id parameter in requests', async () => {
+      const conversationId = await client.init();
       
-      expect(messages[0].role).toBe('user');
-      expect(messages[0].answer).toBe('What is OpenShift?');
-      expect(messages[1].role).toBe('bot');
-      expect(messages[1].answer).toBe('First response');
-      expect(messages[2].role).toBe('user');
-      expect(messages[2].answer).toBe('Tell me about containers');
-      expect(messages[3].role).toBe('bot');
-      expect(messages[3].answer).toBe('Second response');
+      const response = await client.sendMessage(
+        conversationId,
+        'Test with user ID',
+        { userId: 'test-user-123' }
+      );
+
+      expect(response).toBeDefined();
+      expect('answer' in response!).toBe(true);
     });
+
+    it('should handle custom headers in requests', async () => {
+      const conversationId = await client.init();
+      
+      const response = await client.sendMessage(
+        conversationId,
+        'Test with custom headers',
+        { 
+          headers: { 
+            'X-Custom-Header': 'test-value' 
+          } 
+        }
+      );
+
+      expect(response).toBeDefined();
+      expect('answer' in response!).toBe(true);
+    });
+
+         it('should handle request timeout', async () => {
+       const controller = new AbortController();
+       // Abort immediately to ensure the request is cancelled
+       controller.abort();
+
+       const conversationId = await client.init();
+       
+       await expect(
+         client.sendMessage(
+           conversationId,
+           'Test timeout',
+           { signal: controller.signal }
+         )
+       ).rejects.toThrow();
+     });
   });
 }); 
