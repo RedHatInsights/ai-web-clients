@@ -16,6 +16,7 @@ declare global {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     interface Chainable<Subject> {
       login(email: string, password: string): Chainable<void>;
+      withinPfChatbot(cb: () => void): Chainable<JQuery<HTMLElement>>;
     }
   }
 }
@@ -24,6 +25,12 @@ declare global {
 Cypress.Commands.add('login', (email: string, password: string): void => {
   console.log('Custom command example: Login', email, password);
 });
+
+Cypress.Commands.add('withinPfChatbot', (cb) => {
+  cy.get('#react-patternfly-chatbot').within(() => {
+    cb();
+  });
+})
 
 //
 // -- This is a child command --

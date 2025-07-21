@@ -109,8 +109,8 @@ export function App() {
               className="custom-chatbot-replica"
             />
           </div>
-          
-          <div style={{ flex: '1', minWidth: '400px' }}>
+
+          <div id="react-patternfly-chatbot" style={{ flex: '1', minWidth: '400px' }}>
             <h2 style={{ marginBottom: '1rem', fontSize: '1.25rem', fontWeight: 'bold' }}>
               React PatternFly Chatbot
             </h2>
