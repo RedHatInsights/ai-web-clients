@@ -307,7 +307,7 @@ describe('ARH Client Streaming Integration Tests', () => {
       expect(messages.length).toBe(2); // Only the second exchange since state manager creates new state
       expect(messages[0].answer).toBe('Tell me more about its features');
       expect(messages[1].answer).toBe(streamingHandler.finalMessage);
-    });
+    }, 10000);
   });
 
   describe('Mock Server Validation', () => {

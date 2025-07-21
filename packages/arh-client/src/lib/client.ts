@@ -23,11 +23,18 @@ import {
   UserResponse,
   UserRequest,
   UserHistoryResponse,
-  QuotaStatusResponse
+  QuotaStatusResponse,
+  AnswerSource,
+  ToolCallMetadata,
+  OutputGuardResult
 } from './types';
 import { DefaultStreamingHandler, processStreamWithHandler } from './default-streaming-handler';
 
-export type IFDAdditionalAttributes = Record<string, unknown>;
+export type IFDAdditionalAttributes = {
+  sources?: AnswerSource[];
+  tool_call_metadata?: ToolCallMetadata | null | undefined;
+  output_guard_result?: OutputGuardResult | null | undefined;
+}
 
 /**
  * Intelligent Front Door (IFD) API Client
@@ -220,18 +227,20 @@ export class IFDClient implements IAIClient<IFDAdditionalAttributes> {
         }
       );
 
-      // Convert MessageChunkResponse to IMessageResponse
-      return {
-        messageId: response.message_id,
+      const messageResponse: IMessageResponse<IFDAdditionalAttributes> = {
         answer: response.answer,
+        messageId: response.message_id,
         conversationId: response.conversation_id,
         createdAt: response.received_at,
-        metadata: {
+        additionalAttributes: {
           sources: response.sources,
           tool_call_metadata: response.tool_call_metadata,
           output_guard_result: response.output_guard_result
         }
-      };
+
+      }
+
+      return messageResponse;
     }
   }
 

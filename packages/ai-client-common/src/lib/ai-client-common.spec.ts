@@ -176,14 +176,17 @@ describe('ai-client-common', () => {
         answer: 'Hello world',
         conversationId: 'conv-456',
         createdAt: '2024-01-01T10:00:00Z',
-        metadata: { model: 'gpt-4', tokens: 50 }
+        additionalAttributes: {
+          model: 'gpt-4',
+          tokens: 50
+        }
       };
       
       expect(typeof messageResponse.messageId).toBe('string');
       expect(typeof messageResponse.answer).toBe('string');
       expect(typeof messageResponse.conversationId).toBe('string');
       expect(typeof messageResponse.createdAt).toBe('string');
-      expect(typeof messageResponse.metadata).toBe('object');
+      expect(typeof messageResponse.additionalAttributes).toBe('object');
     });
 
     it('should validate ISendMessageOptions structure for non-streaming', () => {

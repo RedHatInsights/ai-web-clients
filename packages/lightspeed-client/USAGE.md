@@ -40,7 +40,7 @@ const response = await client.sendMessage(
 
 console.log('AI Response:', response.answer);
 console.log('Conversation ID:', response.conversationId);
-console.log('Referenced Documents:', response.metadata?.referencedDocuments);
+console.log('Referenced Documents:', response.additionalAttributes?.referencedDocuments);
 ```
 
 ## Configuration
