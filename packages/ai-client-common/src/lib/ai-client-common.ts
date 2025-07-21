@@ -48,7 +48,7 @@ export interface IRequestOptions {
  * Common interface that all AI clients must implement
  * Provides a standardized way to interact with different AI services
  */
-export interface IAIClient {
+export interface IAIClient<AP extends Record<string, unknown> = Record<string, unknown>> {
   /**
    * Initialize the client and return the initial conversation ID
    * This method is called once when the client is first used by a state manager
@@ -67,7 +67,7 @@ export interface IAIClient {
     conversationId: string, 
     message: string, 
     options?: ISendMessageOptions<TChunk>
-  ): Promise<TChunk | IMessageResponse | void>;
+  ): Promise<TChunk | IMessageResponse<AP> | void>;
 
   /**
    * Get the default streaming handler for this client (if any)
@@ -84,9 +84,9 @@ export interface IAIClient {
   getConversationHistory(
     conversationId: string, 
     options?: IRequestOptions
-  ): Promise<IConversationHistoryResponse>;
+  ): Promise<IConversationHistoryResponse<AP>>;
 
-  /**
+  /** 
    * Perform a health check on the AI service
    * @param options - Optional request configuration
    * @returns Promise that resolves to health status information
@@ -189,7 +189,7 @@ export interface IStreamingRequestOptions<TChunk = unknown> extends IRequestOpti
 /**
  * Standard message response for non-streaming requests
  */
-export interface IMessageResponse {
+export interface IMessageResponse<AP extends Record<string, unknown> = Record<string, unknown>> {
   /**
    * Unique identifier for the message
    */
@@ -214,6 +214,10 @@ export interface IMessageResponse {
    * Additional metadata about the response
    */
   metadata?: Record<string, unknown>;
+  /**
+   * Additional attributes specific to the AI client
+   */
+  additionalAttributes?: AP;
 }
 
 /**
@@ -244,7 +248,7 @@ export interface IAnswerSource {
 /**
  * Single message in conversation history
  */
-export interface IConversationHistoryMessage {
+export interface IConversationHistoryMessage<T extends Record<string, unknown> = Record<string, unknown>> {
   /**
    * Unique identifier for the message
    */
@@ -274,12 +278,16 @@ export interface IConversationHistoryMessage {
    * Sources used to generate the answer
    */
   sources: IAnswerSource[];
+  /**
+   * Additional data associated with the message
+   */
+  additionalData?: T;
 }
 
 /**
  * Response type for conversation history requests
  */
-export type IConversationHistoryResponse = IConversationHistoryMessage[] | null;
+export type IConversationHistoryResponse<T extends Record<string, unknown> = Record<string, unknown>> = IConversationHistoryMessage<T>[] | null;
 
 export interface IErrorMessageResponse {
   error: any;

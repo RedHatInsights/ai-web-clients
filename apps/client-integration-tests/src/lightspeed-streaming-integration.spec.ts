@@ -17,11 +17,11 @@ import type { IStreamingHandler } from '@redhat-cloud-services/ai-client-common'
 
 import { 
   createClientStateManager,
-  type Message
+  UserQuery,
 } from '@redhat-cloud-services/ai-client-state';
 
 // Live server configuration
-const LIGHTSPEED_BASE_URL = 'http://localhost:8080';
+const LIGHTSPEED_BASE_URL = 'http://localhost:8081';
 
 // Custom fetch function that uses the live server
 const createLiveServerFetch = () => {
@@ -105,8 +105,7 @@ describe('Lightspeed Client Live Streaming Integration Tests', () => {
   beforeAll(async () => {
     const serverAvailable = await isLightspeedServerAvailable();
     if (!serverAvailable) {
-      // Skip if Lightspeed server not available
-      pending('Lightspeed server not available');
+      throw new Error('Lightspeed server is not available at ' + LIGHTSPEED_BASE_URL);
     }
   });
 
@@ -152,34 +151,29 @@ describe('Lightspeed Client Live Streaming Integration Tests', () => {
 
   describe('Non-Streaming Message Integration', () => {
     it('should send non-streaming messages to live server', async () => {
-      try {
-        const conversationId = await client.init();
-        
-        const response = await client.sendMessage(
-          conversationId, 
-          'What is OpenShift?'
-        );
+      const conversationId = await client.init();
+      
+      const response = await client.sendMessage(
+        conversationId, 
+        'What is OpenShift?'
+      );
+      console.log('Response:', response);
 
-        expect(response).toBeDefined();
-        if (response && typeof response === 'object' && 'answer' in response) {
-          expect(typeof response.answer).toBe('string');
-          expect((response.answer as string).length).toBeGreaterThan(0);
-          expect(response.conversationId).toBe(conversationId);
-          expect(typeof response.messageId).toBe('string');
-          expect(typeof response.createdAt).toBe('string');
-          
-          // Check metadata from Lightspeed response
-          if (response.metadata && typeof response.metadata === 'object') {
-            const metadata = response.metadata as any;
-            expect(typeof metadata['inputTokens']).toBe('number');
-            expect(typeof metadata['outputTokens']).toBe('number');
-            expect(Array.isArray(metadata['referencedDocuments'])).toBe(true);
-          }
+      expect(response).toBeDefined();
+      if (response && typeof response === 'object' && 'answer' in response) {
+        expect(typeof response.answer).toBe('string');
+        expect((response.answer as string).length).toBeGreaterThan(0);
+        expect(response.conversationId).toBe(conversationId);
+        expect(typeof response.messageId).toBe('string');
+        expect(typeof response.createdAt).toBe('string');
+        
+        // Check metadata from Lightspeed response
+        if (response.metadata && typeof response.metadata === 'object') {
+          const metadata = response.metadata as any;
+          expect(typeof metadata['inputTokens']).toBe('number');
+          expect(typeof metadata['outputTokens']).toBe('number');
+          expect(Array.isArray(metadata['referencedDocuments'])).toBe(true);
         }
-      } catch (error) {
-        // If the server requires authentication or has other requirements, skip this test
-        // Live server test failed (possibly due to auth requirements)
-        pending('Live server may require authentication or specific configuration');
       }
     }, 10000); // Increase timeout for live server
 
@@ -201,34 +195,28 @@ describe('Lightspeed Client Live Streaming Integration Tests', () => {
 
   describe('Streaming Message Integration', () => {
     it('should handle streaming messages from live server', async () => {
-      try {
-        const conversationId = await client.init();
-        
-        await client.sendMessage(
-          conversationId, 
-          'Explain how to deploy a pod in OpenShift, step by step',
-          { stream: true }
-        );
+      const conversationId = await client.init();
+      
+      await client.sendMessage(
+        conversationId, 
+        'Explain how to deploy a pod in OpenShift, step by step',
+        { stream: true }
+      );
 
-        // Wait a bit for streaming to complete
-        await new Promise(resolve => setTimeout(resolve, 2000));
+      // Wait a bit for streaming to complete
+      await new Promise(resolve => setTimeout(resolve, 2000));
 
-        // Verify streaming handler was called
-        expect(streamingHandler.isStarted).toBe(true);
-        expect(streamingHandler.chunks.length).toBeGreaterThan(0);
-        expect(streamingHandler.finalMessage.length).toBeGreaterThan(0);
-        
-        // Verify chunks have expected structure
-        for (const chunk of streamingHandler.chunks) {
-          expect(typeof chunk.answer).toBe('string');
-          if (chunk.conversation_id) {
-            expect(chunk.conversation_id).toBe(conversationId);
-          }
+      // Verify streaming handler was called
+      expect(streamingHandler.isStarted).toBe(true);
+      expect(streamingHandler.chunks.length).toBeGreaterThan(0);
+      expect(streamingHandler.finalMessage.length).toBeGreaterThan(0);
+      
+      // Verify chunks have expected structure
+      for (const chunk of streamingHandler.chunks) {
+        expect(typeof chunk.answer).toBe('string');
+        if (chunk.conversation_id) {
+          expect(chunk.conversation_id).toBe(conversationId);
         }
-      } catch (error) {
-        // If the server requires authentication or has other requirements, skip this test
-        // Live streaming test failed (possibly due to auth requirements)
-        pending('Live server may require authentication or specific configuration');
       }
     }, 25000); // Increase timeout
 
@@ -280,11 +268,7 @@ describe('Lightspeed Client Live Streaming Integration Tests', () => {
       const conversationId = await client.init();
       stateManager.setActiveConversationId(conversationId);
 
-      const userMessage: Message = {
-        id: 'stream-user-msg',
-        answer: 'How do I create a deployment in OpenShift?',
-        role: 'user'
-      };
+      const userMessage: UserQuery = 'How do I create a deployment in OpenShift?';
 
       // Send streaming message through state manager
       await stateManager.sendMessage(userMessage, { stream: true });
@@ -314,11 +298,7 @@ describe('Lightspeed Client Live Streaming Integration Tests', () => {
       stateManager.setActiveConversationId(conversationId);
 
       // Send first streaming message
-      await stateManager.sendMessage({
-        id: 'msg-1',
-        answer: 'What is a pod in OpenShift?',
-        role: 'user'
-      }, { stream: true });
+      await stateManager.sendMessage('What is a pod in OpenShift?', { stream: true });
 
       // Wait for first response
       await new Promise(resolve => setTimeout(resolve, 2000));
@@ -327,11 +307,7 @@ describe('Lightspeed Client Live Streaming Integration Tests', () => {
       streamingHandler.reset();
 
       // Send follow-up streaming message
-      await stateManager.sendMessage({
-        id: 'msg-2',
-        answer: 'How do I scale a deployment?',
-        role: 'user'
-      }, { stream: true });
+      await stateManager.sendMessage('How do I scale a deployment?', { stream: true });
 
       // Wait for second response
       await new Promise(resolve => setTimeout(resolve, 2000));

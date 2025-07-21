@@ -15,6 +15,12 @@ import {
   IConversationHistoryResponse,
 } from './ai-client-common';
 
+
+type AdditionalAttributesTest = {
+  foo?: string;
+  bar?: number;
+}
+
 describe('ai-client-common', () => {
   describe('AIClientError', () => {
     it('should create error with all properties', () => {
@@ -205,7 +211,7 @@ describe('ai-client-common', () => {
 
   describe('Interface Compliance', () => {
     it('should allow proper IAIClient implementation', () => {
-      class TestClient implements IAIClient {
+      class TestClient implements IAIClient<Record<string, unknown>> {
         async init(): Promise<string> {
           return 'test-conversation-id';
         }
@@ -230,10 +236,10 @@ describe('ai-client-common', () => {
           return undefined; // No default handler for this test client
         }
 
-        async getConversationHistory(
+        async getConversationHistory<T extends AdditionalAttributesTest>(
           conversationId: string, 
           options?: IRequestOptions
-        ): Promise<IConversationHistoryResponse> {
+        ): Promise<IConversationHistoryResponse<T>> {
           void conversationId; void options; // Mark parameters as used for linting
           return [];
         }
@@ -278,10 +284,10 @@ describe('ai-client-common', () => {
           return undefined;
         }
 
-        async getConversationHistory(
+        async getConversationHistory<T extends AdditionalAttributesTest>(
           conversationId: string, 
           options?: IRequestOptions
-        ): Promise<IConversationHistoryResponse> {
+        ): Promise<IConversationHistoryResponse<T>> {
           void conversationId; void options; // Mark parameters as used for linting
           return [];
         }
@@ -342,10 +348,10 @@ describe('ai-client-common', () => {
           return this.defaultHandler as IStreamingHandler<TChunk>;
         }
 
-        async getConversationHistory(
+        async getConversationHistory<T extends AdditionalAttributesTest>(
           conversationId: string, 
           options?: IRequestOptions
-        ): Promise<IConversationHistoryResponse> {
+        ): Promise<IConversationHistoryResponse<T>> {
           void conversationId; void options; // Mark parameters as used for linting
           return [];
         }

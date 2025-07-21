@@ -15,11 +15,7 @@ const IntegratedChatbot = () => {
   const inProgress = useInProgress();
   const scrollToBottomRef = useRef<HTMLDivElement>(null);
   const handleSend = (message: string | number) => {
-    sendMessage({
-      id: '1',
-      role: 'user',
-      answer: `${message}`,
-    }, {
+    sendMessage(`${message}`, {
       stream: true,
     });
   }

@@ -115,7 +115,7 @@ describe('LightspeedClient', () => {
       if (result && typeof result === 'object' && 'answer' in result) {
         expect(result.answer).toBe('Hello! How can I help you with OpenShift?');
         expect(result.conversationId).toBe('conv-123');
-        expect(result.metadata).toBeDefined();
+        expect(result.additionalAttributes).toBeDefined();
       }
     });
 

@@ -9,7 +9,7 @@ import type { IStreamingHandler } from '@redhat-cloud-services/ai-client-common'
 import { 
   createClientStateManager,
   Events,
-  type Message
+  UserQuery,
 } from '@redhat-cloud-services/ai-client-state';
 
 // Integration tests specifically for the ARH (Intelligent Front Door) client
@@ -213,11 +213,7 @@ describe('ARH Client Integration Tests', () => {
 
       it('should handle non-streaming messages with state updates', async () => {
         const conversationId = 'conv-integration';
-        const userMessage: Message = {
-          id: 'user-msg-1',
-          answer: 'Hello from integration test',
-          role: 'user'
-        };
+        const userMessage: UserQuery = 'Hello from integration test';
 
         const expectedResponse = {
           message_id: 'bot-msg-1',
@@ -251,25 +247,21 @@ describe('ARH Client Integration Tests', () => {
         
         // User message
         expect(messages[0]).toEqual({
-          id: 'user-msg-1',
+          id: expect.any(String),
           answer: 'Hello from integration test',
           role: 'user'
         });
         
         // Bot message
         expect(messages[1]).toEqual({
-          id: 'bot-msg-1',
+          id: expect.any(String),
           answer: 'Hello from ARH API!',
           role: 'bot'
         });
       });
 
       it('should throw error when no active conversation is set', async () => {
-        const userMessage: Message = {
-          id: 'user-msg-error',
-          answer: 'This should fail',
-          role: 'user'
-        };
+        const userMessage: UserQuery = 'This should fail';
 
         await expect(
           stateManager.sendMessage(userMessage)
@@ -285,8 +277,8 @@ describe('ARH Client Integration Tests', () => {
       });
 
       it('should throw error when trying to send concurrent messages', async () => {
-        const message1: Message = { id: 'user-1', answer: 'First message', role: 'user' };
-        const message2: Message = { id: 'user-2', answer: 'Second message', role: 'user' };
+        const message1: UserQuery = 'First message';
+        const message2: UserQuery = 'Second message';
 
         // Make the first call hang indefinitely
         mockFetch.mockImplementation(() => new Promise(() => {}));
@@ -304,8 +296,8 @@ describe('ARH Client Integration Tests', () => {
       });
 
       it('should allow sending message after previous one completes', async () => {
-        const message1: Message = { id: 'user-1', answer: 'First message', role: 'user' };
-        const message2: Message = { id: 'user-2', answer: 'Second message', role: 'user' };
+        const message1: UserQuery = 'First message';
+        const message2: UserQuery = 'Second message';
 
         const response1 = {
           message_id: 'bot-1',
@@ -353,8 +345,8 @@ describe('ARH Client Integration Tests', () => {
       });
 
       it('should reset progress flag on error and allow next message', async () => {
-        const message1: Message = { id: 'user-error', answer: 'Error message', role: 'user' };
-        const message2: Message = { id: 'user-success', answer: 'Success message', role: 'user' };
+        const message1: UserQuery = 'Error message';
+        const message2: UserQuery = 'Success message';
 
         const successResponse = {
           message_id: 'bot-success',
@@ -415,11 +407,7 @@ describe('ARH Client Integration Tests', () => {
         expect(conversationCallback).toHaveBeenCalledTimes(1);
 
         // Send message (should trigger MESSAGE and IN_PROGRESS events)
-        const userMessage: Message = {
-          id: 'event-user-msg',
-          answer: 'Test events',
-          role: 'user'
-        };
+        const userMessage: UserQuery = 'Test events';
 
         await stateManager.sendMessage(userMessage);
 
@@ -466,11 +454,7 @@ describe('ARH Client Integration Tests', () => {
 
         stateManager.setActiveConversationId(conversationId);
 
-        const userMessage: Message = {
-          id: 'error-user-msg',
-          answer: 'This will cause an error',
-          role: 'user'
-        };
+        const userMessage: UserQuery = 'This will cause an error';
 
         await expect(
           stateManager.sendMessage(userMessage)
@@ -514,40 +498,32 @@ describe('ARH Client Integration Tests', () => {
           } as Response);
 
         // Send first message
-        await stateManager.sendMessage({
-          id: 'user-1',
-          answer: 'First question',
-          role: 'user'
-        });
+        await stateManager.sendMessage('First question');
 
         // Send second message
-        await stateManager.sendMessage({
-          id: 'user-2',
-          answer: 'Second question',
-          role: 'user'
-        });
+        await stateManager.sendMessage('Second question');
 
         // Verify conversation history
         const messages = stateManager.getActiveConversationMessages();
         expect(messages).toHaveLength(4); // 2 user + 2 bot messages
 
         expect(messages[0]).toEqual({
-          id: 'user-1',
+          id: expect.any(String),
           answer: 'First question',
           role: 'user'
         });
         expect(messages[1]).toEqual({
-          id: 'msg-1',
+          id: expect.any(String),
           answer: 'First response',
           role: 'bot'
         });
         expect(messages[2]).toEqual({
-          id: 'user-2',
+          id: expect.any(String),
           answer: 'Second question',
           role: 'user'
         });
         expect(messages[3]).toEqual({
-          id: 'msg-2',
+          id: expect.any(String),
           answer: 'Second response',
           role: 'bot'
         });

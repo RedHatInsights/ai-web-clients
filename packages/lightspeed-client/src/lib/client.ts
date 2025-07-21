@@ -22,7 +22,8 @@ import {
   LivenessResponse,
   HealthCheck,
   LightspeedClientError,
-  LightspeedValidationError
+  LightspeedValidationError,
+  ReferencedDocument
 } from './types';
 import { DefaultStreamingHandler, processStreamWithHandler } from './default-streaming-handler';
 
@@ -34,7 +35,17 @@ import { DefaultStreamingHandler, processStreamWithHandler } from './default-str
  * 
  * Implements the exact OpenAPI specification for Lightspeed v1.0.1
  */
-export class LightspeedClient implements IAIClient {
+
+export type LightSpeedCoreAdditionalProperties = {
+    referencedDocuments?: ReferencedDocument[];
+    truncated?: boolean;
+    inputTokens?: number;
+    outputTokens?: number;
+    availableQuotas?: Record<string, number>;
+    toolCalls?: unknown[];
+    toolResults?: unknown[];
+}
+export class LightspeedClient implements IAIClient<LightSpeedCoreAdditionalProperties> {
   private readonly baseUrl: string;
   private readonly fetchFunction: IFetchFunction;
   private readonly defaultStreamingHandler?: IStreamingHandler<MessageChunkResponse>;
@@ -69,7 +80,7 @@ export class LightspeedClient implements IAIClient {
     conversationId: string, 
     message: string, 
     options?: ISendMessageOptions<TChunk> & { userId?: string }
-  ): Promise<TChunk | IMessageResponse | void> {
+  ): Promise<TChunk | IMessageResponse<LightSpeedCoreAdditionalProperties> | void> {
     const request: LLMRequest = {
       query: message,
       conversation_id: conversationId,
@@ -121,12 +132,13 @@ export class LightspeedClient implements IAIClient {
       });
 
       // Convert LLMResponse to IMessageResponse format for common interface compatibility
-      const messageResponse: IMessageResponse = {
+      const messageResponse: IMessageResponse<LightSpeedCoreAdditionalProperties> = {
         messageId: this.generateMessageId(),
+        // LC returns response.response as 'answer' in the latest spec
         answer: response.response,
-        conversationId: response.conversation_id,
         createdAt: new Date().toISOString(),
-        metadata: {
+        conversationId: response.conversation_id,
+        additionalAttributes: {
           referencedDocuments: response.referenced_documents,
           truncated: response.truncated,
           inputTokens: response.input_tokens,
@@ -134,7 +146,8 @@ export class LightspeedClient implements IAIClient {
           availableQuotas: response.available_quotas,
           toolCalls: response.tool_calls,
           toolResults: response.tool_results
-        }
+
+        },
       };
 
       return messageResponse;
@@ -159,7 +172,7 @@ export class LightspeedClient implements IAIClient {
   async getConversationHistory(
     conversationId: string, 
     options?: IRequestOptions
-  ): Promise<IConversationHistoryResponse> {
+  ): Promise<IConversationHistoryResponse<LightSpeedCoreAdditionalProperties>> {
     // Lightspeed API v1.0.1 doesn't have a dedicated history endpoint
     // This is documented in the OpenAPI spec - only query endpoints exist
     console.warn(`getConversationHistory is not implemented for conversation ${conversationId} - Lightspeed API does not have a history endpoint`, options);

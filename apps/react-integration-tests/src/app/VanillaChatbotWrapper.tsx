@@ -16,11 +16,7 @@ const VanillaChatbotWrapper = () => {
     
     // Handle sending messages directly through state manager
     const handleSendMessage = (message: string) => {
-      stateManager.sendMessage({
-        id: Date.now().toString(), // Simple ID generation
-        role: 'user',
-        answer: message,
-      }, {
+      stateManager.sendMessage(message, {
         stream: true,
       });
     };
