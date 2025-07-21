@@ -27,13 +27,15 @@ import {
 } from './types';
 import { DefaultStreamingHandler, processStreamWithHandler } from './default-streaming-handler';
 
+export type IFDAdditionalAttributes = Record<string, unknown>;
+
 /**
  * Intelligent Front Door (IFD) API Client
  * 
  * A flexible TypeScript client for the IFD API with dependency injection support
  * for custom fetch implementations and streaming handlers.
  */
-export class IFDClient implements IAIClient {
+export class IFDClient implements IAIClient<IFDAdditionalAttributes> {
   private readonly baseUrl: string;
   private readonly fetchFunction: IFetchFunction;
   private readonly defaultStreamingHandler?: IStreamingHandler<MessageChunkResponse>;
@@ -239,8 +241,8 @@ export class IFDClient implements IAIClient {
   async getConversationHistory(
     conversationId: string,
     options?: IRequestOptions
-  ): Promise<IConversationHistoryResponse> {
-    return this.makeRequest<IConversationHistoryResponse>(
+  ): Promise<IConversationHistoryResponse<IFDAdditionalAttributes>> {
+    return this.makeRequest<IConversationHistoryResponse<IFDAdditionalAttributes>>(
       `/api/ask/v1/conversation/${conversationId}/history`,
       {
         method: 'GET',

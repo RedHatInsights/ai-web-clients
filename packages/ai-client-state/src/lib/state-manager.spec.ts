@@ -1,4 +1,4 @@
-import { createClientStateManager, Events, type Message } from './state-manager';
+import { createClientStateManager, Events, UserQuery } from './state-manager';
 import type { IAIClient } from '@redhat-cloud-services/ai-client-common';
 
 describe('ClientStateManager', () => {
@@ -62,11 +62,7 @@ describe('ClientStateManager', () => {
     });
 
     it('should send message successfully', async () => {
-      const userMessage: Message = {
-        id: 'user-msg-1',
-        answer: 'Hello',
-        role: 'user'
-      };
+      const userMessage: UserQuery = 'Hello';
 
       const response = await stateManager.sendMessage(userMessage);
 
@@ -77,19 +73,19 @@ describe('ClientStateManager', () => {
       // Check state was updated
       const messages = stateManager.getActiveConversationMessages();
       expect(messages).toHaveLength(2);
-      expect(messages[0]).toEqual(userMessage);
+      expect(messages[0]).toEqual(expect.objectContaining({
+        id: expect.any(String),
+        answer: 'Hello',
+        role: 'user'
+      }));
       expect(messages[1].role).toBe('bot');
       expect(messages[1].answer).toBe('Bot response');
     });
 
     it('should throw error when no active conversation is set', async () => {
       const stateManagerWithoutConv = createClientStateManager(mockClient);
-      
-      const userMessage: Message = {
-        id: 'user-msg-error',
-        answer: 'This should fail',
-        role: 'user'
-      };
+
+      const userMessage: UserQuery = 'This should fail';
 
       await expect(
         stateManagerWithoutConv.sendMessage(userMessage)
@@ -97,17 +93,9 @@ describe('ClientStateManager', () => {
     });
 
     it('should throw error when message is already in progress', async () => {
-      const userMessage1: Message = {
-        id: 'user-msg-1',
-        answer: 'First message',
-        role: 'user'
-      };
+      const userMessage1: UserQuery = 'First message';
 
-      const userMessage2: Message = {
-        id: 'user-msg-2',
-        answer: 'Second message',
-        role: 'user'
-      };
+      const userMessage2: UserQuery = 'Second message';
 
       // Make the first call hang
       mockClient.sendMessage.mockImplementation(() => new Promise(() => {}));
@@ -125,11 +113,7 @@ describe('ClientStateManager', () => {
     });
 
     it('should reset progress flag on error', async () => {
-      const userMessage: Message = {
-        id: 'user-msg-error',
-        answer: 'This will error',
-        role: 'user'
-      };
+      const userMessage: UserQuery = 'This will error';
 
       mockClient.sendMessage.mockRejectedValue(new Error('Network error'));
 
@@ -147,11 +131,7 @@ describe('ClientStateManager', () => {
         conversationId: 'conv-456'
       });
 
-      const successMessage: Message = {
-        id: 'user-msg-success',
-        answer: 'This should work',
-        role: 'user'
-      };
+      const successMessage: UserQuery = 'This should work';
 
       const response = await stateManager.sendMessage(successMessage);
       expect(response.messageId).toBe('bot-msg-success');
@@ -171,11 +151,7 @@ describe('ClientStateManager', () => {
         conversationId: 'conv-456'
       });
 
-      const userMessage: Message = {
-        id: 'user-streaming',
-        answer: 'Stream this',
-        role: 'user'
-      };
+      const userMessage: UserQuery = 'Stream this';
 
       const response = await stateManager.sendMessage(userMessage, { stream: true });
 
@@ -186,11 +162,7 @@ describe('ClientStateManager', () => {
     it('should throw error when streaming without handler', async () => {
       (mockClient.getDefaultStreamingHandler as jest.Mock).mockReturnValue(undefined);
 
-      const userMessage: Message = {
-        id: 'user-streaming-error',
-        answer: 'This should fail',
-        role: 'user'
-      };
+      const userMessage: UserQuery = 'This should fail';
 
       await expect(
         stateManager.sendMessage(userMessage, { stream: true })
@@ -222,11 +194,7 @@ describe('ClientStateManager', () => {
         conversationId: 'conv-progress'
       });
 
-      const userMessage: Message = {
-        id: 'user-progress',
-        answer: 'Test progress events',
-        role: 'user'
-      };
+      const userMessage: UserQuery = 'Test progress events';
 
       await stateManager.sendMessage(userMessage);
 
@@ -294,40 +262,32 @@ describe('ClientStateManager', () => {
         });
 
       // Send first message
-      await stateManager.sendMessage({
-        id: 'user-1',
-        answer: 'First question',
-        role: 'user'
-      });
+      await stateManager.sendMessage('First question');
 
       // Send second message
-      await stateManager.sendMessage({
-        id: 'user-2',
-        answer: 'Second question',
-        role: 'user'
-      });
+      await stateManager.sendMessage('Second question');
 
       // Verify conversation history
       const messages = stateManager.getActiveConversationMessages();
       expect(messages).toHaveLength(4); // 2 user + 2 bot messages
 
       expect(messages[0]).toEqual({
-        id: 'user-1',
+        id: expect.any(String),
         answer: 'First question',
         role: 'user'
       });
       expect(messages[1]).toEqual({
-        id: 'msg-1',
+        id: expect.any(String),
         answer: 'First response',
         role: 'bot'
       });
       expect(messages[2]).toEqual({
-        id: 'user-2',
+        id: expect.any(String),
         answer: 'Second question',
         role: 'user'
       });
       expect(messages[3]).toEqual({
-        id: 'msg-2',
+        id: expect.any(String),
         answer: 'Second response',
         role: 'bot'
       });

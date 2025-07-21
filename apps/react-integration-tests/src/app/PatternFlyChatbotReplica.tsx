@@ -239,11 +239,7 @@ export const PatternFlyChatbotReplica = ({
   const scrollToBottomRef = useRef<HTMLDivElement>(null);
 
   const handleSend = (message: string) => {
-    sendMessage({
-      id: Date.now().toString(),
-      role: 'user',
-      answer: message,
-    }, {
+    sendMessage(message, {
       stream: true,
     });
   };

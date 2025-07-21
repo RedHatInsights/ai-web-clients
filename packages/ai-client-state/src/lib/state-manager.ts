@@ -6,15 +6,18 @@ export enum Events {
   IN_PROGRESS = 'in-progress'
 }
 
-export interface Message {
+export interface Message<T extends Record<string, unknown> = Record<string, unknown>> {
   id: string;
   answer: string;
   role: 'user' | 'bot';
+  additionalData?: T;
 }
 
-export interface Conversation {
+export type UserQuery = string
+
+export interface Conversation<T extends Record<string, unknown> = Record<string, unknown>> {
   id: string;
-  messages: Message[];
+  messages: Message<T>[];
 }
 
 export interface MessageOptions {
@@ -22,8 +25,8 @@ export interface MessageOptions {
   [key: string]: unknown;
 }
 
-interface ClientState {
-  conversations: Record<string, Conversation>;
+interface ClientState<T extends Record<string, unknown> = Record<string, unknown>> {
+  conversations: Record<string, Conversation<T>>;
   activeConversationId: string | null;
   messageInProgress: boolean;
   isInitialized: boolean;
@@ -38,20 +41,20 @@ interface EventSubscription {
 
 
 
-export type StateManager = {
+export type StateManager<T extends Record<string, unknown> = Record<string, unknown>> = {
     init: () => Promise<void>;
     isInitialized: () => boolean;
     isInitializing: () => boolean;
     setActiveConversationId: (conversationId: string) => void;
-    getActiveConversationMessages: () => Message[];
-    sendMessage: (message: Message, options?: MessageOptions) => Promise<any>;
+    getActiveConversationMessages: () => Message<T>[];
+    sendMessage: (query: UserQuery, options?: MessageOptions) => Promise<any>;
     getMessageInProgress: () => boolean;
-    getState: () => ClientState;
+    getState: () => ClientState<T>;
     subscribe: (event: Events, callback: () => void) => () => void;
 }
 
-export function createClientStateManager(client: IAIClient): StateManager {
-  const state: ClientState = {
+export function createClientStateManager<T extends Record<string, unknown>>(client: IAIClient<T>): StateManager<T> {
+  const state: ClientState<T> = {
     conversations: {},
     activeConversationId: null,
     messageInProgress: false,
@@ -101,19 +104,20 @@ export function createClientStateManager(client: IAIClient): StateManager {
         };
       }
 
-      let messages: Message[] = []
+      let messages: Message<T>[] = []
       if(initialConversationId) {
         const history = await client.getConversationHistory(initialConversationId);
-        messages = (history || []).reduce<Message[]>((acc, historyMessage) => {
-          const humanMessage: Message = {
+        messages = (history || []).reduce<Message<T>[]>((acc, historyMessage) => {
+          const humanMessage: Message<T> = {
             id: historyMessage.message_id,
             answer: historyMessage.input,
             role: 'user'
           }
-          const botMessage: Message = {
+          const botMessage: Message<T> = {
             id: historyMessage.message_id,
             answer: historyMessage.answer,
-            role: 'bot'
+            role: 'bot',
+            additionalData: historyMessage.additionalData
           }
           acc.push(humanMessage, botMessage)
           return acc
@@ -158,7 +162,7 @@ export function createClientStateManager(client: IAIClient): StateManager {
     notify(Events.ACTIVE_CONVERSATION);
   }
 
-  function getActiveConversationMessages(): Message[] {
+  function getActiveConversationMessages(): Message<T>[] {
     if (!state.activeConversationId) {
       return [];
     }
@@ -181,8 +185,8 @@ export function createClientStateManager(client: IAIClient): StateManager {
     }
   }
 
-  async function sendMessage(message: Message, options?: MessageOptions): Promise<any> {
-    if (message.answer.trim().length === 0) {
+  async function sendMessage(query: UserQuery, options?: MessageOptions): Promise<any> {
+    if (query.trim().length === 0) {
       return;
     }
     // Check if a message is already in progress
@@ -211,11 +215,15 @@ export function createClientStateManager(client: IAIClient): StateManager {
       const conversation = state.conversations[state.activeConversationId];
       
       // Add user message to state immediately
-      conversation.messages.push(message);
+      conversation.messages.push({
+        id: crypto.randomUUID(),
+        answer: query,
+        role: 'user',
+      });
       notify(Events.MESSAGE);
       
       // Create bot message placeholder for streaming updates
-      const botMessage: Message = {
+      const botMessage: Message<T> = {
         id: crypto.randomUUID(),
         answer: '',
         role: 'bot'
@@ -238,9 +246,9 @@ export function createClientStateManager(client: IAIClient): StateManager {
               }
               notify(Events.MESSAGE);
             }
-          }    
-          
-          return client.sendMessage(conversation.id, message.answer, enhancedOptions)
+          }
+
+          return client.sendMessage(conversation.id, query, enhancedOptions)
             .catch((error) => {
               removeMessageFromConversation(botMessage.id, conversation.id);
               notify(Events.MESSAGE);
@@ -259,7 +267,7 @@ export function createClientStateManager(client: IAIClient): StateManager {
         }
       } else {
         // Non-streaming: update bot message after response
-        return client.sendMessage(conversation.id, message.answer, options)
+        return client.sendMessage(conversation.id, query, options)
           .catch((error) => {
             removeMessageFromConversation(botMessage.id, conversation.id);
             throw error;

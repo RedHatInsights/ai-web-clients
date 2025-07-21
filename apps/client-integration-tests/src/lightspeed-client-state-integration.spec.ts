@@ -1,17 +1,19 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
 import { LightspeedClient } from '@redhat-cloud-services/lightspeed-client';
 import type { 
   LightspeedClientConfig, 
+  LLMResponse, 
   MessageChunkResponse,
-  LLMResponse
 } from '@redhat-cloud-services/lightspeed-client';
-import type { IStreamingHandler } from '@redhat-cloud-services/ai-client-common';
+import type { IMessageResponse, IStreamingHandler } from '@redhat-cloud-services/ai-client-common';
 
 // Import state manager components
 import { 
   createClientStateManager,
   Events,
-  type Message
+  UserQuery,
 } from '@redhat-cloud-services/ai-client-state';
+import { LightSpeedCoreAdditionalProperties } from 'packages/lightspeed-client/src/lib/client';
 
 // Integration tests specifically for the Lightspeed client
 // and its interaction with the AI client state management system
@@ -53,9 +55,10 @@ describe('Lightspeed Client Integration Tests', () => {
     });
 
     it('should handle non-streaming messages', async () => {
-      const expectedResponse: LLMResponse = {
-        conversation_id: 'conv-456',
+      const expectedResponse = {
         response: 'Hello! How can I help you with OpenShift?',
+        messageId: 'msg-123',
+        conversation_id: 'conv-456',
         referenced_documents: [
           {
             doc_url: 'https://docs.openshift.com/container-platform/4.15/getting_started/index.html',
@@ -70,7 +73,7 @@ describe('Lightspeed Client Integration Tests', () => {
           'UserQuotaLimiter': 950
         },
         tool_calls: [],
-        tool_results: []
+        tool_results: [],
       };
 
       mockFetch.mockResolvedValue({
@@ -86,9 +89,12 @@ describe('Lightspeed Client Integration Tests', () => {
       if (response && typeof response === 'object' && 'answer' in response) {
         expect(response.answer).toBe('Hello! How can I help you with OpenShift?');
         expect(response.conversationId).toBe('conv-456');
-        expect(response.metadata?.referencedDocuments).toHaveLength(1);
-        expect(response.metadata?.inputTokens).toBe(10);
-        expect(response.metadata?.outputTokens).toBe(15);
+        // @ts-ignore
+        expect(response.additionalAttributes?.referencedDocuments).toHaveLength(1);
+        // @ts-ignore
+        expect(response.additionalAttributes?.inputTokens).toBe(10);
+        // @ts-ignore
+        expect(response.additionalAttributes?.outputTokens).toBe(15);
       }
     });
 
@@ -402,11 +408,7 @@ describe('Lightspeed Client State Manager Integration', () => {
 
       stateManager.setActiveConversationId(conversationId);
 
-      const userMessage: Message = {
-        id: 'state-user-msg',
-        answer: 'Test message through state manager',
-        role: 'user'
-      };
+      const userMessage: UserQuery = 'Test message through state manager';
 
       await stateManager.sendMessage(userMessage);
 
@@ -440,16 +442,19 @@ describe('Lightspeed Client State Manager Integration', () => {
       stateManager.subscribe(Events.IN_PROGRESS, progressCallback);
       stateManager.subscribe(Events.ACTIVE_CONVERSATION, conversationCallback);
 
-      const expectedResponse: LLMResponse = {
-        conversation_id: conversationId,
-        response: 'Event test response',
-        referenced_documents: [],
-        truncated: false,
-        input_tokens: 8,
-        output_tokens: 12,
-        available_quotas: {},
-        tool_calls: [],
-        tool_results: []
+      const expectedResponse: IMessageResponse<LightSpeedCoreAdditionalProperties> = {
+        conversationId: conversationId,
+        answer: 'Event test response',
+        messageId: expect.any(String),
+        additionalAttributes: {
+          referencedDocuments: [],
+          truncated: false,
+          inputTokens: 8,
+          outputTokens: 12,
+          availableQuotas: {},
+          toolCalls: [],
+          toolResults: []
+        }
       };
 
       mockFetch.mockResolvedValue({
@@ -464,11 +469,7 @@ describe('Lightspeed Client State Manager Integration', () => {
       expect(conversationCallback).toHaveBeenCalledTimes(1);
 
       // Send message (should trigger MESSAGE and IN_PROGRESS events)
-      const userMessage: Message = {
-        id: 'event-user-msg',
-        answer: 'Test events',
-        role: 'user'
-      };
+      const userMessage: UserQuery = 'Test events';
 
       await stateManager.sendMessage(userMessage);
 
@@ -520,11 +521,7 @@ describe('Lightspeed Client State Manager Integration', () => {
 
       stateManager.setActiveConversationId(conversationId);
 
-      const userMessage: Message = {
-        id: 'error-user-msg',
-        answer: 'This will cause an error',
-        role: 'user'
-      };
+      const userMessage: UserQuery = 'This will cause an error';
 
       await expect(
         stateManager.sendMessage(userMessage)
@@ -578,18 +575,10 @@ describe('Lightspeed Client State Manager Integration', () => {
         } as Response);
 
       // Send first message
-      await stateManager.sendMessage({
-        id: 'msg-1',
-        answer: 'What is OpenShift?',
-        role: 'user'
-      });
+      await stateManager.sendMessage('What is OpenShift?');
 
       // Send second message
-      await stateManager.sendMessage({
-        id: 'msg-2',
-        answer: 'Tell me about containers',
-        role: 'user'
-      });
+      await stateManager.sendMessage('Tell me about containers');
 
       // Verify conversation state
       const messages = stateManager.getActiveConversationMessages();

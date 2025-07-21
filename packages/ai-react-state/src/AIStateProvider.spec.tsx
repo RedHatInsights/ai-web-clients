@@ -17,17 +17,26 @@ const mockCreateClientStateManager = createClientStateManager as jest.MockedFunc
 describe('AIStateProvider', () => {
   let mockClient: jest.Mocked<IAIClient>;
   let mockStateManager: jest.Mocked<StateManager>;
+  type AdditionalAttributesTest = {
+    foo?: string;
+    bar?: number;
+  };
 
   beforeEach(() => {
     jest.clearAllMocks();
 
     mockClient = {
+      init: jest.fn().mockResolvedValue('initial-conversation-id'),
+      getConversationHistory: jest.fn().mockResolvedValue([]),
+      healthCheck: jest.fn().mockResolvedValue({ status: 'ok' }),
       sendMessage: jest.fn(),
-      healthCheck: jest.fn(),
       getDefaultStreamingHandler: jest.fn()
-    } as jest.Mocked<IAIClient>;
+    } as jest.Mocked<IAIClient<AdditionalAttributesTest>>;
 
     mockStateManager = {
+      init: jest.fn(),
+      isInitialized: jest.fn().mockReturnValue(true),
+      isInitializing: jest.fn().mockReturnValue(false),
       sendMessage: jest.fn(),
       setActiveConversationId: jest.fn(),
       getActiveConversationMessages: jest.fn().mockReturnValue([]),
@@ -39,7 +48,7 @@ describe('AIStateProvider', () => {
       }),
       subscribe: jest.fn(),
       unsubscribe: jest.fn()
-    } as jest.Mocked<StateManager>;
+    } as jest.Mocked<StateManager<AdditionalAttributesTest>>;
 
     mockCreateClientStateManager.mockReturnValue(mockStateManager);
   });
@@ -135,12 +144,17 @@ describe('AIStateProvider', () => {
 
     it('should recreate state manager when client changes', () => {
       const newMockClient = {
+        getConversationHistory: jest.fn().mockResolvedValue([]),
+        init: jest.fn().mockResolvedValue('new-initial-conversation-id'),
         sendMessage: jest.fn(),
         healthCheck: jest.fn(),
         getDefaultStreamingHandler: jest.fn()
       } as jest.Mocked<IAIClient>;
 
       const newMockStateManager = {
+        init: jest.fn(),
+        isInitialized: jest.fn().mockReturnValue(true),
+        isInitializing: jest.fn().mockReturnValue(false),
         sendMessage: jest.fn(),
         setActiveConversationId: jest.fn(),
         getActiveConversationMessages: jest.fn().mockReturnValue([]),

@@ -1,8 +1,8 @@
 import { useContext, useEffect, useReducer } from "react";
 import { AIStateContext } from "./AiStateContext";
-import { Events } from "@redhat-cloud-services/ai-client-state";
+import { Events, Message } from "@redhat-cloud-services/ai-client-state";
 
-export function useMessages() {
+export function useMessages<T extends Record<string, unknown> = Record<string, unknown>>() {
   const { getState } = useContext(AIStateContext);
   const [messages, dispatch] = useReducer(() => [...getState().getActiveConversationMessages()], getState().getActiveConversationMessages());
   useEffect(() => {
@@ -14,5 +14,5 @@ export function useMessages() {
       unsubscribeConversation();
     };
   }, [getState]);
-  return messages;
+  return messages as Message<T>[];
 }

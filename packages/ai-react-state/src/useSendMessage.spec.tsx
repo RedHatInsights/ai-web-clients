@@ -1,6 +1,6 @@
 import { renderHook, render, act } from '@testing-library/react';
 import { useSendMessage, useSendStreamMessage } from './useSendMessage';
-import { createClientStateManager, StateManager, Message, MessageOptions } from '@redhat-cloud-services/ai-client-state';
+import { createClientStateManager, StateManager, MessageOptions, UserQuery } from '@redhat-cloud-services/ai-client-state';
 import type { IAIClient } from '@redhat-cloud-services/ai-client-common';
 import React from 'react';
 import { AIStateProvider } from './AIStateProvider';
@@ -21,6 +21,9 @@ describe('useSendMessage', () => {
     mockClient = {
       sendMessage: jest.fn().mockResolvedValue({ answer: 'test response' }),
       healthCheck: jest.fn().mockResolvedValue({ status: 'ok' }),
+      getConversationHistory: jest.fn().mockResolvedValue([]),
+      getServiceStatus: jest.fn().mockResolvedValue({ status: 'ok' }),
+      init: jest.fn().mockResolvedValue('initial-conversation-id'),
       getDefaultStreamingHandler: jest.fn().mockReturnValue({
         onStart: jest.fn(),
         onChunk: jest.fn(),
@@ -82,13 +85,9 @@ describe('useSendMessage', () => {
       stateManager.setActiveConversationId('test-conversation-1');
       const sendMessageSpy = jest.spyOn(stateManager, 'sendMessage');
       const wrapper = createWrapper(stateManager);
-      
-      const message: Message = {
-        id: 'msg-1',
-        answer: 'Test message content',
-        role: 'user'
-      };
-      
+
+      const message: UserQuery = 'Test message content';
+
       const options: MessageOptions = { 
         stream: false,
         customOption: 'value'
@@ -109,12 +108,8 @@ describe('useSendMessage', () => {
       stateManager.setActiveConversationId('test-conversation-2');
       const sendMessageSpy = jest.spyOn(stateManager, 'sendMessage');
       const wrapper = createWrapper(stateManager);
-      
-      const message: Message = {
-        id: 'msg-2',
-        answer: 'Another test message',
-        role: 'user'
-      };
+
+      const message: UserQuery = 'Another test message';
 
       const { result } = renderHook(() => useSendMessage(), { wrapper });
       
@@ -132,12 +127,8 @@ describe('useSendMessage', () => {
       const mockResponse = { messageId: 'response-1', answer: 'Test response' };
       const sendMessageSpy = jest.spyOn(stateManager, 'sendMessage').mockResolvedValue(mockResponse);
       const wrapper = createWrapper(stateManager);
-      
-      const message: Message = {
-        id: 'msg-3',
-        answer: 'Message for response test',
-        role: 'user'
-      };
+
+      const message: UserQuery = 'Message for response test';
 
       const { result } = renderHook(() => useSendMessage(), { wrapper });
       
@@ -156,12 +147,8 @@ describe('useSendMessage', () => {
       const error = new Error('Send message failed');
       const sendMessageSpy = jest.spyOn(stateManager, 'sendMessage').mockRejectedValue(error);
       const wrapper = createWrapper(stateManager);
-      
-      const message: Message = {
-        id: 'msg-4',
-        answer: 'Message that will fail',
-        role: 'user'
-      };
+
+      const message: UserQuery = 'Message that will fail';
 
       const { result } = renderHook(() => useSendMessage(), { wrapper });
       
@@ -215,6 +202,8 @@ describe('useSendStreamMessage', () => {
     mockClient = {
       sendMessage: jest.fn().mockResolvedValue({ answer: 'test response' }),
       healthCheck: jest.fn().mockResolvedValue({ status: 'ok' }),
+      getConversationHistory: jest.fn().mockResolvedValue([]),
+      init: jest.fn().mockResolvedValue('initial-conversation-id'),
       getDefaultStreamingHandler: jest.fn().mockReturnValue({
         onStart: jest.fn(),
         onChunk: jest.fn(),
@@ -231,12 +220,8 @@ describe('useSendStreamMessage', () => {
       stateManager.setActiveConversationId('stream-conversation-1');
       const sendMessageSpy = jest.spyOn(stateManager, 'sendMessage');
       const wrapper = createWrapper(stateManager);
-      
-      const message: Message = {
-        id: 'stream-msg-1',
-        answer: 'Stream this message',
-        role: 'user'
-      };
+
+      const message: UserQuery = 'Stream this message';
 
       const { result } = renderHook(() => useSendStreamMessage(), { wrapper });
       
@@ -253,13 +238,9 @@ describe('useSendStreamMessage', () => {
       stateManager.setActiveConversationId('stream-conversation-2');
       const sendMessageSpy = jest.spyOn(stateManager, 'sendMessage');
       const wrapper = createWrapper(stateManager);
-      
-      const message: Message = {
-        id: 'stream-msg-2',
-        answer: 'Stream with custom options',
-        role: 'user'
-      };
-      
+
+      const message: UserQuery = 'Stream with custom options';
+
       const options: MessageOptions = { 
         customHeader: 'custom-value',
         timeout: 5000
@@ -284,13 +265,9 @@ describe('useSendStreamMessage', () => {
       stateManager.setActiveConversationId('stream-conversation-3');
       const sendMessageSpy = jest.spyOn(stateManager, 'sendMessage');
       const wrapper = createWrapper(stateManager);
-      
-      const message: Message = {
-        id: 'stream-msg-3',
-        answer: 'Force stream despite option',
-        role: 'user'
-      };
-      
+
+      const message: UserQuery = 'Force stream despite option';
+
       const options: MessageOptions = { stream: false };
 
       const { result } = renderHook(() => useSendStreamMessage(), { wrapper });
@@ -308,12 +285,8 @@ describe('useSendStreamMessage', () => {
       stateManager.setActiveConversationId('stream-conversation-4');
       const sendMessageSpy = jest.spyOn(stateManager, 'sendMessage');
       const wrapper = createWrapper(stateManager);
-      
-      const message: Message = {
-        id: 'stream-msg-4',
-        answer: 'Stream without options',
-        role: 'user'
-      };
+
+      const message: UserQuery = 'Stream without options';
 
       const { result } = renderHook(() => useSendStreamMessage(), { wrapper });
       
@@ -345,12 +318,8 @@ describe('useSendStreamMessage', () => {
       const mockResponse = { messageId: 'stream-response-1', answer: 'Streamed response' };
       const sendMessageSpy = jest.spyOn(stateManager, 'sendMessage').mockResolvedValue(mockResponse);
       const wrapper = createWrapper(stateManager);
-      
-      const message: Message = {
-        id: 'stream-msg-5',
-        answer: 'Message for stream response test',
-        role: 'user'
-      };
+
+      const message: UserQuery = 'Message for stream response test';
 
       const { result } = renderHook(() => useSendStreamMessage(), { wrapper });
       
@@ -369,12 +338,8 @@ describe('useSendStreamMessage', () => {
       const error = new Error('Stream failed');
       const sendMessageSpy = jest.spyOn(stateManager, 'sendMessage').mockRejectedValue(error);
       const wrapper = createWrapper(stateManager);
-      
-      const message: Message = {
-        id: 'stream-msg-6',
-        answer: 'Message that will fail streaming',
-        role: 'user'
-      };
+
+      const message: UserQuery = 'Message that will fail streaming';
 
       const { result } = renderHook(() => useSendStreamMessage(), { wrapper });
       

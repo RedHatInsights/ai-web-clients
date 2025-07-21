@@ -17,9 +17,15 @@ const cors = require('cors');
 const app = express();
 const port = process.env.PORT || 3001;
 
+const expressLogger = (req, res, next) => {
+  console.log(`${req.method} ${req.originalUrl}`);
+  next();
+};
+
 // Middleware
 app.use(cors());
 app.use(express.json());
+app.use(expressLogger);
 
 // In-memory storage for conversations and messages
 const conversations = new Map();

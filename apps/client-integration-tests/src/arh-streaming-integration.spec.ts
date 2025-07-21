@@ -19,7 +19,7 @@ import type { IStreamingHandler } from '@redhat-cloud-services/ai-client-common'
 import { 
   createClientStateManager,
   Events,
-  type Message
+  UserQuery,
 } from '@redhat-cloud-services/ai-client-state';
 
 // Custom fetch function that uses the mock server
@@ -197,11 +197,7 @@ describe('ARH Client Streaming Integration Tests', () => {
       // Update conversation ID to match the created one
       stateManager.setActiveConversationId(conversation.conversation_id);
 
-      const userMessage: Message = {
-        id: 'user-stream-msg',
-        answer: 'Tell me about container orchestration',
-        role: 'user'
-      };
+      const userMessage: UserQuery = 'Tell me about container orchestration';
 
       await stateManager.sendMessage(userMessage, { stream: true });
 
@@ -216,7 +212,7 @@ describe('ARH Client Streaming Integration Tests', () => {
 
       // Verify user message
       expect(messages[0]).toEqual({
-        id: 'user-stream-msg',
+        id: expect.any(String),
         answer: 'Tell me about container orchestration',
         role: 'user'
       });
@@ -236,11 +232,7 @@ describe('ARH Client Streaming Integration Tests', () => {
       stateManager.subscribe(Events.MESSAGE, messageCallback);
       stateManager.subscribe(Events.IN_PROGRESS, progressCallback);
 
-      const userMessage: Message = {
-        id: 'event-stream-msg',
-        answer: 'Explain Kubernetes pods',
-        role: 'user'
-      };
+      const userMessage: UserQuery = 'Explain Kubernetes pods';
 
       await stateManager.sendMessage(userMessage, { stream: true });
 
@@ -254,11 +246,7 @@ describe('ARH Client Streaming Integration Tests', () => {
       // Use invalid conversation ID to trigger error
       stateManager.setActiveConversationId('invalid-conversation-id');
 
-      const userMessage: Message = {
-        id: 'error-stream-msg',
-        answer: 'This should cause an error',
-        role: 'user'
-      };
+      const userMessage: UserQuery = 'This should cause an error';
 
       await expect(
         stateManager.sendMessage(userMessage, { stream: true })
@@ -300,11 +288,7 @@ describe('ARH Client Streaming Integration Tests', () => {
       stateManager.setActiveConversationId(conversation.conversation_id);
 
       // Send first message
-      await stateManager.sendMessage({
-        id: 'msg-1',
-        answer: 'What is OpenShift?',
-        role: 'user'
-      }, { stream: true });
+      await stateManager.sendMessage('What is OpenShift?', { stream: true });
 
       // Send follow-up message
       streamingHandler = new TestStreamingHandler();
@@ -316,11 +300,7 @@ describe('ARH Client Streaming Integration Tests', () => {
       stateManager = createClientStateManager(client);
       stateManager.setActiveConversationId(conversation.conversation_id);
 
-      await stateManager.sendMessage({
-        id: 'msg-2',
-        answer: 'Tell me more about its features',
-        role: 'user'
-      }, { stream: true });
+      await stateManager.sendMessage('Tell me more about its features', { stream: true });
 
       // Verify conversation history is maintained
       const messages = stateManager.getActiveConversationMessages();
