@@ -209,11 +209,6 @@ export interface IMessageResponse<AP extends Record<string, unknown> = Record<st
    * Timestamp when the message was created
    */
   createdAt?: string;
-  
-  /**
-   * Additional metadata about the response
-   */
-  metadata?: Record<string, unknown>;
   /**
    * Additional attributes specific to the AI client
    */

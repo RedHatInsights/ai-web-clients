@@ -5,7 +5,7 @@ import VanillaChatbotWrapper from './VanillaChatbotWrapper';
 import { useEffect } from 'react';
 
 const client = new LightspeedClient({
-  baseUrl: 'http://localhost:8080',
+  baseUrl: 'http://localhost:8081',
   fetchFunction: (input, init) => {
     return fetch(input, init);
   },

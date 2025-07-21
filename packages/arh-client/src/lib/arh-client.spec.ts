@@ -166,7 +166,7 @@ describe('IFDClient', () => {
         answer: mockResponse.answer,
         conversationId: mockResponse.conversation_id,
         createdAt: mockResponse.received_at,
-        metadata: {
+        additionalAttributes: {
           sources: mockResponse.sources,
           tool_call_metadata: mockResponse.tool_call_metadata,
           output_guard_result: mockResponse.output_guard_result

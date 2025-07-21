@@ -162,7 +162,7 @@ export async function exampleUsage() {
     );
     console.log('Response:', response?.answer);
     console.log('Message ID:', response?.messageId);
-    console.log('Metadata:', response?.metadata);
+    console.log('Additional attributes:', response?.additionalAttributes);
 
     // Example 4: Send streaming message using client with default handler
     await clientWithDefaultHandler.sendMessage(

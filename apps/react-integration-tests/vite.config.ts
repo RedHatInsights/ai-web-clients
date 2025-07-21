@@ -8,17 +8,6 @@ export default defineConfig(() => ({
   root: __dirname,
   cacheDir: '../../node_modules/.vite/apps/react-integration-tests',
   server: {
-    proxy: {
-      '^/lightspeed/.*': {
-        target: 'http://localhost:8080',
-        changeOrigin: true,
-        rewrite: (path) => {
-          const rewritten = path.replace(/^\/lightspeed/, '');
-          console.log('Proxying:', path, '->', rewritten);
-          return rewritten;
-        },
-      },
-    },
     port: 4200,
     host: '127.0.0.1',
   },
