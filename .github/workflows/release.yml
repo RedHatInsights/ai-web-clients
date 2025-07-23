@@ -31,6 +31,8 @@ jobs:
         run: npm ci
 
       - name: Run tests
+        env:
+           NX_TUI: false
         run: |-
           npm run dev:mock > /dev/null &
           sleep 5
@@ -42,15 +44,42 @@ jobs:
         run: npx nx run-many --target=lint --all --parallel --maxParallel=4
 
       - name: Build packages
+        env:
+           NX_TUI: false
         run: npx nx run-many --target=build --all --parallel --maxParallel=4
 
-      # - name: Configure Git
-      #   run: |
-      #     git config user.name "github-actions[bot]"
-      #     git config user.email "github-actions[bot]@users.noreply.github.com"
+      - name: Configure Git
+        env:
+           NX_TUI: false
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Version
+        env:
+           NX_TUI: false
+        run: npx nx run-many --target=version
+
+      - name: Rebuild packages
+        env:
+           NX_TUI: false
+        run: npx nx run-many --target=build --all --parallel --maxParallel=4
+
+      - name: GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NX_TUI: false
+        run: npx nx run-many --target=github
+      
 
       # - name: Release
       #   run: npm run release
       #   env:
       #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       #     NPM_TOKEN: ${{ secrets.NPM_TOKEN }} 
+
+      - name: Tag last-release
+        shell: bash
+        run: |
+          git tag -f last-release
+          git push origin last-release --force

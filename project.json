@@ -5,6 +5,7 @@
   "targets": {
     "version": {
       "executor": "@jscutlery/semver:version",
+      "dependsOn": ["^version"],
       "options": {
         "preset": "conventional",
         "trackDeps": true,
