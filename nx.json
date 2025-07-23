@@ -42,7 +42,8 @@
         "trackDeps": true,
         "push": true,
         "remote": "origin",
-        "baseBranch": "main"
+        "baseBranch": "main",
+        "commitMessageFormat": "chore: bump {projectName} to {version} [skip ci]"
       }
     },
     "github": {
