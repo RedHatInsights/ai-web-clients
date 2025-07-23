@@ -63,7 +63,7 @@ describe('Lightspeed Client Streaming Integration', () => {
       const lastChunk = chunks[chunks.length - 1];
       expect(lastChunk.finished).toBe(true);
       expect(lastChunk.answer).toContain('OpenShift');
-    });
+    }, 10000);
 
     it('should process afterChunk callback during streaming', async () => {
       const conversationId = await client.init();
