@@ -21,17 +21,8 @@
       "options": {
         "jestConfig": "packages/ai-react-state/jest.config.ts"
       }
-    },
-    "version": {
-        "executor": "@jscutlery/semver:version",
-        "dependsOn": ["^version"]
-      },
-      "github": {
-        "executor": "@jscutlery/semver:github",
-        "options": {
-          "tag": "${tag}",
-          "notes": "${notes}"
-        }
-      }
+    }
+      
+
     }
   }

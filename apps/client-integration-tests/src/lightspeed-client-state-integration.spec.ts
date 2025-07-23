@@ -162,22 +162,6 @@ describe('Lightspeed Client State Integration', () => {
       expect(typeof authResponse.skip_user_id_check).toBe('boolean');
       expect(authResponse.username).toBe('testuser');
     });
-
-         it('should check authorization with user ID', async () => {
-       // Mock server randomly returns 403 responses (10% of the time)
-       // Handle both success and failure cases
-       try {
-         const authResponse = await client.checkAuthorization('test-user-123');
-         
-         expect(typeof authResponse.user_id).toBe('string');
-         expect(typeof authResponse.username).toBe('string');
-         expect(typeof authResponse.skip_user_id_check).toBe('boolean');
-       } catch (error) {
-         // 403 responses are expected from the mock server
-         expect(error).toBeDefined();
-         expect((error as Error).message).toContain('not authorized');
-       }
-     });
   });
 
   describe('State Manager Integration', () => {

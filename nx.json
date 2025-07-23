@@ -34,25 +34,7 @@
     "e2e": {
       "inputs": ["default", "^production"]
     },
-    "version": {
-      "executor": "@jscutlery/semver:version",
-      "dependsOn": ["^version"],
-      "options": {
-        "preset": "conventional",
-        "trackDeps": true,
-        "push": false,
-        "remote": "origin",
-        "baseBranch": "main",
-        "commitMessageFormat": "chore: bump {projectName} to {version} [skip ci]"
-      }
-    },
-    "github": {
-      "executor": "@jscutlery/semver:github",
-      "options": {
-        "tag": "${tag}",
-        "notes": "${notes}"
-      }
-    },
+
     "@nx/js:tsc": {
       "cache": true,
       "dependsOn": ["^build"],
@@ -93,9 +75,36 @@
     }
   },
   "release": {
+    "projectsRelationship": "independent",
     "version": {
-      "preVersionCommand": "npx nx run-many -t build"
-    }
+      "git": {
+        "commit": true,
+        "tag": true,
+        "push": true,
+        "commitMessage": "chore(release): publish\n\n{releaseNotes}"
+      },
+      "preVersionCommand": "npx nx run-many -t build",
+      "conventionalCommits": true,
+      "preserveLocalDependencyProtocols": false,
+      "versionActionsOptions": {
+        "skipLockFileUpdate": true
+      },
+      "manifestRootsToUpdate": [
+        "{projectRoot}",
+        "dist/packages/{projectName}"
+      ]
+    },
+    "changelog": {
+      "workspaceChangelog": false,
+      "projectChangelogs": true,
+      "git": {
+        "commit": true,
+        "tag": true,
+        "push": true,
+        "commitMessage": "chore(release): publish\n\n{releaseNotes}"
+      }
+    },
+    "releaseTagPattern": "{projectName}@{version}",
   },
   "plugins": [
     {
