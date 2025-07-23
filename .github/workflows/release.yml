@@ -36,7 +36,7 @@ jobs:
         run: |-
           npm run dev:mock > /dev/null &
           sleep 5
-          npx nx run-many --target=test --all --parallel --maxParallel=4
+          npx nx run-many --target=test --all --parallel=1
 
       - name: Run linting
         env:
@@ -58,7 +58,7 @@ jobs:
       - name: Version
         env:
            NX_TUI: false
-        run: npx nx run-many --parallel=1 --target=version
+        run: npx nx run-many --parallel=1 --target=version --trackDeps
 
       - name: Rebuild packages
         env:
