@@ -2,6 +2,13 @@
 
 This file was generated using [@jscutlery/semver](https://github.com/jscutlery/semver).
 
+## [0.1.1](https://github.com/Hyperkid123/ai-web-clients/compare/arh-client-0.1.0...arh-client-0.1.1) (2025-07-23)
+
+
+### Bug Fixes
+
+* enable dependencies version ranges ([934da8b](https://github.com/Hyperkid123/ai-web-clients/commit/934da8b6e22220418a5e65083b7102eeae2e02a4))
+
 ## 0.1.0 (2025-07-23)
 
 ### Dependency Updates
