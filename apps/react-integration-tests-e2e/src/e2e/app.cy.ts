@@ -1,5 +1,4 @@
 describe('AI Client Integration E2E Tests', () => {
-  let mockServerProcess: any;
   let conversationId: string;
 
   before(() => {
@@ -154,7 +153,7 @@ describe('AI Client Integration E2E Tests', () => {
   describe('Error Handling', () => {
     beforeEach(() => {
       // Ignore expected uncaught exceptions during error handling tests
-      cy.on('uncaught:exception', (err, runnable) => {
+      cy.on('uncaught:exception', (err) => {
         // Allow network/API errors to be handled by the component
         if (err.message.includes('fetch') || 
             err.message.includes('network') || 

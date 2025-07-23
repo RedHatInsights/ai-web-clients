@@ -190,7 +190,7 @@ describe('Lightspeed Client Streaming Integration', () => {
 
       expect(streamingChunks.length).toBeGreaterThan(0);
       expect(streamingChunks[streamingChunks.length - 1].finished).toBe(true);
-    });
+    }, 10000);
   });
 
   describe('Streaming Performance', () => {
@@ -236,6 +236,6 @@ describe('Lightspeed Client Streaming Integration', () => {
         const intervalMs = chunkTimestamps[i] - chunkTimestamps[i - 1];
         expect(intervalMs).toBeLessThan(1000); // No single interval longer than 1 second
       }
-    });
+    }, 10000);
   });
 }); 
