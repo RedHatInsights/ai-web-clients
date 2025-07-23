@@ -34,5 +34,19 @@
       "currentVersionResolver": "git-tag",
       "fallbackCurrentVersionResolver": "disk"
     }
-  }
+  },
+    "version": {
+      "executor": "@jscutlery/semver:version",
+      "dependsOn": ["^version"]
+    },
+    "github": {
+      "executor": "@jscutlery/semver:github",
+      "options": {
+        "tag": "${tag}",
+        "notes": "${notes}"
+      },
+      "dependsOn": [
+        "version"
+      ]
+    }
 }
