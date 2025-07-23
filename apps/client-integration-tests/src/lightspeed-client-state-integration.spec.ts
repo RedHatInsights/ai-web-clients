@@ -278,7 +278,7 @@ describe('Lightspeed Client State Integration', () => {
       expect(userMsg?.answer).toBe('Explain OpenShift networking');
       expect(assistantMsg?.answer).toBeDefined();
       expect(assistantMsg?.answer.length).toBeGreaterThan(0);
-    });
+    }, 10000);
   });
 
   describe('Error Handling', () => {

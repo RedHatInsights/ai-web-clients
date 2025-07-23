@@ -6,7 +6,7 @@
   "scripts": {
     "graph": "nx graph",
     "version": "nx run-many --target=version",
-    "version:dry-run": "nx run-many --target=version --dry-run",
+    "version:dry-run": "nx run-many --target=version --dry-run --verbose",
     "release": "nx run-many --target=version --parallel=false",
     "release:dry-run": "nx run-many --target=version --dry-run --parallel=false",
     "dev:react": "nx serve react-integration-tests",

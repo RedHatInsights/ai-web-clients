@@ -5,6 +5,6 @@
   "main": "./src/index.js",
   "types": "./src/index.d.ts",
   "dependencies": {
-    "@redhat-cloud-services/ai-client-common": "*"
+    "@redhat-cloud-services/ai-client-common": "0.0.1"
   }
 }
