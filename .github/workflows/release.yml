@@ -64,8 +64,12 @@ jobs:
           # Once we have it proper org we cans et this up
           NPM_CONFIG_PROVENANCE: false
         run: |
-          npx nx release version --first-release --verbose
+          npx nx release version --verbose
+          npx nx run-many --target=build --all --parallel --maxParallel=4 --skipNxCache
           npx nx release publish --verbose
+          git add .
+          git commit -m "chore(release): publish"
+          git push origin main
 
       # - name: Release
       #   run: npm run release
