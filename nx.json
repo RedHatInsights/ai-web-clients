@@ -78,9 +78,9 @@
     "projectsRelationship": "independent",
     "version": {
       "git": {
-        "commit": true,
+        "commit": false,
         "tag": true,
-        "push": true,
+        "push": false,
         "commitMessage": "chore(release): publish\n\n{releaseNotes}"
       },
       "preVersionCommand": "npx nx run-many -t build",
