@@ -1,12 +1,12 @@
 {
   "name": "@redhat-cloud-services/ai-react-state",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "type": "commonjs",
   "main": "./src/index.js",
   "types": "./src/index.d.ts",
   "dependencies": {
-    "@redhat-cloud-services/ai-client-state": "*",
-    "@redhat-cloud-services/ai-client-common": "*"
+    "@redhat-cloud-services/ai-client-state": "0.3.0",
+    "@redhat-cloud-services/ai-client-common": "0.3.0"
   },
   "peerDependencies": {
     "react": ">=16.8.0"
