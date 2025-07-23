@@ -38,10 +38,7 @@
       "options": {
         "tag": "${tag}",
         "notes": "${notes}"
-      },
-      "dependsOn": [
-        "version"
-      ]
+      }
     }
   }
 }
