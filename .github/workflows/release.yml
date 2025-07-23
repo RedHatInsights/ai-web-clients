@@ -58,7 +58,7 @@ jobs:
       - name: Version
         env:
            NX_TUI: false
-        run: npx nx run-many --parallel=1 --target=version --trackDeps
+        run: npx nx run-many --parallel=1 --target=version --trackDeps --base=last-release
 
       - name: Rebuild packages
         env:
