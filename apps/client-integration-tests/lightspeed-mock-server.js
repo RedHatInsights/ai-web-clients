@@ -307,7 +307,7 @@ app.post('/authorized', (req, res) => {
   const { user_id } = req.query;
   
   // Simulate authorization check
-  const isAuthorized = Math.random() > 0.1; // 90% authorized
+  const isAuthorized = true
   
   if (isAuthorized) {
     res.json({
