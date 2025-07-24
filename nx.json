@@ -76,19 +76,18 @@
   },
   "release": {
     "projectsRelationship": "independent",
-    "git": {
-      "commit": true,
-      "tag": true,
-      "push": true,
-      "commitMessage": "chore(release): publish\\n\\n{releaseNotes}"
-    },
     "version": {
-      "currentVersionResolver": "git-tag",
-      "fallbackCurrentVersionResolver": "disk", 
+      "git": {
+        "commit": false,
+        "tag": true,
+        "push": false,
+        "commitMessage": "chore(release): publish\n\n{releaseNotes}"
+      },
       "preVersionCommand": "npx nx run-many -t build",
+      "conventionalCommits": true,
       "preserveLocalDependencyProtocols": false,
       "versionActionsOptions": {
-        "skipLockFileUpdate": false
+        "skipLockFileUpdate": true
       },
       "manifestRootsToUpdate": [
         "{projectRoot}",
@@ -98,10 +97,14 @@
     "changelog": {
       "workspaceChangelog": false,
       "projectChangelogs": true,
-      "file": "{projectRoot}/CHANGELOG.md",
-      "createRelease": "github"
+      "git": {
+        "commit": true,
+        "tag": true,
+        "push": true,
+        "commitMessage": "chore(release): publish\n\n{releaseNotes}"
+      }
     },
-    "releaseTagPattern": "{projectName}@{version}"
+    "releaseTagPattern": "{projectName}@{version}",
   },
   "plugins": [
     {
