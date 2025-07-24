@@ -2,6 +2,7 @@
 
 React hooks and context provider for AI conversation state management with seamless integration to AI clients.
 
+
 ## Features
 
 - **React Context Provider** - Share AI state across your React component tree
