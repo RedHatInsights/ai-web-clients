@@ -56,6 +56,15 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
+      - name: Verify publish setup
+        env:
+           NX_TUI: false
+        run: |
+          echo "Verifying nx-release-publish configuration..."
+          npx nx show project ai-react-state --web=false | grep -A 5 "nx-release-publish" || true
+          echo "Testing publish dry-run..."
+          npx nx release publish --projects=ai-react-state --dry-run
+
       - name: Release (GitHub + NPM)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -65,7 +74,15 @@ jobs:
           NPM_CONFIG_PROVENANCE: false
         run: |
           npx nx release version --verbose
-          npx nx run-many --target=build --all --parallel --maxParallel=4 --skipNxCache
+          # Verify built files exist before publishing
+          echo "Verifying built files..."
+          ls -la dist/packages/*/src/index.js || (echo "Built files missing!" && exit 1)
+          # Double-check that we're publishing from dist directories
+          echo "Checking package.json files in dist..."
+          for pkg in dist/packages/*/package.json; do
+            echo "=== $pkg ==="
+            cat "$pkg" | grep -E '"name"|"main"|"types"'
+          done
           npx nx release publish --verbose
           git add .
           git commit -m "chore(release): publish"
