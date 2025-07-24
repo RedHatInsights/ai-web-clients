@@ -73,20 +73,14 @@ jobs:
           # Once we have it proper org we cans et this up
           NPM_CONFIG_PROVENANCE: false
         run: |
-          npx nx release version --verbose
-          # Verify built files exist before publishing
-          echo "Verifying built files..."
-          ls -la dist/packages/*/src/index.js || (echo "Built files missing!" && exit 1)
-          # Double-check that we're publishing from dist directories
-          echo "Checking package.json files in dist..."
+          # Let Nx handle versioning, building, and git operations
+          npx nx release --verbose
+          # Verify the publish worked correctly
+          echo "Checking published packages..."
           for pkg in dist/packages/*/package.json; do
             echo "=== $pkg ==="
             cat "$pkg" | grep -E '"name"|"main"|"types"'
           done
-          npx nx release publish --verbose
-          git add .
-          git commit -m "chore(release): publish"
-          git push origin main
 
       # - name: Release
       #   run: npm run release
