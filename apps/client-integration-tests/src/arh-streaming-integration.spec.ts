@@ -47,7 +47,8 @@ class TestStreamingHandler implements IStreamingHandler<MessageChunkResponse> {
     this.errorReceived = null;
   }
 
-  onChunk(chunk: MessageChunkResponse): void {
+  onChunk(chunk: MessageChunkResponse, afterChunk?: (chunk: MessageChunkResponse) => void): void {
+    afterChunk?.(chunk);
     this.chunks.push(chunk);
     this.finalMessage = chunk.answer;
   }
@@ -188,14 +189,13 @@ describe('ARH Client Streaming Integration Tests', () => {
     });
 
     it('should handle streaming through state manager', async () => {
-      const conversationId = 'stream-state-test';
-      stateManager.setActiveConversationId(conversationId);
 
       // Create conversation on mock server
       const conversation = await client.createConversation();
+      const conversationId = conversation.conversation_id;
       
       // Update conversation ID to match the created one
-      stateManager.setActiveConversationId(conversation.conversation_id);
+      await stateManager.setActiveConversationId(conversationId);
 
       const userMessage: UserQuery = 'Tell me about container orchestration';
 
@@ -205,6 +205,8 @@ describe('ARH Client Streaming Integration Tests', () => {
       expect(streamingHandler.isStarted).toBe(true);
       expect(streamingHandler.isCompleted).toBe(true);
       expect(streamingHandler.finalMessage).toContain('container orchestration');
+
+      await new Promise(resolve => setTimeout(resolve, 2000));
 
       // Verify state was updated correctly
       const messages = stateManager.getActiveConversationMessages();
@@ -220,11 +222,11 @@ describe('ARH Client Streaming Integration Tests', () => {
       // Verify bot message contains streaming result
       expect(messages[1].role).toBe('bot');
       expect(messages[1].answer).toBe(streamingHandler.finalMessage);
-    });
+    }, 10000);
 
     it('should emit proper events during streaming', async () => {
       const conversation = await client.createConversation();
-      stateManager.setActiveConversationId(conversation.conversation_id);
+      await stateManager.setActiveConversationId(conversation.conversation_id);
 
       const messageCallback = jest.fn();
       const progressCallback = jest.fn();
@@ -244,7 +246,7 @@ describe('ARH Client Streaming Integration Tests', () => {
 
     it('should handle streaming errors gracefully', async () => {
       // Use invalid conversation ID to trigger error
-      stateManager.setActiveConversationId('invalid-conversation-id');
+      await stateManager.setActiveConversationId('invalid-conversation-id');
 
       const userMessage: UserQuery = 'This should cause an error';
 
@@ -285,7 +287,7 @@ describe('ARH Client Streaming Integration Tests', () => {
     it('should maintain conversation context across streaming messages', async () => {
       let stateManager = createClientStateManager(client);
       const conversation = await client.createConversation();
-      stateManager.setActiveConversationId(conversation.conversation_id);
+      await stateManager.setActiveConversationId(conversation.conversation_id);
 
       // Send first message
       await stateManager.sendMessage('What is OpenShift?', { stream: true });
@@ -298,15 +300,15 @@ describe('ARH Client Streaming Integration Tests', () => {
         defaultStreamingHandler: streamingHandler
       });
       stateManager = createClientStateManager(client);
-      stateManager.setActiveConversationId(conversation.conversation_id);
+      await stateManager.setActiveConversationId(conversation.conversation_id);
 
       await stateManager.sendMessage('Tell me more about its features', { stream: true });
 
       // Verify conversation history is maintained
       const messages = stateManager.getActiveConversationMessages();
-      expect(messages.length).toBe(2); // Only the second exchange since state manager creates new state
-      expect(messages[0].answer).toBe('Tell me more about its features');
-      expect(messages[1].answer).toBe(streamingHandler.finalMessage);
+      expect(messages.length).toBe(4); // 4 because it loads the previous messages from the API if the same conversation is used
+      expect(messages[2].answer).toBe('Tell me more about its features');
+      expect(messages[3].answer).toBe(streamingHandler.finalMessage);
     }, 10000);
   });
 

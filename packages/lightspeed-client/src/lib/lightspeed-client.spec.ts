@@ -57,17 +57,21 @@ describe('LightspeedClient', () => {
 
   describe('Client Initialization', () => {
     it('should initialize and return a conversation ID', async () => {
-      const conversationId = await client.init();
+      const result = await client.init();
       
-      expect(typeof conversationId).toBe('string');
-      expect(conversationId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+      expect(typeof result).toBe('object');
+      expect(result).toHaveProperty('initialConversationId');
+      expect(result).toHaveProperty('conversations');
+      expect(typeof result.initialConversationId).toBe('string');
+      expect(result.initialConversationId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+      expect(Array.isArray(result.conversations)).toBe(true);
     });
 
     it('should generate different conversation IDs on multiple calls', async () => {
-      const id1 = await client.init();
-      const id2 = await client.init();
+      const result1 = await client.init();
+      const result2 = await client.init();
       
-      expect(id1).not.toBe(id2);
+      expect(result1.initialConversationId).not.toBe(result2.initialConversationId);
     });
   });
 

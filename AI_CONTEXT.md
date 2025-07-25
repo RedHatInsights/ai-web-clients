@@ -92,6 +92,47 @@ ai-web-clients/
 
 ## 🛠️ DEVELOPMENT GUIDELINES
 
+### **NX Executor Usage (CRITICAL)**
+- **ALWAYS use NX executors** defined in individual `project.json` files for builds and tests
+- **NEVER use npm/yarn scripts directly** for project operations
+- **Check project.json** before running any build or test commands
+
+#### **Proper NX Commands**
+```bash
+# Correct way to run tests for a specific project
+npx nx run project-name:test
+
+# Correct way to build a specific project
+npx nx run project-name:build
+
+# Check project.json to see available targets
+cat packages/project-name/project.json
+
+# Wrong ways (do not use):
+npm test                    # Uses workspace root scripts
+cd packages/project && npm test  # Bypasses NX configuration
+```
+
+#### **Example Project Configuration**
+```json
+{
+  "targets": {
+    "test": {
+      "executor": "@nx/jest:jest",
+      "options": {
+        "jestConfig": "packages/project-name/jest.config.ts"
+      }
+    },
+    "build": {
+      "executor": "@nx/js:tsc",
+      "options": {
+        "outputPath": "dist/packages/project-name"
+      }
+    }
+  }
+}
+```
+
 ### **Workspace-Wide Code Standards**
 
 1. **No Emojis Policy** (STRICT)
@@ -149,16 +190,16 @@ ai-web-clients/
 2. **NX Commands**
    ```bash
    # Run commands for specific packages
-   npx nx test arh-client
-   npx nx lint arh-client
-   npx nx build arh-client
+   npx nx run arh-client:test
+   npx nx run arh-client:lint
+   npx nx run arh-client:build
    
    # Run commands for all packages
    npx nx run-many --target=test --all
    npx nx run-many --target=lint --all
    
    # Run integration tests
-   npx nx test client-integration-tests
+   npx nx run client-integration-tests:test
    ```
 
 3. **Package Configuration**

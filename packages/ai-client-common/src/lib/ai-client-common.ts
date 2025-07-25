@@ -54,7 +54,10 @@ export interface IAIClient<AP extends Record<string, unknown> = Record<string, u
    * This method is called once when the client is first used by a state manager
    * @returns Promise that resolves to the initial conversation ID
    */
-  init(): Promise<string>;
+  init(): Promise<{
+    initialConversationId: string;
+    conversations: IConversation[];
+  }>;
 
   /**
    * Send a message to the AI service
@@ -99,6 +102,12 @@ export interface IAIClient<AP extends Record<string, unknown> = Record<string, u
    * @returns Promise that resolves to service status information
    */
   getServiceStatus?(options?: IRequestOptions): Promise<unknown>;
+
+  /**
+   * Create a new conversation
+   * @returns Promise that resolves to the newly created conversation
+   */
+  createNewConversation(): Promise<IConversation>;
 }
 
 /**
@@ -240,49 +249,23 @@ export interface IAnswerSource {
   snippet?: string | null;
 }
 
-/**
- * Single message in conversation history
- */
-export interface IConversationHistoryMessage<T extends Record<string, unknown> = Record<string, unknown>> {
-  /**
-   * Unique identifier for the message
-   */
+export interface IConversationMessage<T extends Record<string, unknown> = Record<string, unknown>> {
   message_id: string;
-  
-  /**
-   * When the message was received
-   */
-  received_at: string;
-  
-  /**
-   * The user's input/question
-   */
-  input: string;
-  
-  /**
-   * When the AI response was created
-   */
-  created_at: string;
-  
-  /**
-   * The AI's answer
-   */
   answer: string;
-  
-  /**
-   * Sources used to generate the answer
-   */
-  sources: IAnswerSource[];
-  /**
-   * Additional data associated with the message
-   */
+  role: 'user' | 'bot';
+  input: string; // For user messages, this is the input text
   additionalData?: T;
 }
 
 /**
  * Response type for conversation history requests
  */
-export type IConversationHistoryResponse<T extends Record<string, unknown> = Record<string, unknown>> = IConversationHistoryMessage<T>[] | null;
+export type IConversationHistoryResponse<T extends Record<string, unknown> = Record<string, unknown>> = IConversationMessage<T>[] | null;
+
+export interface IConversation {
+  id: string;
+  title: string;
+}
 
 export interface IErrorMessageResponse {
   error: any;

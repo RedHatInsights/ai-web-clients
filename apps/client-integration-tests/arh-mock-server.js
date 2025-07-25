@@ -29,6 +29,25 @@ app.use(expressLogger);
 
 // In-memory storage for conversations and messages
 const conversations = new Map();
+// conversations.set('oldest-conversation', {
+//   id: 'oldest-conversation',
+//   title: 'Oldest Conversation',
+//   messages: [
+//     {
+//       message_id: 'message-1',
+//       received_at: '2023-10-01T12:00:00Z',
+//       input: 'What is Red Hat OpenShift?',
+//       created_at: '2023-10-01T12:00:00Z',
+//       answer: 'Red Hat OpenShift is a comprehensive container platform that provides developers and IT operations teams with a complete solution for building, deploying, and managing applications.',
+//       sources: [{
+//         title: 'Red Hat Documentation',
+//         link: 'https://docs.redhat.com',
+//         score: 0.95,
+//         snippet: 'Official Red Hat documentation and knowledge base'
+//       }]
+//     }
+//   ]
+// });
 const userSettings = {
   id: uuidv4(),
   preferences: {

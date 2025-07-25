@@ -1,9 +1,11 @@
-import { IAIClient, ISendMessageOptions } from '@redhat-cloud-services/ai-client-common';
+import { IAIClient, IConversation, ISendMessageOptions } from '@redhat-cloud-services/ai-client-common';
 
 export enum Events {
   MESSAGE = 'message',
   ACTIVE_CONVERSATION = 'active-conversation',
-  IN_PROGRESS = 'in-progress'
+  IN_PROGRESS = 'in-progress',
+  CONVERSATIONS = 'conversations',
+  INITIALIZING_MESSAGES = 'initializing-messages',
 }
 
 export interface Message<T extends Record<string, unknown> = Record<string, unknown>> {
@@ -17,6 +19,7 @@ export type UserQuery = string
 
 export interface Conversation<T extends Record<string, unknown> = Record<string, unknown>> {
   id: string;
+  title: string;
   messages: Message<T>[];
 }
 
@@ -51,6 +54,8 @@ export type StateManager<T extends Record<string, unknown> = Record<string, unkn
     getMessageInProgress: () => boolean;
     getState: () => ClientState<T>;
     subscribe: (event: Events, callback: () => void) => () => void;
+    getConversations: () => Conversation<T>[];
+    createNewConversation: () => Promise<IConversation>;
 }
 
 export function createClientStateManager<T extends Record<string, unknown>>(client: IAIClient<T>): StateManager<T> {
@@ -66,7 +71,9 @@ export function createClientStateManager<T extends Record<string, unknown>>(clie
   const eventSubscriptions: Record<string, EventSubscription[]> = {
     [Events.MESSAGE]: [],
     [Events.ACTIVE_CONVERSATION]: [],
-    [Events.IN_PROGRESS]: []
+    [Events.IN_PROGRESS]: [],
+    [Events.CONVERSATIONS]: [],
+    [Events.INITIALIZING_MESSAGES]: []
   };
 
   function notify(event: Events) {
@@ -80,6 +87,23 @@ export function createClientStateManager<T extends Record<string, unknown>>(clie
     });
   }
 
+  function notifyAll() {
+    [Events.MESSAGE, Events.ACTIVE_CONVERSATION, Events.IN_PROGRESS, Events.CONVERSATIONS, Events.INITIALIZING_MESSAGES].forEach(event => {
+      notify(event);
+    });
+  }
+
+  function initializeConversationState(id: string): Conversation<T> {
+    const newConversation: Conversation<T> = {
+      id,
+      title: 'New conversation',
+      messages: []
+    };
+    state.conversations[id] = newConversation;
+    notify(Events.CONVERSATIONS);
+    return newConversation;
+  }
+
   async function init(): Promise<void> {
     if (state.isInitialized || state.isInitializing) {
       return;
@@ -87,27 +111,34 @@ export function createClientStateManager<T extends Record<string, unknown>>(clie
     
     state.isInitializing = true;
     notify(Events.IN_PROGRESS);
+    notify(Events.INITIALIZING_MESSAGES);
     
     try {
       // Call the client's init method to get the initial conversation ID
-      const initialConversationId = await client.init();
-      
+      const {initialConversationId, conversations} = await client.init();
+
+      conversations.forEach(conversation => {
+        state.conversations[conversation.id] = {
+          id: conversation.id,
+          title: conversation.title,
+          messages: []
+        };
+      });
+      notify(Events.CONVERSATIONS);
+
       // Set the initial conversation as the active conversation
       state.activeConversationId = initialConversationId;
 
       
       // Create the initial conversation if it doesn't exist
       if (!state.conversations[initialConversationId]) {
-        state.conversations[initialConversationId] = {
-          id: initialConversationId,
-          messages: []
-        };
+        initializeConversationState(initialConversationId);
       }
 
       let messages: Message<T>[] = []
       if(initialConversationId) {
         const history = await client.getConversationHistory(initialConversationId);
-        messages = (history || []).reduce<Message<T>[]>((acc, historyMessage) => {
+        messages = (history || []).reduce((acc, historyMessage) => {
           const humanMessage: Message<T> = {
             id: historyMessage.message_id,
             answer: historyMessage.input,
@@ -121,22 +152,20 @@ export function createClientStateManager<T extends Record<string, unknown>>(clie
           }
           acc.push(humanMessage, botMessage)
           return acc
-        }, [])
+        }, [] as Message<T>[]);
       }
 
       state.conversations[initialConversationId].messages = messages;
       
       state.isInitialized = true;
       state.isInitializing = false;
-      notify(Events.IN_PROGRESS);
-      notify(Events.MESSAGE);
-      notify(Events.ACTIVE_CONVERSATION);
     } catch (error) {
       console.error('Client initialization failed:', error);
       state.isInitialized = false;
       state.isInitializing = false;
-      notify(Events.IN_PROGRESS);
       throw error; // Re-throw so callers can handle the failure
+    } finally {
+      notifyAll();
     }
   }
 
@@ -148,18 +177,44 @@ export function createClientStateManager<T extends Record<string, unknown>>(clie
     return state.isInitializing;
   }
 
-  function setActiveConversationId(conversationId: string) {
+  async function setActiveConversationId(conversationId: string) {
     state.activeConversationId = conversationId;
     
     // Auto-create conversation if it doesn't exist
     if (!state.conversations[conversationId]) {
-      state.conversations[conversationId] = {
-        id: conversationId,
-        messages: []
-      };
+      initializeConversationState(conversationId);
+    }
+    notify(Events.ACTIVE_CONVERSATION);
+    notify(Events.CONVERSATIONS);
+
+    state.isInitializing = true
+    try {
+      const history = await client.getConversationHistory(conversationId);
+      const messages = (history || []).reduce((acc, historyMessage) => {
+        const humanMessage: Message<T> = {
+          id: historyMessage.message_id,
+          answer: historyMessage.input,
+          role: 'user'
+        }
+        const botMessage: Message<T> = {
+          id: historyMessage.message_id,
+          answer: historyMessage.answer,
+          role: 'bot',
+          additionalData: historyMessage.additionalData
+        }
+        acc.push(humanMessage, botMessage)
+        return acc
+      }, [] as Message<T>[]);
+      state.conversations[conversationId].messages = messages;
+    } catch (error) {
+      console.error('Error fetching conversation history:', error);
+    } finally {
+      state.isInitializing = false;
+      notify(Events.INITIALIZING_MESSAGES);
+      notify(Events.MESSAGE);
     }
     
-    notify(Events.ACTIVE_CONVERSATION);
+
   }
 
   function getActiveConversationMessages(): Message<T>[] {
@@ -206,13 +261,15 @@ export function createClientStateManager<T extends Record<string, unknown>>(clie
       
       // Auto-create conversation if it doesn't exist
       if (!state.conversations[state.activeConversationId]) {
-        state.conversations[state.activeConversationId] = {
-          id: state.activeConversationId,
-          messages: []
-        };
+        initializeConversationState(state.activeConversationId);
       }
       
       const conversation = state.conversations[state.activeConversationId];
+      if(conversation.messages.length === 0) {
+        // new conversation, update the title to the initial query
+        conversation.title = query;
+        notify(Events.CONVERSATIONS);
+      }
       
       // Add user message to state immediately
       conversation.messages.push({
@@ -233,7 +290,6 @@ export function createClientStateManager<T extends Record<string, unknown>>(clie
       if (options?.stream) {
         // Get the client's default streaming handler
         const originalHandler = client.getDefaultStreamingHandler?.();
-        
         if (originalHandler) {
           const enhancedOptions: ISendMessageOptions<string | { answer: string, messageId: string }> = {
             ...options,
@@ -297,8 +353,25 @@ export function createClientStateManager<T extends Record<string, unknown>>(clie
     }
   }
 
+
+  function getConversations(): Conversation<T>[] {
+    return Object.values(state.conversations);
+  }
+
   function getMessageInProgress() {
     return state.messageInProgress;
+  }
+
+  async function createNewConversation(): Promise<IConversation> {
+    state.isInitializing = true;
+    notify(Events.INITIALIZING_MESSAGES);
+    const newConversation = await client.createNewConversation();
+    initializeConversationState(newConversation.id);
+    setActiveConversationId(newConversation.id);
+    notifyAll();
+
+    return newConversation
+
   }
 
   function subscribe(event: Events, callback: () => void) {
@@ -335,5 +408,7 @@ export function createClientStateManager<T extends Record<string, unknown>>(clie
     getMessageInProgress,
     getState,
     subscribe,
+    getConversations,
+    createNewConversation,
   };
 }
