@@ -11,7 +11,8 @@ import {
   IMessageResponse,
   IFetchFunction,
   IRequestOptions,
-  IConversationHistoryResponse
+  IConversationHistoryResponse,
+  IConversation
 } from '@redhat-cloud-services/ai-client-common';
 import {
   NewConversationResponse,
@@ -136,7 +137,18 @@ export class IFDClient implements IAIClient<IFDAdditionalAttributes> {
     });
   }
 
-  async init(): Promise<string> {
+  async createNewConversation(): Promise<IConversation> {
+    const response = await this.createConversation();
+    return {
+      id: response.conversation_id,
+      title: 'New Conversation'
+    };
+  }
+
+  async init(): Promise<{
+      initialConversationId: string;
+      conversations: IConversation[];
+    }> {
     try {
       // ARH init procedure
       await this.healthCheck();
@@ -146,12 +158,24 @@ export class IFDClient implements IAIClient<IFDAdditionalAttributes> {
       await this.getConversationQuota();
       const defaultConversation = history.find((conversation) => conversation.is_latest);
 
+      let initialConversationId: string
+      const conversations: IConversation[] = history.map(conversation => {
+        return {
+          id: conversation.conversation_id,
+          title: conversation.title
+        }
+      });
       if (defaultConversation) {
-        return defaultConversation.conversation_id;
+        initialConversationId = defaultConversation.conversation_id;
+        history
+      } else {
+        const newConversation = await this.createConversation();
+        initialConversationId = newConversation.conversation_id;
       }
-
-      const newConversation = await this.createConversation();
-      return newConversation.conversation_id;
+      return {
+        initialConversationId,
+        conversations
+      };
     } catch (error) {
       console.error('ARH Client initialization failed:', error);
       throw error;
@@ -201,7 +225,6 @@ export class IFDClient implements IAIClient<IFDAdditionalAttributes> {
           body: JSON.stringify(requestBody),
           signal: options.signal,
         });
-        console.warn('RESPONSE', response);
 
         if (!response.ok) {
           return this.handleErrorResponse(response);

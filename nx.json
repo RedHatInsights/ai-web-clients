@@ -104,7 +104,7 @@
         "commitMessage": "chore(release): publish\n\n{releaseNotes}"
       }
     },
-    "releaseTagPattern": "{projectName}@{version}",
+    "releaseTagPattern": "{projectName}@{version}"
   },
   "plugins": [
     {

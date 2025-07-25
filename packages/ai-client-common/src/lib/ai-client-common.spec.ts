@@ -13,6 +13,7 @@ import {
   IMessageResponse,
   ISendMessageOptions,
   IConversationHistoryResponse,
+  IConversation,
 } from './ai-client-common';
 
 
@@ -215,8 +216,15 @@ describe('ai-client-common', () => {
   describe('Interface Compliance', () => {
     it('should allow proper IAIClient implementation', () => {
       class TestClient implements IAIClient<Record<string, unknown>> {
-        async init(): Promise<string> {
-          return 'test-conversation-id';
+        async init(): Promise<{ initialConversationId: string; conversations: IConversation[] }> {
+          return { initialConversationId: 'test-conversation-id', conversations: [] };
+        }
+
+        async createNewConversation(): Promise<IConversation> {
+          return {
+            id: 'test-conversation-id',
+            title: 'Test Conversation',
+          };
         }
 
         async sendMessage(
@@ -266,8 +274,15 @@ describe('ai-client-common', () => {
 
     it('should handle sendMessage in non-streaming mode', async () => {
       class TestClient implements IAIClient {
-        async init(): Promise<string> {
-          return 'test-conversation-id';
+        async init(): Promise<{ initialConversationId: string; conversations: IConversation[] }> {
+          return { initialConversationId: 'test-conversation-id', conversations: [] };
+        }
+
+        async createNewConversation(): Promise<IConversation> {
+          return {
+            id: 'test-conversation-id',
+            title: 'Test Conversation',
+          };
         }
 
         async sendMessage(
@@ -323,8 +338,15 @@ describe('ai-client-common', () => {
       class TestClient implements IAIClient {
         private defaultHandler: IStreamingHandler<string> = mockHandler;
 
-        async init(): Promise<string> {
-          return 'test-conversation-id';
+        async init(): Promise<{ initialConversationId: string; conversations: IConversation[] }> {
+          return { initialConversationId: 'test-conversation-id', conversations: [] };
+        }
+
+        async createNewConversation(): Promise<IConversation> {
+          return {
+            id: 'test-conversation-id',
+            title: 'Test Conversation',
+          };
         }
         
         async sendMessage(

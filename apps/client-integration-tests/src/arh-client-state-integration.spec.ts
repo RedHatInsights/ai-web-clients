@@ -403,7 +403,7 @@ describe('ARH Client Integration Tests', () => {
         } as Response);
 
         // Set conversation (should trigger ACTIVE_CONVERSATION event)
-        stateManager.setActiveConversationId(conversationId);
+        await stateManager.setActiveConversationId(conversationId);
         expect(conversationCallback).toHaveBeenCalledTimes(1);
 
         // Send message (should trigger MESSAGE and IN_PROGRESS events)
@@ -411,13 +411,16 @@ describe('ARH Client Integration Tests', () => {
 
         await stateManager.sendMessage(userMessage);
 
+        // init phase
+        // 1. notify(Events.ACTIVE_CONVERSATION) - conversation created
+        // 2. notify(Events.MESSAGE) - conversation messages loaded
         // Based on new sendMessage flow:
-        // 1. notify(Events.IN_PROGRESS) - start
-        // 2. notify(Events.MESSAGE) - user message
-        // 3. await sendMessage() 
-        // 4. notify(Events.MESSAGE) - bot message
-        // 5. notify(Events.IN_PROGRESS) - end (from executeSendMessage)
-        expect(messageCallback).toHaveBeenCalledTimes(2);
+        // 3. notify(Events.IN_PROGRESS) - start
+        // 4. notify(Events.MESSAGE) - user message
+        // 5. await sendMessage() 
+        // 6. notify(Events.MESSAGE) - bot message
+        // 7. notify(Events.IN_PROGRESS) - end (from executeSendMessage)
+        expect(messageCallback).toHaveBeenCalledTimes(3);
         expect(progressCallback).toHaveBeenCalledTimes(2); // Called twice now
       });
 

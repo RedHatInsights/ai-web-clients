@@ -8,7 +8,8 @@ import {
   IMessageResponse,
   IFetchFunction,
   IRequestOptions,
-  IConversationHistoryResponse
+  IConversationHistoryResponse,
+  IConversation
 } from '@redhat-cloud-services/ai-client-common';
 import {
   LLMRequest,
@@ -64,8 +65,10 @@ export class LightspeedClient implements IAIClient<LightSpeedCoreAdditionalPrope
    * Initialize the client and return the initial conversation ID
    * @returns Promise that resolves to a new conversation ID
    */
-  async init(): Promise<string> {
-    return this.generateConversationId();
+  async init(): Promise<{ initialConversationId: string; conversations: IConversation[] }> {
+    const initialConversationId = this.generateConversationId();
+    // Just a stub for now
+    return { initialConversationId, conversations: [] };
   }
 
   /**
@@ -152,6 +155,18 @@ export class LightspeedClient implements IAIClient<LightSpeedCoreAdditionalPrope
 
       return messageResponse;
     }
+  }
+
+  async createNewConversation(): Promise<IConversation> {
+    const conversationId = this.generateConversationId();
+    const newConversation: IConversation = {
+      id: conversationId,
+      title: 'New Conversation',
+    };
+    
+    // In a real implementation, you would likely want to store this conversation
+    // in some state management or database. Here we just return it.
+    return newConversation;
   }
 
   /**

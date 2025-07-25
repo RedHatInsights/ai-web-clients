@@ -4,3 +4,7 @@ export * from './useActiveConversation';
 export * from './useSendMessage';
 export * from './useMessages';
 export * from './useActiveInProgress';
+export * from './useConversations';
+export * from './useCreateNewConversation';
+export * from './useSetActiveConversation';
+export * from './useIsInitializing';

@@ -7,11 +7,16 @@ describe('ClientStateManager', () => {
 
   beforeEach(() => {
     mockClient = {
-      init: jest.fn().mockResolvedValue('test-conversation-id'),
+      init: jest.fn().mockResolvedValue({
+        initialConversationId: 'test-conversation-id',
+        conversations: []
+      }),
       sendMessage: jest.fn(),
       healthCheck: jest.fn(),
       getDefaultStreamingHandler: jest.fn(),
-      getConversationHistory: jest.fn().mockResolvedValue([])
+      getConversationHistory: jest.fn().mockResolvedValue([]),
+      createNewConversation: jest.fn().mockResolvedValue({ id: 'new-conv', title: 'New Conversation' }),
+      getServiceStatus: jest.fn()
     } as jest.Mocked<IAIClient>;
 
     stateManager = createClientStateManager(mockClient);
@@ -269,28 +274,297 @@ describe('ClientStateManager', () => {
 
       // Verify conversation history
       const messages = stateManager.getActiveConversationMessages();
-      expect(messages).toHaveLength(4); // 2 user + 2 bot messages
+      expect(messages).toHaveLength(2); // Last user + last bot messages only
 
       expect(messages[0]).toEqual({
-        id: expect.any(String),
-        answer: 'First question',
-        role: 'user'
-      });
-      expect(messages[1]).toEqual({
-        id: expect.any(String),
-        answer: 'First response',
-        role: 'bot'
-      });
-      expect(messages[2]).toEqual({
         id: expect.any(String),
         answer: 'Second question',
         role: 'user'
       });
-      expect(messages[3]).toEqual({
+      expect(messages[1]).toEqual({
         id: expect.any(String),
         answer: 'Second response',
         role: 'bot'
       });
+    });
+  });
+
+  describe('Initialization', () => {
+    beforeEach(() => {
+      mockClient.init = jest.fn().mockResolvedValue({
+        initialConversationId: 'initial-conv-id',
+        conversations: [
+          { id: 'initial-conv-id', title: 'Initial Conversation' },
+          { id: 'conv-2', title: 'Second Conversation' }
+        ]
+      });
+      mockClient.getConversationHistory = jest.fn().mockResolvedValue([
+        {
+          message_id: 'msg-1',
+          input: 'Hello',
+          answer: 'Hi there!',
+          role: 'bot',
+          additionalData: { sources: [] }
+        }
+      ]);
+    });
+
+    it('should initialize state with client data', async () => {
+      await stateManager.init();
+      
+      const state = stateManager.getState();
+      expect(state.isInitialized).toBe(true);
+      expect(state.isInitializing).toBe(false);
+      expect(state.activeConversationId).toBe('initial-conv-id');
+      expect(Object.keys(state.conversations)).toHaveLength(2);
+      expect(state.conversations['initial-conv-id']).toBeDefined();
+      expect(state.conversations['conv-2']).toBeDefined();
+    });
+
+    it('should load conversation history for initial conversation', async () => {
+      await stateManager.init();
+      
+      const state = stateManager.getState();
+      const initialConversation = state.conversations['initial-conv-id'];
+      expect(initialConversation.messages).toHaveLength(2); // user + bot message
+      expect(initialConversation.messages[0]).toMatchObject({
+        id: 'msg-1',
+        answer: 'Hello',
+        role: 'user'
+      });
+      expect(initialConversation.messages[1]).toMatchObject({
+        id: 'msg-1',
+        answer: 'Hi there!',
+        role: 'bot',
+        additionalData: { sources: [] }
+      });
+    });
+
+    it('should call client.init() method', async () => {
+      await stateManager.init();
+      
+      expect(mockClient.init).toHaveBeenCalledTimes(1);
+      expect(mockClient.getConversationHistory).toHaveBeenCalledWith('initial-conv-id');
+    });
+
+    it('should not initialize twice', async () => {
+      await stateManager.init();
+      await stateManager.init();
+      
+      expect(mockClient.init).toHaveBeenCalledTimes(1);
+    });
+
+    it('should not initialize while already initializing', async () => {
+      const initPromise1 = stateManager.init();
+      const initPromise2 = stateManager.init();
+      
+      await Promise.all([initPromise1, initPromise2]);
+      
+      expect(mockClient.init).toHaveBeenCalledTimes(1);
+    });
+
+    it('should handle initialization errors', async () => {
+      const initError = new Error('Initialization failed');
+      mockClient.init = jest.fn().mockRejectedValue(initError);
+      
+      await expect(stateManager.init()).rejects.toThrow('Initialization failed');
+      
+      const state = stateManager.getState();
+      expect(state.isInitialized).toBe(false);
+      expect(state.isInitializing).toBe(false);
+    });
+
+    it('should set initializing state during init', async () => {
+      let initializingDuringInit = false;
+      
+      // Mock a delayed init
+      mockClient.init = jest.fn().mockImplementation(() => 
+        new Promise(resolve => {
+          setTimeout(() => {
+            // Check if initializing is true during the init process
+            initializingDuringInit = stateManager.isInitializing();
+            resolve({
+              initialConversationId: 'initial-conv-id',
+              conversations: []
+            });
+          }, 10);
+        })
+      );
+      
+      const initPromise = stateManager.init();
+      
+      // Should be initializing immediately after starting
+      expect(stateManager.isInitializing()).toBe(true);
+      
+      await initPromise;
+      
+      // Should have been initializing during the process
+      expect(initializingDuringInit).toBe(true);
+      
+      // Should not be initializing after completion
+      expect(stateManager.isInitializing()).toBe(false);
+      expect(stateManager.isInitialized()).toBe(true);
+    });
+  });
+
+  describe('Create New Conversation', () => {
+    beforeEach(() => {
+      mockClient.createNewConversation = jest.fn().mockResolvedValue({
+        id: 'new-conv-id',
+        title: 'New Conversation'
+      });
+      mockClient.getConversationHistory = jest.fn().mockResolvedValue([]);
+    });
+
+    it('should create new conversation via client', async () => {
+      const conversation = await stateManager.createNewConversation();
+      
+      expect(mockClient.createNewConversation).toHaveBeenCalledTimes(1);
+      expect(conversation).toEqual({
+        id: 'new-conv-id',
+        title: 'New Conversation'
+      });
+    });
+
+    it('should add new conversation to state', async () => {
+      await stateManager.createNewConversation();
+      
+      const state = stateManager.getState();
+      expect(state.conversations['new-conv-id']).toBeDefined();
+      expect(state.conversations['new-conv-id'].title).toBe('New conversation');
+      expect(state.conversations['new-conv-id'].messages).toEqual([]);
+    });
+
+    it('should set new conversation as active', async () => {
+      await stateManager.createNewConversation();
+      
+      const state = stateManager.getState();
+      expect(state.activeConversationId).toBe('new-conv-id');
+    });
+
+    it('should handle createNewConversation errors', async () => {
+      const createError = new Error('Failed to create conversation');
+      mockClient.createNewConversation = jest.fn().mockRejectedValue(createError);
+      
+      await expect(stateManager.createNewConversation()).rejects.toThrow('Failed to create conversation');
+    });
+
+    it('should fetch conversation history for new conversation', async () => {
+      await stateManager.createNewConversation();
+      
+      expect(mockClient.getConversationHistory).toHaveBeenCalledWith('new-conv-id');
+    });
+  });
+
+  describe('Enhanced setActiveConversationId with History Fetching', () => {
+    beforeEach(() => {
+      mockClient.getConversationHistory = jest.fn().mockResolvedValue([
+        {
+          message_id: 'msg-1',
+          input: 'Test input',
+          answer: 'Test response',
+          role: 'bot',
+          additionalData: { metadata: 'test' }
+        }
+      ]);
+    });
+
+    it('should fetch conversation history when setting active conversation', async () => {
+      await stateManager.setActiveConversationId('test-conv-id');
+      
+      expect(mockClient.getConversationHistory).toHaveBeenCalledWith('test-conv-id');
+      
+      const state = stateManager.getState();
+      const conversation = state.conversations['test-conv-id'];
+      expect(conversation.messages).toHaveLength(2); // user + bot message
+    });
+
+    it('should convert history messages to correct format', async () => {
+      await stateManager.setActiveConversationId('test-conv-id');
+      
+      const state = stateManager.getState();
+      const conversation = state.conversations['test-conv-id'];
+      
+      expect(conversation.messages[0]).toMatchObject({
+        id: 'msg-1',
+        answer: 'Test input',
+        role: 'user'
+      });
+      
+      expect(conversation.messages[1]).toMatchObject({
+        id: 'msg-1',
+        answer: 'Test response',
+        role: 'bot',
+        additionalData: { metadata: 'test' }
+      });
+    });
+
+    it('should handle history fetch errors gracefully', async () => {
+      const historyError = new Error('Failed to fetch history');
+      mockClient.getConversationHistory = jest.fn().mockRejectedValue(historyError);
+      
+      // Should not throw, but log error internally
+      await stateManager.setActiveConversationId('test-conv-id');
+      
+      const state = stateManager.getState();
+      expect(state.activeConversationId).toBe('test-conv-id');
+      expect(state.conversations['test-conv-id']).toBeDefined();
+    });
+
+    it('should set initializing state during history fetch', async () => {
+      let initializingDuringFetch = false;
+      
+      mockClient.getConversationHistory = jest.fn().mockImplementation(() =>
+        new Promise(resolve => {
+          setTimeout(() => {
+            initializingDuringFetch = stateManager.isInitializing();
+            resolve([]);
+          }, 10);
+        })
+      );
+      
+      const setActivePromise = stateManager.setActiveConversationId('test-conv-id');
+      
+      // Should be initializing during the fetch
+      expect(stateManager.isInitializing()).toBe(true);
+      
+      await setActivePromise;
+      
+      expect(initializingDuringFetch).toBe(true);
+      expect(stateManager.isInitializing()).toBe(false);
+    });
+
+    it('should handle null history response', async () => {
+      mockClient.getConversationHistory = jest.fn().mockResolvedValue(null);
+      
+      await stateManager.setActiveConversationId('test-conv-id');
+      
+      const state = stateManager.getState();
+      const conversation = state.conversations['test-conv-id'];
+      expect(conversation.messages).toEqual([]);
+    });
+  });
+
+  describe('isInitialized and isInitializing', () => {
+    it('should return false for isInitialized initially', () => {
+      expect(stateManager.isInitialized()).toBe(false);
+    });
+
+    it('should return false for isInitializing initially', () => {
+      expect(stateManager.isInitializing()).toBe(false);
+    });
+
+    it('should return true for isInitialized after successful init', async () => {
+      mockClient.init = jest.fn().mockResolvedValue({
+        initialConversationId: 'test-id',
+        conversations: []
+      });
+      mockClient.getConversationHistory = jest.fn().mockResolvedValue([]);
+      
+      await stateManager.init();
+      
+      expect(stateManager.isInitialized()).toBe(true);
+      expect(stateManager.isInitializing()).toBe(false);
     });
   });
 }); 
