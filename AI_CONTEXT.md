@@ -1,9 +1,9 @@
 # AI Agent Context Documentation
 ## AI Web Clients NX Workspace
 
-> **Last Updated**: Context Version 1.9  
+> **Last Updated**: Context Version 2.0  
 > **Workspace Version**: 1.0.0  
-> **Context Version**: 1.9  
+> **Context Version**: 2.0  
 > **NX Version**: 21.2.3
 
 ---
@@ -42,11 +42,15 @@ NX monorepo for AI-related web client libraries, starting with the IFD (Intellig
 
 ### **Current Packages**
 1. **`@redhat-cloud-services/arh-client`** - IFD API TypeScript client (production-ready)
-2. **`@redhat-cloud-services/ai-client-common`** - Common interfaces and utilities for AI clients
-3. **`@redhat-cloud-services/ai-client-state`** - State management for AI client interactions
+2. **`@redhat-cloud-services/lightspeed-client`** - LightSpeed API TypeScript client
+3. **`@redhat-cloud-services/ai-client-common`** - Common interfaces and utilities for AI clients
+4. **`@redhat-cloud-services/ai-client-state`** - State management for AI client interactions with conversation management capabilities
+5. **`@redhat-cloud-services/ai-react-state`** - React hooks for AI state management integration
 
 ### **Current Apps**
 1. **`client-integration-tests`** - Integration test app for validating package interoperability
+2. **`react-integration-tests`** - React integration test app for AI client components
+3. **`react-integration-tests-e2e`** - End-to-end tests for React integration
 
 ---
 
@@ -255,6 +259,102 @@ cd packages/project && npm test  # Bypasses NX configuration
 ---
 
 ## 📦 PACKAGE DEVELOPMENT PATTERNS
+
+### **AI Client State Package (Conversation Management)**
+
+The `ai-client-state` package provides comprehensive state management for AI client interactions with conversation management capabilities.
+
+#### **Public API**
+```typescript
+export interface StateManager<T> {
+  // Initialization
+  init(): Promise<void>;
+  isInitialized(): boolean;
+  isInitializing(): boolean;
+  
+  // Conversation Management
+  setActiveConversationId(conversationId: string): Promise<void>;
+  getActiveConversationMessages(): Message<T>[];
+  getConversations(): Conversation<T>[];
+  createNewConversation(): Promise<IConversation>;
+  
+  // Message Management
+  sendMessage(query: UserQuery, options?: MessageOptions): Promise<any>;
+  getMessageInProgress(): boolean;
+  
+  // State Access
+  getState(): ClientState<T>;
+  
+  // Event System
+  subscribe(event: Events, callback: () => void): () => void;
+}
+
+export enum Events {
+  MESSAGE = 'message',
+  ACTIVE_CONVERSATION = 'active-conversation',
+  IN_PROGRESS = 'in-progress',
+  CONVERSATIONS = 'conversations',
+  INITIALIZING_MESSAGES = 'initializing-messages',
+}
+```
+
+#### **Key Features**
+- **Multi-conversation support**: Manage multiple conversations simultaneously
+- **Active conversation tracking**: Set and track the currently active conversation
+- **Message streaming integration**: Works with client streaming handlers for real-time updates
+- **Event-driven architecture**: Subscribe to state changes across the application
+- **Conversation history**: Automatic loading of conversation history when switching conversations
+- **Message persistence**: Messages are stored and maintained across conversation switches
+
+### **AI React State Package (React Integration)**
+
+The `ai-react-state` package provides React hooks for seamless integration with the AI client state manager.
+
+#### **Public API**
+```typescript
+// Provider Components
+export const AIStateProvider: React.Component<{
+  stateManager?: StateManager;
+  client?: IAIClient;
+  children: React.ReactNode;
+}>;
+
+// React Hooks
+export function useActiveConversation(): Conversation | null;
+export function useSendMessage(): (query: UserQuery, options?: MessageOptions) => Promise<any>;
+export function useMessages<T>(): Message<T>[];
+export function useActiveInProgress(): boolean;
+export function useConversations<T>(): Conversation<T>[];
+export function useCreateNewConversation(): () => Promise<IConversation>;
+export function useSetActiveConversation(): (conversationId: string) => Promise<void>;
+export function useIsInitializing(): boolean;
+```
+
+#### **Key Features**
+- **React Context integration**: Provides AIStateProvider for state sharing across components
+- **Reactive hooks**: Automatically re-render components when state changes
+- **Full state manager access**: All state manager functionality available as React hooks
+- **TypeScript support**: Full type safety for conversation and message data
+- **Event-driven updates**: Hooks automatically subscribe to relevant state events
+
+### **LightSpeed Client Package**
+
+The `lightspeed-client` package provides TypeScript client functionality for the OpenShift LightSpeed API.
+
+#### **Architecture**
+- Follows the same architectural patterns as the ARH client (reference implementation)
+- Implements `IAIClient<LightSpeedCoreAdditionalProperties>` interface from ai-client-common
+- Supports streaming and non-streaming message handling
+- Includes dependency injection for fetch function and streaming handlers
+- Compatible with ai-client-state for conversation management
+
+#### **Main Class**
+```typescript
+export class LightspeedClient implements IAIClient<LightSpeedCoreAdditionalProperties> {
+  constructor(config: LightspeedClientConfig);
+  // Implements all IAIClient methods for LightSpeed API
+}
+```
 
 ### **IFD Client Package (Reference Implementation)**
 
@@ -471,6 +571,17 @@ import { SharedUtility } from '@redhat-cloud-services/shared-utils';
 ---
 
 ## 📝 CHANGE LOG
+
+### Version 2.0
+- **MAJOR: Conversation Management Documentation** - Added comprehensive documentation for ai-client-state conversation management capabilities
+- **NEW: Package Documentation** - Added missing packages: ai-react-state and lightspeed-client to Current Packages section
+- **NEW: App Documentation** - Added missing applications: react-integration-tests and react-integration-tests-e2e
+- **ENHANCED: State Manager API** - Documented complete StateManager interface including conversation management methods
+- **NEW: React Hooks Documentation** - Added ai-react-state package with React hooks for AI state management
+- **NEW: LightSpeed Client Documentation** - Added lightspeed-client package documentation following ARH client patterns
+- **Updated Package Descriptions** - Enhanced ai-client-state description to reflect conversation management capabilities
+- **API Documentation** - Added actual exported interfaces, enums, and hooks based on existing code only
+- **Followed Documentation Guidelines** - Ensured all documented features exist in actual codebase, no hallucinations
 
 ### Version 1.9
 - **CRITICAL: fetchFunction Configuration Rule** - Added mandatory fetchFunction usage patterns to prevent context loss

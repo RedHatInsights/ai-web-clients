@@ -32,15 +32,11 @@ const client = new IFDClient({
 const conversation = await client.createConversation();
 
 // Send a message
-const response = await client.sendMessage(conversation.conversation_id, {
-  input: 'What is Red Hat OpenShift?'
-});
-console.log('Response:', response.output);
+const response = await client.sendMessage(conversation.conversation_id, 'What is Red Hat OpenShift?');
+console.log('Response:', response.answer);
 
-// Send a streaming message
-await client.sendMessageStream(conversation.conversation_id, {
-  input: 'Tell me more about OpenShift features'
-}, {
+// Send a streaming message (requires client with default streaming handler)
+await client.sendMessage(conversation.conversation_id, 'Tell me more about OpenShift features', {
   stream: true
 });
 ```
@@ -67,12 +63,23 @@ const client = new IFDClient({
 
 ### Authenticated Configuration
 
+**Note**: `createAuthenticatedFetch` exists in examples but is not exported from the public API. Use arrow functions for authentication:
+
 ```typescript
-import { IFDClient, createAuthenticatedFetch } from '@redhat-cloud-services/arh-client';
+import { IFDClient } from '@redhat-cloud-services/arh-client';
 
 const client = new IFDClient({
   baseUrl: 'https://your-ifd-api.com',
-  fetchFunction: createAuthenticatedFetch('your-jwt-token')
+  fetchFunction: async (input, init) => {
+    const token = await getAuthToken(); // Your token retrieval logic
+    return fetch(input, {
+      ...init,
+      headers: {
+        ...init?.headers,
+        'Authorization': `Bearer ${token}`
+      }
+    });
+  }
 });
 ```
 
@@ -113,9 +120,7 @@ const client = new IFDClient({
 const conversation = await client.createConversation();
 
 // Send a non-streaming message
-const response = await client.sendMessage(conversation.conversation_id, {
-  input: 'What is Red Hat OpenShift?'
-});
+const response = await client.sendMessage(conversation.conversation_id, 'What is Red Hat OpenShift?');
 
 // Get conversation history
 const history = await client.getConversationHistory(conversation.conversation_id);
@@ -126,17 +131,18 @@ const history = await client.getConversationHistory(conversation.conversation_id
 ```typescript
 import { DefaultStreamingHandler } from '@redhat-cloud-services/arh-client';
 
-const streamHandler = new DefaultStreamingHandler();
-
-await client.sendMessageStream(conversation.conversation_id, {
-  input: 'Tell me about OpenShift features'
-}, {
-  streamingHandler: streamHandler
+// Create client with default streaming handler
+const client = new IFDClient({
+  baseUrl: 'https://your-api.com',
+  fetchFunction: (input, init) => fetch(input, init),
+  defaultStreamingHandler: new DefaultStreamingHandler()
 });
 
-// Access the complete message after streaming
-const completeMessage = streamHandler.getCompleteMessage();
-const messageId = streamHandler.getCurrentMessageId();
+await client.sendMessage(conversation.conversation_id, 'Tell me about OpenShift features', {
+  stream: true
+});
+
+// The streaming handler processes chunks automatically
 ```
 
 ### User Management
@@ -194,13 +200,9 @@ import { DefaultStreamingHandler } from '@redhat-cloud-services/arh-client';
 
 const streamHandler = new DefaultStreamingHandler();
 
-await client.sendMessageStream(conversationId, { input: 'Your question' }, {
-  streamingHandler: streamHandler
-});
+await client.sendMessage(conversationId, 'Your question', { stream: true });
 
-// Access results
-const completeMessage = streamHandler.getCompleteMessage();
-const messageId = streamHandler.getCurrentMessageId();
+// Streaming is handled automatically by the configured handler
 ```
 
 ### Custom Streaming Handler
@@ -302,7 +304,7 @@ export function useIFDStreaming(client: IFDClient) {
     };
 
     try {
-      await client.sendMessageStream(conversationId, { input }, { streamingHandler: handler });
+      await client.sendMessage(conversationId, input, { stream: true });
     } catch (err) {
       setError(err as Error);
       setIsStreaming(false);
@@ -320,8 +322,8 @@ export function useIFDStreaming(client: IFDClient) {
 ```typescript
 // Conversations
 await client.createConversation();
-await client.sendMessage(conversationId, messageRequest);
-await client.sendMessageStream(conversationId, messageRequest, { streamingHandler });
+await client.sendMessage(conversationId, 'your message');
+await client.sendMessage(conversationId, 'streaming message', { stream: true });
 await client.getConversationHistory(conversationId);
 
 // Feedback
@@ -350,6 +352,9 @@ interface IFDClientConfig {
   
   // Required: Custom fetch implementation (use arrow function)
   fetchFunction: IFetchFunction;
+  
+  // Optional: Default streaming handler for stream: true requests
+  defaultStreamingHandler?: IStreamingHandler<MessageChunkResponse>;
 }
 ```
 

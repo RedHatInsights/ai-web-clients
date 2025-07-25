@@ -111,11 +111,10 @@ function App() {
 
 ### useSendMessage
 
-Hook for sending messages to the AI service. Returns the `sendMessage` function directly.
+Hook for sending messages to the AI service. Returns the `sendMessage` function that takes a string message.
 
 ```tsx
 import { useSendMessage } from '@redhat-cloud-services/ai-react-state';
-import { Message } from '@redhat-cloud-services/ai-client-state';
 
 function ChatInput() {
   const sendMessage = useSendMessage();
@@ -123,12 +122,7 @@ function ChatInput() {
 
   const handleSend = async () => {
     try {
-      const message: Message = {
-        id: `msg-${Date.now()}`,
-        answer: input,
-        role: 'user'
-      };
-      await sendMessage(message);
+      await sendMessage(input);
       setInput('');
     } catch (error) {
       console.error('Failed to send message:', error);
@@ -151,20 +145,14 @@ function ChatInput() {
 #### Streaming Messages
 
 ```tsx
-import { useSendStreamMessage } from '@redhat-cloud-services/ai-react-state';
+import { useSendMessage } from '@redhat-cloud-services/ai-react-state';
 
 function StreamingChatInput() {
-  const sendStreamMessage = useSendStreamMessage();
+  const sendMessage = useSendMessage();
 
   const handleStreamingSend = async (text: string) => {
-    const message: Message = {
-      id: `msg-${Date.now()}`,
-      answer: text,
-      role: 'user'
-    };
-    
-    // Automatically streams - no need to set stream: true
-    await sendStreamMessage(message);
+    // Enable streaming with options
+    await sendMessage(text, { stream: true });
     // Streaming responses are automatically handled by the state manager
     // UI will update automatically as chunks arrive
   };
@@ -183,21 +171,14 @@ Hook that automatically enables streaming for all messages. This is a convenienc
 
 ```tsx
 import { useSendStreamMessage } from '@redhat-cloud-services/ai-react-state';
-import { Message } from '@redhat-cloud-services/ai-client-state';
 
 function StreamingChatInput() {
   const sendStreamMessage = useSendStreamMessage();
   const [input, setInput] = useState('');
 
   const handleSend = async () => {
-    const message: Message = {
-      id: `stream-msg-${Date.now()}`,
-      answer: input,
-      role: 'user'
-    };
-    
     // Automatically streams without needing to set stream: true
-    await sendStreamMessage(message);
+    await sendStreamMessage(input);
     setInput('');
   };
 
@@ -271,9 +252,9 @@ function ConversationManager() {
   
   const conversations = ['conv-1', 'conv-2', 'conv-3'];
 
-  const setActiveConversation = (convId: string) => {
+  const setActiveConversation = async (convId: string) => {
     // Access state manager directly to set active conversation
-    getState().setActiveConversationId(convId);
+    await getState().setActiveConversationId(convId);
   };
 
   return (
@@ -310,6 +291,103 @@ function SendingIndicator() {
     <div className="sending-indicator">
       <span>AI is thinking...</span>
       <div className="spinner" />
+    </div>
+  );
+}
+```
+
+### useConversations
+
+Hook to get all conversations from the state manager.
+
+```tsx
+import { useConversations } from '@redhat-cloud-services/ai-react-state';
+
+function ConversationList() {
+  const conversations = useConversations();
+
+  return (
+    <div>
+      <h3>All Conversations ({conversations.length})</h3>
+      {conversations.map(conversation => (
+        <div key={conversation.id}>
+          <h4>{conversation.title}</h4>
+          <p>{conversation.messages.length} messages</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+### useCreateNewConversation
+
+Hook to create new conversations.
+
+```tsx
+import { useCreateNewConversation } from '@redhat-cloud-services/ai-react-state';
+
+function NewConversationButton() {
+  const createNewConversation = useCreateNewConversation();
+
+  const handleCreate = async () => {
+    try {
+      const newConv = await createNewConversation();
+      console.log('Created conversation:', newConv.id);
+    } catch (error) {
+      console.error('Failed to create conversation:', error);
+    }
+  };
+
+  return (
+    <button onClick={handleCreate}>
+      New Conversation
+    </button>
+  );
+}
+```
+
+### useSetActiveConversation
+
+Hook to set the active conversation.
+
+```tsx
+import { useSetActiveConversation } from '@redhat-cloud-services/ai-react-state';
+
+function ConversationSwitcher({ conversationId }: { conversationId: string }) {
+  const setActiveConversation = useSetActiveConversation();
+
+  const handleSwitch = async () => {
+    try {
+      await setActiveConversation(conversationId);
+    } catch (error) {
+      console.error('Failed to switch conversation:', error);
+    }
+  };
+
+  return (
+    <button onClick={handleSwitch}>
+      Switch to Conversation
+    </button>
+  );
+}
+```
+
+### useIsInitializing
+
+Hook to track if the state manager is currently initializing conversation data.
+
+```tsx
+import { useIsInitializing } from '@redhat-cloud-services/ai-react-state';
+
+function LoadingIndicator() {
+  const isInitializing = useIsInitializing();
+
+  if (!isInitializing) return null;
+
+  return (
+    <div className="loading">
+      <span>Loading conversation history...</span>
     </div>
   );
 }
@@ -420,13 +498,7 @@ function MessageInput() {
     if (!input.trim() || isInProgress) return;
 
     try {
-      const message: Message = {
-        id: `msg-${Date.now()}`,
-        answer: input,
-        role: 'user'
-      };
-      
-      await sendMessage(message, { stream: isStreaming });
+      await sendMessage(input, { stream: isStreaming });
       setInput('');
     } catch (error) {
       console.error('Failed to send message:', error);
@@ -561,12 +633,7 @@ function ChatWithErrorHandling() {
   const handleSend = async (text: string) => {
     try {
       setError(null);
-      const message: Message = {
-        id: `msg-${Date.now()}`,
-        answer: text,
-        role: 'user'
-      };
-      await sendMessage(message);
+      await sendMessage(text);
     } catch (err) {
       const errorMessage = err instanceof Error 
         ? err.message 

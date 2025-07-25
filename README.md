@@ -30,16 +30,16 @@ Common interfaces and utilities for all AI client packages.
 - **Usage**: `npm install @redhat-cloud-services/ai-client-common`
 
 #### [@redhat-cloud-services/ai-client-state](packages/ai-client-state/)
-Framework-agnostic state management for AI conversations.
+Framework-agnostic state management for AI conversations with comprehensive conversation management.
 
-- **Features**: Event-driven architecture, conversation management, message flow control
+- **Features**: Multi-conversation support, event-driven architecture, message flow control, conversation history, streaming integration
 - **Status**: Production ready
 - **Usage**: `npm install @redhat-cloud-services/ai-client-state`
 
 #### [@redhat-cloud-services/ai-react-state](packages/ai-react-state/)
-React hooks and context provider for AI state management.
+React hooks and context provider for seamless AI state management integration.
 
-- **Features**: React integration, custom hooks, TypeScript support
+- **Features**: Complete hook ecosystem (useMessages, useSendMessage, useConversations, etc.), React Context provider, streaming support, TypeScript support
 - **Status**: Production ready
 - **Usage**: `npm install @redhat-cloud-services/ai-react-state`
 
@@ -53,11 +53,18 @@ Integration test application for validating package interoperability.
 - **Usage**: `npx nx test client-integration-tests`
 
 #### [react-integration-tests](apps/react-integration-tests/)
-React test application for UI component validation.
+React test application for AI client UI component validation.
 
-- **Features**: React component testing, UI integration examples
+- **Features**: AI chatbot components, React hook examples, UI integration patterns
 - **Status**: Development tool
 - **Usage**: `npx nx serve react-integration-tests`
+
+#### [react-integration-tests-e2e](apps/react-integration-tests-e2e/)
+End-to-end tests for the React integration test application.
+
+- **Features**: Cypress e2e testing, UI behavior validation
+- **Status**: Development tool
+- **Usage**: `npx nx e2e react-integration-tests-e2e`
 
 ## Quick Start
 
@@ -93,16 +100,106 @@ const client = new IFDClient({
 const stateManager = createClientStateManager(client);
 
 await stateManager.init();
-await stateManager.sendMessage({ id: 'msg-1', answer: 'Hello!', role: 'user' });
+await stateManager.sendMessage('Hello!');
 
 // Streaming usage
-await stateManager.sendMessage(
-  { id: 'msg-2', answer: 'Explain Kubernetes', role: 'user' },
-  { stream: true }
-);
+await stateManager.sendMessage('Explain Kubernetes', { stream: true });
+
+// Conversation management
+const conversations = stateManager.getConversations();
+await stateManager.setActiveConversationId('conversation-123');
+const newConversation = await stateManager.createNewConversation();
 ```
 
-### 3. React Integration
+### 4. Advanced Conversation Management
+
+```typescript
+import { createClientStateManager, Events } from '@redhat-cloud-services/ai-client-state';
+
+const stateManager = createClientStateManager(client);
+await stateManager.init();
+
+// Create and manage multiple conversations
+const conv1 = await stateManager.createNewConversation();
+const conv2 = await stateManager.createNewConversation();
+
+// Switch between conversations
+await stateManager.setActiveConversationId(conv1.id);
+await stateManager.sendMessage('Hello in conversation 1');
+
+await stateManager.setActiveConversationId(conv2.id);
+await stateManager.sendMessage('Hello in conversation 2');
+
+// Get all conversations
+const allConversations = stateManager.getConversations();
+console.log(`Total conversations: ${allConversations.length}`);
+
+// Get messages from active conversation
+const messages = stateManager.getActiveConversationMessages();
+
+// Subscribe to state changes
+const unsubscribe = stateManager.subscribe(Events.MESSAGE, () => {
+  console.log('Messages updated:', stateManager.getActiveConversationMessages());
+});
+```
+
+### 3. React Integration with Conversation Management
+
+```tsx
+import React from 'react';
+import { 
+  AIStateProvider, 
+  useSendMessage, 
+  useMessages, 
+  useConversations,
+  useCreateNewConversation,
+  useSetActiveConversation,
+  useActiveConversation
+} from '@redhat-cloud-services/ai-react-state';
+
+function ChatApp() {
+  const sendMessage = useSendMessage();
+  const messages = useMessages();
+  const conversations = useConversations();
+  const createNewConversation = useCreateNewConversation();
+  const setActiveConversation = useSetActiveConversation();
+  const activeConversationId = useActiveConversation();
+
+  const handleNewConversation = async () => {
+    const newConv = await createNewConversation();
+    await setActiveConversation(newConv.id);
+  };
+
+  return (
+    <div>
+      <div>
+        <button onClick={handleNewConversation}>New Conversation</button>
+        <select 
+          value={activeConversationId || ''} 
+          onChange={(e) => setActiveConversation(e.target.value)}
+        >
+          {conversations.map(conv => (
+            <option key={conv.id} value={conv.id}>{conv.title}</option>
+          ))}
+        </select>
+      </div>
+      
+      <div>
+        {messages.map(msg => (
+          <div key={msg.id}>{msg.role}: {msg.answer}</div>
+        ))}
+      </div>
+      
+      <button onClick={() => sendMessage('Hello AI!')}>Send Message</button>
+      <button onClick={() => sendMessage('Stream response', { stream: true })}>
+        Send Streaming
+      </button>
+    </div>
+  );
+}
+```
+
+### 4. Full React Examples
 
 #### Option A: Initialize Outside React Scope (Recommended)
 
@@ -135,21 +232,11 @@ function ChatInterface() {
   const messages = useMessages();
   
   const handleSend = () => {
-    const message = {
-      id: `msg-${Date.now()}`,
-      answer: 'Hello AI!',
-      role: 'user' as const
-    };
-    sendMessage(message);
+    sendMessage('Hello AI!');
   };
   
   const handleStreamingSend = () => {
-    const message = {
-      id: `msg-${Date.now()}`,
-      answer: 'Tell me about containers',
-      role: 'user' as const
-    };
-    sendMessage(message, { stream: true });
+    sendMessage('Tell me about containers', { stream: true });
   };
   
   return (
@@ -199,21 +286,11 @@ function ChatInterface() {
   const messages = useMessages();
   
   const handleSend = () => {
-    const message = {
-      id: `msg-${Date.now()}`,
-      answer: 'Hello AI!',
-      role: 'user' as const
-    };
-    sendMessage(message);
+    sendMessage('Hello AI!');
   };
   
   const handleStreamingSend = () => {
-    const message = {
-      id: `msg-${Date.now()}`,
-      answer: 'Tell me about containers',
-      role: 'user' as const
-    };
-    sendMessage(message, { stream: true });
+    sendMessage('Tell me about containers', { stream: true });
   };
   
   return (
@@ -232,9 +309,14 @@ function ChatInterface() {
 ┌─────────────────────────────────────────────────────────┐
 │                     Your Application                    │
 ├─────────────────────────────────────────────────────────┤
-│  @redhat-cloud-services/ai-react-state (React Hooks)    │
+│  @redhat-cloud-services/ai-react-state                  │
+│  • useMessages, useSendMessage, useConversations        │
+│  • useActiveConversation, useCreateNewConversation      │
 ├─────────────────────────────────────────────────────────┤
-│  @redhat-cloud-services/ai-client-state (State Mgmt)    │
+│  @redhat-cloud-services/ai-client-state                 │
+│  • Multi-conversation management                        │
+│  • Event-driven state updates                           │
+│  • Message streaming integration                        │
 ├─────────────────────────────────────────────────────────┤
 │          AI Client Implementation                       │
 │  ┌─────────────────────┐  ┌─────────────────────────┐   │
@@ -243,6 +325,7 @@ function ChatInterface() {
 │  └─────────────────────┘  └─────────────────────────┘   │
 ├─────────────────────────────────────────────────────────┤
 │  @redhat-cloud-services/ai-client-common (Interfaces)   │
+│  • IAIClient interface, Error classes, Types            │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -251,7 +334,8 @@ function ChatInterface() {
 - **🔗 Interoperability**: All packages implement common interfaces
 - **🎯 Dependency Injection**: Testable and configurable clients  
 - **📡 Streaming Support**: Real-time AI responses with custom handlers
-- **⚛️ React Ready**: Purpose-built hooks and context providers
+- **💬 Conversation Management**: Multi-conversation support with history and state persistence
+- **⚛️ React Ready**: Complete hook ecosystem and context providers
 - **📦 Modular**: Use only what you need, from raw clients to full React integration
 - **🔒 Type Safe**: Comprehensive TypeScript coverage across all packages
 - **🧪 Well Tested**: Extensive integration tests and cross-package validation
