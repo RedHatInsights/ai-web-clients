@@ -1,11 +1,11 @@
 {
   "name": "@redhat-cloud-services/ai-client-state",
-  "version": "0.3.3",
+  "version": "0.4.0",
   "type": "commonjs",
   "main": "./src/index.js",
   "types": "./src/index.d.ts",
   "dependencies": {
-    "@redhat-cloud-services/ai-client-common": "0.3.3"
+    "@redhat-cloud-services/ai-client-common": "0.4.0"
   },
   "publishConfig": {
     "access": "public"
