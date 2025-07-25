@@ -27,17 +27,21 @@ All AI clients in this workspace implement the `IAIClient` interface:
 ```typescript
 import { IAIClient } from '@redhat-cloud-services/ai-client-common';
 
-interface IAIClient {
-  init(): Promise<string>;
+interface IAIClient<AP extends Record<string, unknown> = Record<string, unknown>> {
+  init(): Promise<{
+    initialConversationId: string;
+    conversations: IConversation[];
+  }>;
   sendMessage<TChunk = unknown>(
     conversationId: string, 
     message: string, 
     options?: ISendMessageOptions<TChunk>
-  ): Promise<TChunk | IMessageResponse | void>;
+  ): Promise<TChunk | IMessageResponse<AP> | void>;
   getDefaultStreamingHandler?<TChunk = unknown>(): IStreamingHandler<TChunk> | undefined;
-  getConversationHistory(conversationId: string, options?: IRequestOptions): Promise<IConversationHistoryResponse>;
+  getConversationHistory(conversationId: string, options?: IRequestOptions): Promise<IConversationHistoryResponse<AP>>;
   healthCheck(options?: IRequestOptions): Promise<unknown>;
   getServiceStatus?(options?: IRequestOptions): Promise<unknown>;
+  createNewConversation(): Promise<IConversation>;
 }
 ```
 
@@ -165,7 +169,7 @@ import {
   IRequestOptions,
   IMessageResponse,
   IConversationHistoryResponse,
-  IAPIResponse
+  IConversation
 } from '@redhat-cloud-services/ai-client-common';
 
 // Standard request options
@@ -175,12 +179,18 @@ const options: IRequestOptions = {
 };
 
 // Message response structure
-interface IMessageResponse {
+interface IMessageResponse<AP = Record<string, unknown>> {
   messageId: string;
   answer: string;
   conversationId: string;
   createdAt?: string;
-  metadata?: unknown;
+  additionalAttributes?: AP;
+}
+
+// Conversation structure
+interface IConversation {
+  id: string;
+  title: string;
 }
 ```
 

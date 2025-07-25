@@ -68,6 +68,43 @@ interface LightspeedClientConfig {
 - **Streaming Support**: Server-Sent Events (SSE) processing
 - **Type Safety**: Strict TypeScript with no `any` types
 
+## Core Methods
+
+The LightspeedClient implements the same `IAIClient` interface as other AI clients in this workspace:
+
+```typescript
+// Initialize conversation
+const conversationId = await client.init();
+
+// Send non-streaming message
+const response = await client.sendMessage(conversationId, 'How do I deploy a pod in OpenShift?');
+
+// Send streaming message (requires default streaming handler configured)
+await client.sendMessage(conversationId, 'Tell me about OpenShift networking', { stream: true });
+
+// Get conversation history
+const history = await client.getConversationHistory(conversationId);
+
+// Health check
+await client.healthCheck();
+```
+
+## Error Handling
+
+```typescript
+import { LightspeedClientError, LightspeedValidationError } from '@redhat-cloud-services/lightspeed-client';
+
+try {
+  const response = await client.sendMessage(conversationId, 'Your message');
+} catch (error) {
+  if (error instanceof LightspeedValidationError) {
+    console.error('Validation errors:', error.validationErrors);
+  } else if (error instanceof LightspeedClientError) {
+    console.error(`API Error ${error.status}: ${error.message}`);
+  }
+}
+```
+
 ## Documentation
 
 See [USAGE.md](./USAGE.md) for detailed usage examples and API documentation.

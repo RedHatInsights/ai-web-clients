@@ -34,16 +34,10 @@ const stateManager = createClientStateManager(client);
 
 // Initialize and start using
 await stateManager.init();
-stateManager.setActiveConversationId('conversation-id');
+await stateManager.setActiveConversationId('conversation-id');
 
-// Send messages
-const userMessage = {
-  id: 'msg-1',
-  answer: 'Hello AI!',
-  role: 'user' as const
-};
-
-await stateManager.sendMessage(userMessage);
+// Send messages (pass string directly, not Message object)
+await stateManager.sendMessage('Hello AI!');
 ```
 
 ## Critical: fetchFunction Configuration
@@ -170,6 +164,50 @@ const stateManager = await createAuthenticatedClient();
 await stateManager.init();
 ```
 
+## API Reference
+
+### StateManager Interface
+
+```typescript
+export interface StateManager<T extends Record<string, unknown> = Record<string, unknown>> {
+  // Initialization
+  init(): Promise<void>;
+  isInitialized(): boolean;
+  isInitializing(): boolean;
+  
+  // Conversation Management
+  setActiveConversationId(conversationId: string): Promise<void>;
+  getActiveConversationMessages(): Message<T>[];
+  getConversations(): Conversation<T>[];
+  createNewConversation(): Promise<IConversation>;
+  
+  // Message Management
+  sendMessage(query: UserQuery, options?: MessageOptions): Promise<any>;
+  getMessageInProgress(): boolean;
+  
+  // State Access
+  getState(): ClientState<T>;
+  
+  // Event System
+  subscribe(event: Events, callback: () => void): () => void;
+}
+
+export type UserQuery = string;
+
+export interface MessageOptions {
+  stream?: boolean;
+  [key: string]: unknown;
+}
+
+export enum Events {
+  MESSAGE = 'message',
+  ACTIVE_CONVERSATION = 'active-conversation',
+  IN_PROGRESS = 'in-progress',
+  CONVERSATIONS = 'conversations',
+  INITIALIZING_MESSAGES = 'initializing-messages',
+}
+```
+
 ## Core Concepts
 
 ### State Manager
@@ -194,29 +232,49 @@ if (stateManager.isInitializing()) {
 }
 ```
 
-### Message Structure
+### Data Structures
 
 ```typescript
-import { Message } from '@redhat-cloud-services/ai-client-state';
+import { Message, Conversation } from '@redhat-cloud-services/ai-client-state';
 
-const userMessage: Message = {
-  id: 'unique-message-id',
-  answer: 'What is OpenShift?',
-  role: 'user'
-};
+// Message structure (automatically created by state manager)
+interface Message<T = Record<string, unknown>> {
+  id: string;
+  answer: string;
+  role: 'user' | 'bot';
+  additionalData?: T;
+}
 
-const botMessage: Message = {
-  id: 'bot-response-id', 
-  answer: 'OpenShift is a container platform...',
-  role: 'bot'
-};
+// Conversation structure
+interface Conversation<T = Record<string, unknown>> {
+  id: string;
+  title: string;
+  messages: Message<T>[];
+}
+
+// Example: Messages are automatically created when you send strings
+await stateManager.sendMessage('What is OpenShift?');
+// This creates a user message internally and triggers the bot response
+
+// Access messages from the conversation
+const messages = stateManager.getActiveConversationMessages();
+console.log('User message:', messages[0]); // { id: '...', answer: 'What is OpenShift?', role: 'user' }
+console.log('Bot response:', messages[1]); // { id: '...', answer: 'OpenShift is...', role: 'bot' }
 ```
 
 ### Conversation Management
 
 ```typescript
-// Set active conversation
-stateManager.setActiveConversationId('conv-123');
+// Set active conversation (async)
+await stateManager.setActiveConversationId('conv-123');
+
+// Get all conversations
+const conversations = stateManager.getConversations();
+console.log('All conversations:', conversations);
+
+// Create new conversation
+const newConversation = await stateManager.createNewConversation();
+console.log('Created conversation:', newConversation.id);
 
 // Get messages from active conversation
 const messages = stateManager.getActiveConversationMessages();
@@ -229,31 +287,21 @@ console.log('Active conversation:', state.activeConversationId);
 
 ## Sending Messages
 
+> **Important**: The `sendMessage` method takes a string (`UserQuery`), not a `Message` object. The state manager automatically creates `Message` objects internally for both user input and bot responses.
+
 ### Basic Message Sending
 
 ```typescript
-const userMessage: Message = {
-  id: 'msg-001',
-  answer: 'Explain Kubernetes pods',
-  role: 'user'
-};
-
-// Send non-streaming message
-const response = await stateManager.sendMessage(userMessage);
+// Send non-streaming message (pass string directly)
+const response = await stateManager.sendMessage('Explain Kubernetes pods');
 console.log('Bot response:', response);
 ```
 
 ### Streaming Messages
 
 ```typescript
-const userMessage: Message = {
-  id: 'msg-002', 
-  answer: 'Tell me about container orchestration',
-  role: 'user'
-};
-
 // Send streaming message (uses client's default streaming handler)
-await stateManager.sendMessage(userMessage, { stream: true });
+await stateManager.sendMessage('Tell me about container orchestration', { stream: true });
 
 // Messages are automatically updated as chunks arrive
 const messages = stateManager.getActiveConversationMessages();
@@ -272,7 +320,7 @@ const options: MessageOptions = {
   // Any additional options are passed to the underlying client
 };
 
-await stateManager.sendMessage(userMessage, options);
+await stateManager.sendMessage('Your message here', options);
 ```
 
 ## Event System
@@ -282,9 +330,12 @@ await stateManager.sendMessage(userMessage, options);
 ```typescript
 import { Events } from '@redhat-cloud-services/ai-client-state';
 
+// Available Events:
 // Events.MESSAGE - When messages are added/updated
 // Events.ACTIVE_CONVERSATION - When active conversation changes  
 // Events.IN_PROGRESS - When message sending status changes
+// Events.CONVERSATIONS - When conversation list changes
+// Events.INITIALIZING_MESSAGES - When conversation history is being loaded
 ```
 
 ### Subscribing to Events
@@ -308,10 +359,24 @@ const unsubscribeProgress = stateManager.subscribe(Events.IN_PROGRESS, () => {
   console.log('Message in progress:', isInProgress);
 });
 
+// Subscribe to conversation list changes
+const unsubscribeConversations = stateManager.subscribe(Events.CONVERSATIONS, () => {
+  const conversations = stateManager.getConversations();
+  console.log('Conversations updated:', conversations.length);
+});
+
+// Subscribe to message initialization events
+const unsubscribeInitializing = stateManager.subscribe(Events.INITIALIZING_MESSAGES, () => {
+  const isInitializing = stateManager.isInitializing();
+  console.log('Messages initializing:', isInitializing);
+});
+
 // Cleanup subscriptions
 unsubscribeMessages();
 unsubscribeConversation();
 unsubscribeProgress();
+unsubscribeConversations();
+unsubscribeInitializing();
 ```
 
 ### Progress Tracking
@@ -391,24 +456,32 @@ const stateManager = createClientStateManager(customClient);
 await stateManager.init(); // Creates initial conversation
 const initialConversationId = stateManager.getState().activeConversationId;
 
+// Create new conversations
+const conversation1 = await stateManager.createNewConversation();
+const conversation2 = await stateManager.createNewConversation();
+
 // Switch between conversations  
-stateManager.setActiveConversationId('conversation-1');
-await stateManager.sendMessage(userMessage1);
+await stateManager.setActiveConversationId(conversation1.id);
+await stateManager.sendMessage('First message');
 
-stateManager.setActiveConversationId('conversation-2'); 
-await stateManager.sendMessage(userMessage2);
+await stateManager.setActiveConversationId(conversation2.id); 
+await stateManager.sendMessage('Second message');
 
-// Access specific conversation
+// Get all conversations
+const allConversations = stateManager.getConversations();
+console.log('Total conversations:', allConversations.length);
+
+// Access specific conversation from state
 const state = stateManager.getState();
-const conversation1 = state.conversations['conversation-1'];
-const conversation2 = state.conversations['conversation-2'];
+const conv1 = state.conversations[conversation1.id];
+const conv2 = state.conversations[conversation2.id];
 ```
 
 ### Error Handling
 
 ```typescript
 try {
-  await stateManager.sendMessage(userMessage);
+  await stateManager.sendMessage('Your message here');
 } catch (error) {
   console.error('Failed to send message:', error);
   
