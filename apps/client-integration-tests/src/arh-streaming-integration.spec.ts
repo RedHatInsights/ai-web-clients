@@ -23,10 +23,17 @@ import {
 } from '@redhat-cloud-services/ai-client-state';
 
 // Custom fetch function that uses the mock server
-const createMockServerFetch = () => {
+const createMockServerFetch = (headers?: Record<string, string>) => {
   return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const url = typeof input === 'string' ? input : input.toString();
-    return fetch(url, init);
+    const mergedInit = {
+      ...init,
+      headers: {
+        ...init?.headers,
+        ...headers
+      }
+    };
+    return fetch(url, mergedInit);
   };
 };
 
@@ -310,6 +317,201 @@ describe('ARH Client Streaming Integration Tests', () => {
       expect(messages[2].answer).toBe('Tell me more about its features');
       expect(messages[3].answer).toBe(streamingHandler.finalMessage);
     }, 10000);
+  });
+
+  describe('Streaming Error Handling', () => {
+    it('should handle errors that occur during streaming', async () => {
+      // Create client with error injection headers
+      const errorClient = new IFDClient({
+        baseUrl: mockServerBaseUrl,
+        fetchFunction: createMockServerFetch({
+          'x-mock-error-after-chunks': '2', // Error after 2 chunks
+          'x-mock-error-type': 'stream_error',
+          'x-mock-error-message': 'Test streaming error during processing'
+        }),
+        defaultStreamingHandler: streamingHandler
+      });
+
+      const conversation = await errorClient.createConversation();
+      
+      await errorClient.sendMessage(
+        conversation.conversation_id, 
+        'This will error during streaming',
+        { stream: true }
+      );
+
+      // Verify that some chunks were received before the error
+      expect(streamingHandler.chunks.length).toBeGreaterThan(0);
+      
+      // Verify an error was received
+      expect(streamingHandler.errorReceived).not.toBeNull();
+      expect(streamingHandler.errorReceived?.message).toContain('Test streaming error during processing');
+      
+      // Verify the error chunk was processed
+      const lastChunk = streamingHandler.chunks[streamingHandler.chunks.length - 1];
+      expect(lastChunk.answer).toBe('Test streaming error during processing');
+      
+      // Verify stream completed properly even with error
+      expect(streamingHandler.isCompleted).toBe(true);
+    });
+
+    it('should handle immediate streaming errors', async () => {
+      // Create client with immediate error injection
+      const errorClient = new IFDClient({
+        baseUrl: mockServerBaseUrl,
+        fetchFunction: createMockServerFetch({
+          'x-mock-error-after-chunks': '0', // Error immediately
+          'x-mock-error-message': 'Immediate streaming error'
+        }),
+        defaultStreamingHandler: streamingHandler
+      });
+
+      const conversation = await errorClient.createConversation();
+      
+      await errorClient.sendMessage(
+        conversation.conversation_id, 
+        'This will error immediately',
+        { stream: true }
+      );
+
+      // Verify stream started but errored
+      expect(streamingHandler.isStarted).toBe(true);
+      expect(streamingHandler.errorReceived).not.toBeNull();
+      expect(streamingHandler.errorReceived?.message).toContain('Immediate streaming error');
+      
+      // Verify error chunk was received
+      expect(streamingHandler.chunks.length).toBeGreaterThan(0);
+      const errorChunk = streamingHandler.chunks[streamingHandler.chunks.length - 1];
+      expect(errorChunk.answer).toBe('Immediate streaming error');
+      
+      expect(streamingHandler.isCompleted).toBe(true);
+    });
+
+    it('should handle error state management integration', async () => {
+      const errorClient = new IFDClient({
+        baseUrl: mockServerBaseUrl,
+        fetchFunction: createMockServerFetch({
+          'x-mock-error-after-chunks': '1',
+          'x-mock-error-message': 'State manager error test'
+        }),
+        defaultStreamingHandler: streamingHandler
+      });
+
+      const stateManager = createClientStateManager(errorClient);
+      const conversation = await errorClient.createConversation();
+      await stateManager.setActiveConversationId(conversation.conversation_id);
+
+      const userMessage: UserQuery = 'This will error during streaming through state manager';
+
+      await stateManager.sendMessage(userMessage, { stream: true });
+
+      // Verify error was handled properly
+      expect(streamingHandler.errorReceived).not.toBeNull();
+      expect(streamingHandler.isCompleted).toBe(true);
+
+      // Verify state manager recorded the error message
+      const messages = stateManager.getActiveConversationMessages();
+      expect(messages.length).toBe(2); // User message + error message
+      
+      // Verify user message
+      expect(messages[0].answer).toBe(userMessage);
+      expect(messages[0].role).toBe('user');
+      
+      // Verify error message was stored
+      expect(messages[1].role).toBe('bot');
+      expect(messages[1].answer).toBe('State manager error test');
+    });
+
+    it('should handle custom error messages during streaming', async () => {
+      const customErrorMessage = 'Custom error message for testing error handling';
+      
+      const errorClient = new IFDClient({
+        baseUrl: mockServerBaseUrl,
+        fetchFunction: createMockServerFetch({
+          'x-mock-error-after-chunks': '3',
+          'x-mock-error-type': 'custom_error',
+          'x-mock-error-message': customErrorMessage
+        }),
+        defaultStreamingHandler: streamingHandler
+      });
+
+      const conversation = await errorClient.createConversation();
+      
+      await errorClient.sendMessage(
+        conversation.conversation_id, 
+        'Test custom error message',
+        { stream: true }
+      );
+
+      // Verify custom error message was processed
+      expect(streamingHandler.errorReceived).not.toBeNull();
+      expect(streamingHandler.errorReceived?.message).toContain(customErrorMessage);
+      
+      // Verify the error chunk contains the custom message
+      const lastChunk = streamingHandler.chunks[streamingHandler.chunks.length - 1];
+      expect(lastChunk.answer).toBe(customErrorMessage);
+    });
+
+    it('should preserve chunk progression before error occurs', async () => {
+      const errorClient = new IFDClient({
+        baseUrl: mockServerBaseUrl,
+        fetchFunction: createMockServerFetch({
+          'x-mock-error-after-chunks': '4', // Allow several chunks before error
+          'x-mock-error-message': 'Error after progression test'
+        }),
+        defaultStreamingHandler: streamingHandler
+      });
+
+      const conversation = await errorClient.createConversation();
+      
+      await errorClient.sendMessage(
+        conversation.conversation_id, 
+        'Test progression before error',
+        { stream: true }
+      );
+
+      // Verify we received multiple chunks before the error
+      expect(streamingHandler.chunks.length).toBeGreaterThan(4); // At least 4 content chunks + 1 error chunk
+      
+      // Separate content chunks from error chunks
+      const contentChunks = streamingHandler.chunks.filter(chunk => 
+        chunk.answer !== 'Error after progression test'
+      );
+      const errorChunks = streamingHandler.chunks.filter(chunk => 
+        chunk.answer === 'Error after progression test'
+      );
+      
+      // Verify we have both content chunks and error chunks
+      expect(contentChunks.length).toBeGreaterThanOrEqual(4);
+      expect(errorChunks.length).toBeGreaterThanOrEqual(1);
+      
+      // Verify progressive content building in content chunks
+      let hasProgression = false;
+      let previousLength = 0;
+      let progressiveChunks = 0;
+      
+      // Check progression in content chunks (which should be the first several chunks)
+      for (let i = 0; i < Math.min(contentChunks.length, 4); i++) {
+        const chunk = contentChunks[i];
+        
+        // Check for progression in content chunks
+        if (chunk.answer.length >= previousLength) {
+          progressiveChunks++;
+          if (chunk.answer.length > previousLength) {
+            hasProgression = true;
+          }
+          previousLength = chunk.answer.length;
+        }
+      }
+
+      // Verify that we had progression and most chunks were progressive
+      expect(hasProgression).toBe(true);
+      expect(progressiveChunks).toBeGreaterThanOrEqual(3); // At least 3 chunks should maintain progression
+      
+      // Verify final chunk is the error
+      const lastChunk = streamingHandler.chunks[streamingHandler.chunks.length - 1];
+      expect(lastChunk.answer).toBe('Error after progression test');
+    });
   });
 
   describe('Mock Server Validation', () => {
