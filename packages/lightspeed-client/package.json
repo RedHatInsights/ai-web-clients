@@ -5,7 +5,7 @@
   "main": "./src/index.js",
   "types": "./src/index.d.ts",
   "dependencies": {
-    "@redhat-cloud-services/ai-client-common": "0.4.0"
+    "@redhat-cloud-services/ai-client-common": "0.4.1"
   },
   "publishConfig": {
     "access": "public"
