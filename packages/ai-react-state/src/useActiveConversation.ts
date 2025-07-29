@@ -11,5 +11,10 @@ export function useActiveConversation() {
       unsubscribe();
     };
   }, [getState, subscribe]);
-  return conversationId;
+
+  if(!conversationId) {
+    return undefined;
+  }
+
+  return getState().getState().conversations[conversationId];
 }
