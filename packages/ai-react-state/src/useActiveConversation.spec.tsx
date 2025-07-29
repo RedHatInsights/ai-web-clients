@@ -29,26 +29,41 @@ describe('useActiveConversation', () => {
       }),
       init: jest.fn(),
       getConversationHistory: jest.fn().mockResolvedValue([]),
+      createNewConversation: jest.fn().mockResolvedValue({ id: 'new-conv', title: 'New Conversation', locked: false }),
     };
     
     stateManager = createClientStateManager(mockClient);
   });
 
   describe('Initial State', () => {
-    it('should return null when no active conversation is set', () => {
+    it('should return undefined when no active conversation is set', () => {
       const wrapper = createWrapper(stateManager);
       const { result } = renderHook(() => useActiveConversation(), { wrapper });
       
-      expect(result.current).toBeNull();
+      expect(result.current).toBeUndefined();
     });
 
-    it('should return current active conversation ID when set', () => {
-      stateManager.setActiveConversationId('conv-123');
+    it('should return current active conversation object when set', async () => {
+      // Create a conversation first so it exists in state
+      const state = stateManager.getState();
+      state.conversations['conv-123'] = {
+        id: 'conv-123',
+        title: 'Test Conversation',
+        messages: [],
+        locked: false
+      };
+      
+      await stateManager.setActiveConversationId('conv-123');
       const wrapper = createWrapper(stateManager);
       
       const { result } = renderHook(() => useActiveConversation(), { wrapper });
       
-      expect(result.current).toBe('conv-123');
+      expect(result.current).toEqual({
+        id: 'conv-123',
+        title: 'Test Conversation',
+        messages: [],
+        locked: false
+      });
     });
   });
 
@@ -57,32 +72,92 @@ describe('useActiveConversation', () => {
       const wrapper = createWrapper(stateManager);
       const { result } = renderHook(() => useActiveConversation(), { wrapper });
       
-      expect(result.current).toBeNull();
+      expect(result.current).toBeUndefined();
+
+      // Create a conversation first so it exists in state
+      const state = stateManager.getState();
+      state.conversations['conv-456'] = {
+        id: 'conv-456',
+        title: 'Test Conversation 456',
+        messages: [],
+        locked: false
+      };
 
       // Change the active conversation
       act(() => {
         stateManager.setActiveConversationId('conv-456');
       });
 
-      expect(result.current).toBe('conv-456');
+      expect(result.current).toEqual({
+        id: 'conv-456',
+        title: 'Test Conversation 456',
+        messages: [],
+        locked: false
+      });
     });
 
     it('should handle switching between conversations', () => {
+      // Create conversations first so they exist in state
+      const state = stateManager.getState();
+      state.conversations['conv-123'] = {
+        id: 'conv-123',
+        title: 'Test Conversation 123',
+        messages: [],
+        locked: false
+      };
+      state.conversations['conv-456'] = {
+        id: 'conv-456',
+        title: 'Test Conversation 456',
+        messages: [],
+        locked: false
+      };
+
       stateManager.setActiveConversationId('conv-123');
       const wrapper = createWrapper(stateManager);
       const { result } = renderHook(() => useActiveConversation(), { wrapper });
       
-      expect(result.current).toBe('conv-123');
+      expect(result.current).toEqual({
+        id: 'conv-123',
+        title: 'Test Conversation 123',
+        messages: [],
+        locked: false
+      });
 
       // Switch to a different conversation
       act(() => {
         stateManager.setActiveConversationId('conv-456');
       });
 
-      expect(result.current).toBe('conv-456');
+      expect(result.current).toEqual({
+        id: 'conv-456',
+        title: 'Test Conversation 456',
+        messages: [],
+        locked: false
+      });
     });
 
     it('should handle multiple state updates correctly', () => {
+      // Create conversations first so they exist in state
+      const state = stateManager.getState();
+      state.conversations['conv-456'] = {
+        id: 'conv-456',
+        title: 'Test Conversation 456',
+        messages: [],
+        locked: false
+      };
+      state.conversations['conv-789'] = {
+        id: 'conv-789',
+        title: 'Test Conversation 789',
+        messages: [],
+        locked: false
+      };
+      state.conversations['conv-abc'] = {
+        id: 'conv-abc',
+        title: 'Test Conversation ABC',
+        messages: [],
+        locked: false
+      };
+
       const wrapper = createWrapper(stateManager);
       const { result } = renderHook(() => useActiveConversation(), { wrapper });
       
@@ -90,19 +165,34 @@ describe('useActiveConversation', () => {
       act(() => {
         stateManager.setActiveConversationId('conv-456');
       });
-      expect(result.current).toBe('conv-456');
+      expect(result.current).toEqual({
+        id: 'conv-456',
+        title: 'Test Conversation 456',
+        messages: [],
+        locked: false
+      });
 
       // Second update
       act(() => {
         stateManager.setActiveConversationId('conv-789');
       });
-      expect(result.current).toBe('conv-789');
+      expect(result.current).toEqual({
+        id: 'conv-789',
+        title: 'Test Conversation 789',
+        messages: [],
+        locked: false
+      });
 
              // Switch to another conversation
        act(() => {
          stateManager.setActiveConversationId('conv-abc');
        });
-       expect(result.current).toBe('conv-abc');
+       expect(result.current).toEqual({
+         id: 'conv-abc',
+         title: 'Test Conversation ABC',
+         messages: [],
+         locked: false
+       });
     });
   });
 
@@ -110,8 +200,17 @@ describe('useActiveConversation', () => {
     it('should update when switching between different state managers', async () => {
       // Test component that displays the conversation ID
       const TestComponent = () => {
-        const conversationId = useActiveConversation();
-        return <div data-testid="conversation-id">{conversationId || 'null'}</div>;
+        const conversation = useActiveConversation();
+        return <div data-testid="conversation-id">{conversation?.id || 'null'}</div>;
+      };
+
+      // Create conversation in first state manager
+      const state1 = stateManager.getState();
+      state1.conversations['conv-123'] = {
+        id: 'conv-123',
+        title: 'Test Conversation 123',
+        messages: [],
+        locked: false
       };
 
       const wrapper1 = createWrapper(stateManager);
@@ -131,6 +230,13 @@ describe('useActiveConversation', () => {
 
       // Create new state manager with different state
       const newStateManager = createClientStateManager(mockClient);
+      const state2 = newStateManager.getState();
+      state2.conversations['conv-456'] = {
+        id: 'conv-456',
+        title: 'Test Conversation 456',
+        messages: [],
+        locked: false
+      };
       newStateManager.setActiveConversationId('conv-456');
       
       const wrapper2 = createWrapper(newStateManager);
@@ -146,8 +252,17 @@ describe('useActiveConversation', () => {
     it('should update when setting conversation ID after context switch', async () => {
       // Test component that displays the conversation ID
       const TestComponent = () => {
-        const conversationId = useActiveConversation();
-        return <div data-testid="conversation-id">{conversationId || 'null'}</div>;
+        const conversation = useActiveConversation();
+        return <div data-testid="conversation-id">{conversation?.id || 'null'}</div>;
+      };
+
+      // Create conversation in first state manager
+      const state1 = stateManager.getState();
+      state1.conversations['conv-123'] = {
+        id: 'conv-123',
+        title: 'Test Conversation 123',
+        messages: [],
+        locked: false
       };
 
       const wrapper1 = createWrapper(stateManager);
@@ -176,7 +291,15 @@ describe('useActiveConversation', () => {
         expect(getByTestId2('conversation-id')).toHaveTextContent('null');
       });
       
-      // Then set the conversation ID
+      // Create conversation in new state manager and then set the conversation ID
+      const state2 = newStateManager.getState();
+      state2.conversations['conv-456'] = {
+        id: 'conv-456',
+        title: 'Test Conversation 456',
+        messages: [],
+        locked: false
+      };
+      
       act(() => {
         newStateManager.setActiveConversationId('conv-456');
       });

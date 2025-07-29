@@ -327,7 +327,7 @@ export const AIStateProvider: React.Component<{
 }>;
 
 // React Hooks
-export function useActiveConversation(): Conversation | null;
+export function useActiveConversation(): Conversation | undefined;
 export function useSendMessage(): (query: UserQuery, options?: MessageOptions) => Promise<any>;
 export function useMessages<T>(): Message<T>[];
 export function useActiveInProgress(): boolean;
@@ -589,6 +589,7 @@ import { SharedUtility } from '@redhat-cloud-services/shared-utils';
 - **Error Handling** - Locked conversations show user-friendly error messages instead of processing messages
 - **Event System Integration** - Proper event emission for locked conversation scenarios
 - **Unit Test Coverage** - Added comprehensive unit tests across all affected packages
+- **BREAKING: useActiveConversation API Change** - Hook now returns full conversation object instead of just ID string
 - **DOCUMENTATION: Client-Specific Separation Rule** - Added rule to prevent client-specific examples in common package documentation
 
 ### Version 2.0

@@ -163,7 +163,7 @@ function ChatApp() {
   const conversations = useConversations();
   const createNewConversation = useCreateNewConversation();
   const setActiveConversation = useSetActiveConversation();
-  const activeConversationId = useActiveConversation();
+  const activeConversation = useActiveConversation();
 
   const handleNewConversation = async () => {
     const newConv = await createNewConversation();
@@ -173,13 +173,18 @@ function ChatApp() {
   return (
     <div>
       <div>
+        <h3>Active: {activeConversation?.title || 'None'}</h3>
+        {activeConversation?.locked && <p>🔒 This conversation is locked</p>}
+        
         <button onClick={handleNewConversation}>New Conversation</button>
         <select 
-          value={activeConversationId || ''} 
+          value={activeConversation?.id || ''} 
           onChange={(e) => setActiveConversation(e.target.value)}
         >
           {conversations.map(conv => (
-            <option key={conv.id} value={conv.id}>{conv.title}</option>
+            <option key={conv.id} value={conv.id}>
+              {conv.title} {conv.locked ? '🔒' : ''}
+            </option>
           ))}
         </select>
       </div>
@@ -190,8 +195,16 @@ function ChatApp() {
         ))}
       </div>
       
-      <button onClick={() => sendMessage('Hello AI!')}>Send Message</button>
-      <button onClick={() => sendMessage('Stream response', { stream: true })}>
+      <button 
+        onClick={() => sendMessage('Hello AI!')}
+        disabled={activeConversation?.locked}
+      >
+        Send Message
+      </button>
+      <button 
+        onClick={() => sendMessage('Stream response', { stream: true })}
+        disabled={activeConversation?.locked}
+      >
         Send Streaming
       </button>
     </div>

@@ -239,7 +239,7 @@ function UserMessages() {
 
 ### useActiveConversation
 
-Hook to get the active conversation ID. Returns the conversation ID string or null.
+Hook to get the active conversation object. Returns the full conversation object or undefined if no conversation is active.
 
 ```tsx
 import { useActiveConversation } from '@redhat-cloud-services/ai-react-state';
@@ -247,7 +247,7 @@ import { useContext } from 'react';
 import { AIStateContext } from '@redhat-cloud-services/ai-react-state';
 
 function ConversationManager() {
-  const activeConversationId = useActiveConversation();
+  const activeConversation = useActiveConversation();
   const { getState } = useContext(AIStateContext);
   
   const conversations = ['conv-1', 'conv-2', 'conv-3'];
@@ -259,13 +259,16 @@ function ConversationManager() {
 
   return (
     <div>
-      <h3>Active: {activeConversationId || 'None'}</h3>
+      <h3>Active: {activeConversation?.title || 'None'}</h3>
+      <p>Conversation ID: {activeConversation?.id || 'None'}</p>
+      <p>Locked: {activeConversation?.locked ? 'Yes' : 'No'}</p>
+      <p>Messages: {activeConversation?.messages.length || 0}</p>
       
       {conversations.map(convId => (
         <button
           key={convId}
           onClick={() => setActiveConversation(convId)}
-          disabled={convId === activeConversationId}
+          disabled={convId === activeConversation?.id}
         >
           Switch to {convId}
         </button>
@@ -459,12 +462,14 @@ function ChatApplication() {
 }
 
 function ConversationHeader() {
-  const activeConversationId = useActiveConversation();
+  const activeConversation = useActiveConversation();
   
   return (
     <header>
       <h1>AI Chat</h1>
-      <p>Conversation: {activeConversationId}</p>
+      <p>Conversation: {activeConversation?.title || 'None'}</p>
+      <p>ID: {activeConversation?.id || 'None'}</p>
+      {activeConversation?.locked && <p className="locked">🔒 Locked</p>}
     </header>
   );
 }

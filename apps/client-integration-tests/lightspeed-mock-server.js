@@ -324,7 +324,7 @@ app.post('/authorized', (req, res) => {
 
 // Error handling middleware
 // eslint-disable-next-line no-unused-vars
-app.use((err, req, res, next) => {
+app.use((err, req, res, _next) => {
   console.error('Server error:', err);
   res.status(500).json({
     detail: {
