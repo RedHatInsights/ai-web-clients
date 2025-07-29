@@ -141,7 +141,8 @@ export class IFDClient implements IAIClient<IFDAdditionalAttributes> {
     const response = await this.createConversation();
     return {
       id: response.conversation_id,
-      title: 'New Conversation'
+      title: 'New Conversation',
+      locked: false
     };
   }
 
@@ -162,7 +163,8 @@ export class IFDClient implements IAIClient<IFDAdditionalAttributes> {
       const conversations: IConversation[] = history.map(conversation => {
         return {
           id: conversation.conversation_id,
-          title: conversation.title
+          title: conversation.title,
+          locked: !conversation.is_latest
         }
       });
       if (defaultConversation) {

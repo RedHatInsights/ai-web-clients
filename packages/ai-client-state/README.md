@@ -5,6 +5,7 @@ State management for AI client conversations with event-driven architecture and 
 ## Features
 
 - **Conversation Management** - Handle multiple AI conversations with persistent state
+- **Conversation Locking** - Prevent message sending to locked conversations with automatic error handling
 - **Event-Driven Architecture** - Subscribe to state changes with typed events
 - **Message Flow Control** - Track message progress and handle streaming responses  
 - **Client Agnostic** - Works with any AI client implementing `IAIClient` interface
@@ -164,6 +165,17 @@ const stateManager = await createAuthenticatedClient();
 await stateManager.init();
 ```
 
+## Conversation Locking
+
+The state manager supports conversation locking to prevent users from sending messages to conversations that are no longer active or have been archived. This feature provides a better user experience by preventing confusion and ensuring messages are only sent to appropriate conversations.
+
+### How Conversation Locking Works
+
+- **Locked conversations** prevent new messages from being sent
+- **Automatic error handling** shows user-friendly messages when attempting to send to locked conversations
+- **Client integration** allows AI clients to determine lock status based on their data
+- **Event system** properly handles locked conversation scenarios
+
 ## API Reference
 
 ### StateManager Interface
@@ -250,6 +262,7 @@ interface Conversation<T = Record<string, unknown>> {
   id: string;
   title: string;
   messages: Message<T>[];
+  locked: boolean; // Prevents new messages when true
 }
 
 // Example: Messages are automatically created when you send strings

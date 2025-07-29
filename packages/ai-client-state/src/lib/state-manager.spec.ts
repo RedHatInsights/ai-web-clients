@@ -15,7 +15,7 @@ describe('ClientStateManager', () => {
       healthCheck: jest.fn(),
       getDefaultStreamingHandler: jest.fn(),
       getConversationHistory: jest.fn().mockResolvedValue([]),
-      createNewConversation: jest.fn().mockResolvedValue({ id: 'new-conv', title: 'New Conversation' }),
+      createNewConversation: jest.fn().mockResolvedValue({ id: 'new-conv', title: 'New Conversation', locked: false }),
       getServiceStatus: jest.fn()
     } as jest.Mocked<IAIClient>;
 
@@ -175,6 +175,151 @@ describe('ClientStateManager', () => {
 
       // Progress flag should be reset
       expect(stateManager.getMessageInProgress()).toBe(false);
+    });
+  });
+
+  describe('Conversation Locking', () => {
+    beforeEach(() => {
+      mockClient.createNewConversation.mockResolvedValue({ 
+        id: 'new-conv', 
+        title: 'New Conversation',
+        locked: false 
+      });
+    });
+
+    it('should create unlocked conversations by default', async () => {
+      const conversation = await stateManager.createNewConversation();
+      
+      expect(conversation.locked).toBe(false);
+      expect(mockClient.createNewConversation).toHaveBeenCalled();
+    });
+
+    it('should prevent sending messages to locked conversations', async () => {
+      // Set up a locked conversation
+      await stateManager.setActiveConversationId('locked-conv');
+      const state = stateManager.getState();
+      state.conversations['locked-conv'].locked = true;
+
+      const messageCallback = jest.fn();
+      const progressCallback = jest.fn();
+      stateManager.subscribe(Events.MESSAGE, messageCallback);
+      stateManager.subscribe(Events.IN_PROGRESS, progressCallback);
+
+      const userMessage: UserQuery = 'This should be blocked';
+      
+      await stateManager.sendMessage(userMessage);
+
+      // Verify client sendMessage was NOT called
+      expect(mockClient.sendMessage).not.toHaveBeenCalled();
+      
+      // Verify locked message was added
+      const messages = stateManager.getActiveConversationMessages();
+      expect(messages).toHaveLength(2);
+      
+      // User message should still be added
+      expect(messages[0].answer).toBe('This should be blocked');
+      expect(messages[0].role).toBe('user');
+      
+      // Locked error message should be added
+      expect(messages[1].answer).toBe('This conversation is locked and cannot accept new messages.');
+      expect(messages[1].role).toBe('bot');
+      
+      // Events should be emitted
+      expect(messageCallback).toHaveBeenCalledTimes(2); // User message + locked message
+      expect(progressCallback).toHaveBeenCalledTimes(2); // Start + end
+      
+      // Progress should be reset
+      expect(stateManager.getMessageInProgress()).toBe(false);
+    });
+
+    it('should allow sending messages to unlocked conversations', async () => {
+      // Set up an unlocked conversation
+      await stateManager.setActiveConversationId('unlocked-conv');
+      const state = stateManager.getState();
+      state.conversations['unlocked-conv'].locked = false;
+
+      mockClient.sendMessage.mockResolvedValue({
+        messageId: 'bot-msg-1',
+        answer: 'Bot response',
+        conversationId: 'unlocked-conv'
+      });
+
+      const userMessage: UserQuery = 'This should work';
+      
+      const response = await stateManager.sendMessage(userMessage);
+
+      // Verify client sendMessage WAS called
+      expect(mockClient.sendMessage).toHaveBeenCalledWith('unlocked-conv', 'This should work', undefined);
+      expect(response).toBeDefined();
+      expect(response.messageId).toBe('bot-msg-1');
+      
+      // Verify messages were added normally
+      const messages = stateManager.getActiveConversationMessages();
+      expect(messages).toHaveLength(2);
+      expect(messages[0].answer).toBe('This should work');
+      expect(messages[1].answer).toBe('Bot response');
+    });
+
+    it('should handle locked conversation in streaming mode', async () => {
+      // Set up a locked conversation
+      await stateManager.setActiveConversationId('locked-stream-conv');
+      const state = stateManager.getState();
+      state.conversations['locked-stream-conv'].locked = true;
+
+      const mockHandler = {
+        onStart: jest.fn(),
+        onChunk: jest.fn(),
+        onComplete: jest.fn(),
+        onError: jest.fn(),
+      };
+      (mockClient.getDefaultStreamingHandler as jest.Mock).mockReturnValue(mockHandler);
+
+      const userMessage: UserQuery = 'Stream this to locked conversation';
+      
+      await stateManager.sendMessage(userMessage, { stream: true });
+
+      // Verify streaming was NOT initiated
+      expect(mockClient.sendMessage).not.toHaveBeenCalled();
+      
+      // Verify locked message was added
+      const messages = stateManager.getActiveConversationMessages();
+      expect(messages).toHaveLength(2);
+      expect(messages[1].answer).toBe('This conversation is locked and cannot accept new messages.');
+      expect(messages[1].role).toBe('bot');
+    });
+
+    it('should initialize conversations with locked status from client', async () => {
+      const mockConversations = [
+        { id: 'conv1', title: 'Conversation 1', locked: false },
+        { id: 'conv2', title: 'Conversation 2', locked: true }
+      ];
+
+      mockClient.init.mockResolvedValue({
+        initialConversationId: 'conv1',
+        conversations: mockConversations
+      });
+
+      await stateManager.init();
+
+      const state = stateManager.getState();
+      expect(state.conversations['conv1'].locked).toBe(false);
+      expect(state.conversations['conv2'].locked).toBe(true);
+    });
+
+    it('should handle missing locked property gracefully', async () => {
+      const mockConversations = [
+        { id: 'conv1', title: 'Conversation 1' } as any, // Simulate missing locked property
+      ];
+
+      mockClient.init.mockResolvedValue({
+        initialConversationId: 'conv1',
+        conversations: mockConversations
+      });
+
+      await stateManager.init();
+
+      const state = stateManager.getState();
+      expect(state.conversations['conv1'].locked).toBeFalsy(); // Should default to false
     });
   });
 

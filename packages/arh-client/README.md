@@ -5,6 +5,7 @@ TypeScript client library for the Intelligent Front Door (IFD) API with comprehe
 ## Features
 
 - **Complete API Coverage** - All 10 IFD API endpoints implemented
+- **Conversation Management** - Automatic conversation locking based on `is_latest` status
 - **Dependency Injection** - Custom fetch functions and streaming handlers
 - **TypeScript Support** - Full type safety with OpenAPI-generated types
 - **Streaming Support** - Built-in default streaming handler with native JavaScript
@@ -124,6 +125,45 @@ const response = await client.sendMessage(conversation.conversation_id, 'What is
 
 // Get conversation history
 const history = await client.getConversationHistory(conversation.conversation_id);
+```
+
+### Conversation Locking
+
+The ARH client automatically manages conversation locking based on the `is_latest` property from the IFD API:
+
+- **Latest conversations** (`is_latest: true`) are **unlocked** and can receive new messages
+- **Older conversations** (`is_latest: false`) are **locked** and cannot receive new messages
+
+```typescript
+// Initialize client to get conversations with lock status
+const result = await client.init();
+
+// Check conversation lock status
+result.conversations.forEach(conversation => {
+  if (conversation.locked) {
+    console.log(`Conversation "${conversation.title}" is locked (archived)`);
+  } else {
+    console.log(`Conversation "${conversation.title}" is active and can receive messages`);
+  }
+});
+
+// Create new conversations (always unlocked)
+const newConversation = await client.createNewConversation();
+console.log('New conversation locked status:', newConversation.locked); // false
+```
+
+When used with the state manager from `@redhat-cloud-services/ai-client-state`, locked conversations are automatically handled:
+
+```typescript
+import { createClientStateManager } from '@redhat-cloud-services/ai-client-state';
+
+const stateManager = createClientStateManager(client);
+await stateManager.init(); // Loads conversations with proper lock status
+
+// Attempting to send message to locked conversation will show error message
+// instead of calling the API
+await stateManager.setActiveConversationId('locked-conversation-id');
+await stateManager.sendMessage('This will be blocked'); // Shows "conversation is locked" message
 ```
 
 ### Streaming Messages

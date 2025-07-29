@@ -21,6 +21,7 @@ export interface Conversation<T extends Record<string, unknown> = Record<string,
   id: string;
   title: string;
   messages: Message<T>[];
+  locked: boolean;
 }
 
 export interface MessageOptions {
@@ -97,7 +98,8 @@ export function createClientStateManager<T extends Record<string, unknown>>(clie
     const newConversation: Conversation<T> = {
       id,
       title: 'New conversation',
-      messages: []
+      messages: [],
+      locked: false
     };
     state.conversations[id] = newConversation;
     notify(Events.CONVERSATIONS);
@@ -121,7 +123,8 @@ export function createClientStateManager<T extends Record<string, unknown>>(clie
         state.conversations[conversation.id] = {
           id: conversation.id,
           title: conversation.title,
-          messages: []
+          messages: [],
+          locked: conversation.locked
         };
       });
       notify(Events.CONVERSATIONS);
@@ -278,6 +281,20 @@ export function createClientStateManager<T extends Record<string, unknown>>(clie
         role: 'user',
       });
       notify(Events.MESSAGE);
+
+      if(conversation.locked) {
+        console.error('Cannot send message in a locked conversation');
+        const lockedMessage: Message<T> = {
+          id: crypto.randomUUID(),
+          answer: 'This conversation is locked and cannot accept new messages.',
+          role: 'bot'
+        };
+        conversation.messages.push(lockedMessage);
+        notify(Events.MESSAGE);
+        state.messageInProgress = false;
+        notify(Events.IN_PROGRESS);
+        return;
+      }
       
       // Create bot message placeholder for streaming updates
       const botMessage: Message<T> = {

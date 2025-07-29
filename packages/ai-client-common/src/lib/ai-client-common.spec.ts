@@ -224,6 +224,7 @@ describe('ai-client-common', () => {
           return {
             id: 'test-conversation-id',
             title: 'Test Conversation',
+            locked: false,
           };
         }
 
@@ -282,6 +283,7 @@ describe('ai-client-common', () => {
           return {
             id: 'test-conversation-id',
             title: 'Test Conversation',
+            locked: false,
           };
         }
 
@@ -346,6 +348,7 @@ describe('ai-client-common', () => {
           return {
             id: 'test-conversation-id',
             title: 'Test Conversation',
+            locked: false,
           };
         }
         

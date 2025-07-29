@@ -5,6 +5,7 @@ TypeScript client library for the OpenShift Lightspeed API with dependency injec
 ## Features
 
 - Full TypeScript support with strict type checking
+- Conversation management with locking support
 - Dependency injection for custom fetch implementations
 - Streaming and non-streaming message support
 - Comprehensive error handling
@@ -88,6 +89,36 @@ const history = await client.getConversationHistory(conversationId);
 // Health check
 await client.healthCheck();
 ```
+
+## Conversation Management
+
+The LightspeedClient supports conversation locking to manage conversation state:
+
+```typescript
+// Create new conversations (always unlocked)
+const newConversation = await client.createNewConversation();
+console.log('New conversation locked status:', newConversation.locked); // false
+
+// Initialize client to get conversation list
+const result = await client.init();
+console.log('Available conversations:', result.conversations); // Currently returns empty array
+```
+
+When used with the state manager from `@redhat-cloud-services/ai-client-state`, conversation locking is fully supported:
+
+```typescript
+import { createClientStateManager } from '@redhat-cloud-services/ai-client-state';
+
+const stateManager = createClientStateManager(client);
+await stateManager.init();
+
+// Create and use conversations with automatic lock management
+const conversation = await stateManager.createNewConversation();
+await stateManager.setActiveConversationId(conversation.id);
+await stateManager.sendMessage('Hello!');
+```
+
+**Note**: Unlike the ARH client, LightspeedClient does not automatically set conversation lock status based on API responses. Lock status can be managed manually or through the state manager.
 
 ## Error Handling
 

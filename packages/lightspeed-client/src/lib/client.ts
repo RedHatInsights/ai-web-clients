@@ -162,6 +162,7 @@ export class LightspeedClient implements IAIClient<LightSpeedCoreAdditionalPrope
     const newConversation: IConversation = {
       id: conversationId,
       title: 'New Conversation',
+      locked: false,
     };
     
     // In a real implementation, you would likely want to store this conversation

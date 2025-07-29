@@ -6,6 +6,7 @@ Common interfaces and utilities for AI client packages in the Red Hat Cloud Serv
 ## Features
 
 - **Standardized AI Client Interface** - Common `IAIClient` interface for all AI services
+- **Conversation Management** - Standard conversation interface with locking support
 - **Dependency Injection** - Interfaces for custom fetch implementations and streaming handlers  
 - **TypeScript Support** - Comprehensive type definitions for AI client development
 - **Error Handling** - Base error classes with validation error support
@@ -191,6 +192,7 @@ interface IMessageResponse<AP = Record<string, unknown>> {
 interface IConversation {
   id: string;
   title: string;
+  locked: boolean; // Prevents new messages when true
 }
 ```
 

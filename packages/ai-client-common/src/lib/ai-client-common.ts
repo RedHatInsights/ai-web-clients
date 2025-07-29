@@ -265,6 +265,7 @@ export type IConversationHistoryResponse<T extends Record<string, unknown> = Rec
 export interface IConversation {
   id: string;
   title: string;
+  locked: boolean;
 }
 
 export interface IErrorMessageResponse {
