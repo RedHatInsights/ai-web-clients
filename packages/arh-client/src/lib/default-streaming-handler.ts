@@ -119,7 +119,31 @@ async function processStreamResponse(
             // Handle error responses
             if (parsed.status_code && parsed.detail) {
               const errorMessage = extractErrorMessage(parsed.detail);
+              
+              // Ensure messageId is set for error chunks
+              if (parsed.message_id) {
+                messageId = parsed.message_id;
+              }
+              
+              // Call onStart if this is the first chunk (even if it's an error)
+              if (firstChunk && onStart) {
+                onStart(conversationId, messageId);
+                firstChunk = false;
+              }
+              
+              const errorChunk: MessageChunkResponse = {
+                conversation_id: conversationId,
+                message_id: messageId,
+                answer: errorMessage,
+                received_at: new Date().toISOString(),
+                sources: [],
+                tool_call_metadata: null,
+                output_guard_result: null,
+              };
               onError?.(new IFDApiError(parsed.status_code, 'Stream Error', errorMessage, parsed.detail));
+              onChunk(errorChunk);
+              afterChunk?.(errorChunk);
+              onComplete?.(errorChunk);
               done = true;
               continue;
             }
@@ -177,16 +201,14 @@ export class DefaultStreamingHandler implements IStreamingHandler<MessageChunkRe
     this.currentConversationId = conversationId;
     this.currentMessageId = messageId;
     this.messageBuffer = '';
-    console.log(`Stream started for conversation ${conversationId}, message ${messageId}`);
   }
 
   onChunk(chunk: MessageChunkResponse): void {
     this.messageBuffer = chunk.answer;
   }
 
-  onComplete(finalChunk: MessageChunkResponse): void {
-    console.log(`Stream completed. Final message:`, this.messageBuffer);
-    console.log(`Final sources:`, finalChunk.sources);
+  onComplete(_finalChunk: MessageChunkResponse): void {
+    // TBD
   }
 
   onError(error: Error): void {
@@ -194,7 +216,7 @@ export class DefaultStreamingHandler implements IStreamingHandler<MessageChunkRe
   }
 
   onAbort(): void {
-    console.log(`⏹️ Stream aborted`);
+    // TBD
   }
 
   getCompleteMessage(): string {

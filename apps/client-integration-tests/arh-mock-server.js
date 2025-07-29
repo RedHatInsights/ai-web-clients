@@ -143,6 +143,11 @@ app.post('/api/ask/v1/conversation/:conversationId/message', async (req, res) =>
   const { conversationId } = req.params;
   const { input, received_at = new Date().toISOString(), stream = false } = req.body;
   
+  // Check for error injection headers
+  const errorAfterChunks = req.headers['x-mock-error-after-chunks'];
+  const errorType = req.headers['x-mock-error-type'] || 'stream_error';
+  const errorMessage = req.headers['x-mock-error-message'] || 'Simulated streaming error for testing';
+  
   // Validate conversation exists
   if (!conversations.has(conversationId)) {
     return res.status(404).json({
@@ -178,6 +183,7 @@ app.post('/api/ask/v1/conversation/:conversationId/message', async (req, res) =>
     res.setHeader('Connection', 'keep-alive');
     
     const chunks = createStreamingChunks(aiResponse, messageId, conversationId);
+    const shouldErrorAfterChunks = errorAfterChunks ? parseInt(errorAfterChunks, 10) : null;
     
     // Send chunks with realistic delays
     for (let i = 0; i < chunks.length; i++) {
@@ -185,6 +191,27 @@ app.post('/api/ask/v1/conversation/:conversationId/message', async (req, res) =>
       
       // Add delay to simulate realistic streaming
       await new Promise(resolve => setTimeout(resolve, 50 + Math.random() * 400));
+      
+      // Check if we should inject an error after a specific number of chunks
+      if (shouldErrorAfterChunks !== null && i >= shouldErrorAfterChunks) {
+        // Send error chunk in the format expected by the ARH client
+        const errorChunk = {
+          status_code: 500,
+          detail: errorMessage,
+          message_id: messageId,
+          conversation_id: conversationId,
+          type: errorType
+        };
+        
+        try {
+          res.write(JSON.stringify(errorChunk) + '\n');
+        } catch (error) {
+          console.error('Error writing error chunk:', error);
+        }
+        
+        res.end();
+        return;
+      }
       
       try {
         res.write(JSON.stringify(chunk) + '\n');
@@ -378,7 +405,7 @@ app.get('/api/ask/v1/quota/:conversationId/messages', (req, res) => {
 
 // Error handling middleware
 // eslint-disable-next-line no-unused-vars
-app.use((err, req, res, next) => {
+app.use((err, req, res, _next) => {
   console.error('Server error:', err);
   res.status(500).json({
     detail: [{
