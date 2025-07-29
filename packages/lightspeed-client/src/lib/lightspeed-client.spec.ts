@@ -563,6 +563,32 @@ describe('LightspeedClient', () => {
       );
     });
   });
+
+  describe('Conversation Management', () => {
+    it('should create new conversations with locked set to false', async () => {
+      const result = await client.createNewConversation();
+      
+      expect(result.id).toBeDefined();
+      expect(result.title).toBe('New Conversation');
+      expect(result.locked).toBe(false);
+    });
+
+    it('should handle init with empty conversations list', async () => {
+      const result = await client.init();
+      
+      expect(result.initialConversationId).toBeDefined();
+      expect(result.conversations).toEqual([]);
+    });
+
+    it('should create conversations with proper locked property', async () => {
+      const conversation1 = await client.createNewConversation();
+      const conversation2 = await client.createNewConversation();
+      
+      expect(conversation1.locked).toBe(false);
+      expect(conversation2.locked).toBe(false);
+      expect(conversation1.id).not.toBe(conversation2.id);
+    });
+  });
 });
 
 describe('DefaultStreamingHandler', () => {

@@ -1,10 +1,10 @@
 # AI Agent Context Documentation
 ## AI Web Clients NX Workspace
 
-> **Last Updated**: Context Version 2.0  
+> **Last Updated**: Context Version 2.1  
 > **Workspace Version**: 1.0.0  
-> **Context Version**: 2.0  
-> **NX Version**: 21.2.3
+> **Context Version**: 2.1  
+> **NX Version**: 21.3.3
 
 ---
 
@@ -232,7 +232,13 @@ cd packages/project && npm test  # Bypasses NX configuration
    - Verify all code examples exist in the actual codebase before documenting
    - Remove any documentation references to internal or test-only code
 
-4. **Documentation Verification**
+4. **Client-Specific Documentation Separation**
+   - **Common package READMEs** should only document interfaces, types, and shared functionality
+   - **NEVER add client-specific examples** to common package documentation
+   - **Client-specific examples** belong only in individual client package READMEs
+   - Keep common documentation focused on the shared API contracts and interfaces
+
+5. **Documentation Verification**
    - All code examples must be traceable to actual implementation files
    - Examples should demonstrate real public API usage
    - No hypothetical or "could work" examples
@@ -262,7 +268,7 @@ cd packages/project && npm test  # Bypasses NX configuration
 
 ### **AI Client State Package (Conversation Management)**
 
-The `ai-client-state` package provides comprehensive state management for AI client interactions with conversation management capabilities.
+The `ai-client-state` package provides comprehensive state management for AI client interactions with conversation management capabilities, including conversation locking functionality.
 
 #### **Public API**
 ```typescript
@@ -301,6 +307,7 @@ export enum Events {
 #### **Key Features**
 - **Multi-conversation support**: Manage multiple conversations simultaneously
 - **Active conversation tracking**: Set and track the currently active conversation
+- **Conversation locking**: Prevent message sending to locked conversations with automatic error handling
 - **Message streaming integration**: Works with client streaming handlers for real-time updates
 - **Event-driven architecture**: Subscribe to state changes across the application
 - **Conversation history**: Automatic loading of conversation history when switching conversations
@@ -365,6 +372,7 @@ The `arh-client` package serves as the reference implementation for all future p
 - **Interface Segregation**: Clear separation of concerns
 - **Error Handling**: Custom error hierarchy
 - **Streaming Support**: Native JavaScript implementation
+- **Conversation Management**: Support for conversation locking via `locked` property
 - **Type Safety**: Complete TypeScript coverage
 
 #### **File Structure Pattern**
@@ -571,6 +579,17 @@ import { SharedUtility } from '@redhat-cloud-services/shared-utils';
 ---
 
 ## 📝 CHANGE LOG
+
+### Version 2.1
+- **NEW: Conversation Locking Feature** - Added comprehensive conversation locking functionality across all client packages
+- **AI Client Common Interface** - Added `locked: boolean` property to `IConversation` interface
+- **State Manager Enhancement** - Enhanced `ai-client-state` to prevent message sending to locked conversations
+- **Client Implementation** - Updated `arh-client` and `lightspeed-client` to support conversation locking
+- **Automatic Lock Status** - ARH client maps `is_latest` property to lock status (latest = unlocked, old = locked)
+- **Error Handling** - Locked conversations show user-friendly error messages instead of processing messages
+- **Event System Integration** - Proper event emission for locked conversation scenarios
+- **Unit Test Coverage** - Added comprehensive unit tests across all affected packages
+- **DOCUMENTATION: Client-Specific Separation Rule** - Added rule to prevent client-specific examples in common package documentation
 
 ### Version 2.0
 - **MAJOR: Conversation Management Documentation** - Added comprehensive documentation for ai-client-state conversation management capabilities
