@@ -24,7 +24,7 @@ import {
   HealthCheck,
   LightspeedClientError,
   LightspeedValidationError,
-  ReferencedDocument
+  LightSpeedCoreAdditionalProperties
 } from './types';
 import { DefaultStreamingHandler, processStreamWithHandler } from './default-streaming-handler';
 
@@ -36,16 +36,6 @@ import { DefaultStreamingHandler, processStreamWithHandler } from './default-str
  * 
  * Implements the exact OpenAPI specification for Lightspeed v1.0.1
  */
-
-export type LightSpeedCoreAdditionalProperties = {
-    referencedDocuments?: ReferencedDocument[];
-    truncated?: boolean;
-    inputTokens?: number;
-    outputTokens?: number;
-    availableQuotas?: Record<string, number>;
-    toolCalls?: unknown[];
-    toolResults?: unknown[];
-}
 export class LightspeedClient implements IAIClient<LightSpeedCoreAdditionalProperties> {
   private readonly baseUrl: string;
   private readonly fetchFunction: IFetchFunction;
@@ -82,7 +72,7 @@ export class LightspeedClient implements IAIClient<LightSpeedCoreAdditionalPrope
   async sendMessage<TChunk = MessageChunkResponse>(
     conversationId: string, 
     message: string, 
-    options?: ISendMessageOptions<TChunk> & { userId?: string }
+    options?: ISendMessageOptions<LightSpeedCoreAdditionalProperties> & { userId?: string }
   ): Promise<TChunk | IMessageResponse<LightSpeedCoreAdditionalProperties> | void> {
     const request: LLMRequest = {
       query: message,
@@ -116,7 +106,7 @@ export class LightspeedClient implements IAIClient<LightSpeedCoreAdditionalPrope
       await processStreamWithHandler(
         response,
         handler as IStreamingHandler<MessageChunkResponse>,
-        options?.afterChunk as ((chunk: MessageChunkResponse) => void) | undefined
+        options?.afterChunk
       );
 
       return; // Streaming returns void

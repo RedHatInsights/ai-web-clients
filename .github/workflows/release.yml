@@ -91,3 +91,6 @@ jobs:
         run: |
           git tag -f last-release
           git push origin last-release --force
+          # push nx created tags
+          git tag -l
+          git push origin --tags

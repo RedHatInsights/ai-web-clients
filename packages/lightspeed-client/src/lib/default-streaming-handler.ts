@@ -1,5 +1,5 @@
-import { IStreamingHandler } from '@redhat-cloud-services/ai-client-common';
-import { MessageChunkResponse } from './types';
+import { AfterChunkCallback, IStreamingHandler } from '@redhat-cloud-services/ai-client-common';
+import { LightSpeedCoreAdditionalProperties, MessageChunkResponse } from './types';
 
 /**
  * Default streaming handler for Lightspeed API responses
@@ -14,7 +14,7 @@ export class DefaultStreamingHandler implements IStreamingHandler<MessageChunkRe
    * @param chunk - The message chunk from the stream
    * @param afterChunk - Optional callback to execute after processing the chunk
    */
-  onChunk(chunk: MessageChunkResponse, afterChunk?: (chunk: MessageChunkResponse) => void): void {
+  onChunk(chunk: MessageChunkResponse, afterChunk?: AfterChunkCallback<LightSpeedCoreAdditionalProperties>) {
     // Process the chunk (could be logged, stored, etc.)
     if (chunk.answer) {
       // Basic handling - in a real implementation, this might update UI, etc.
@@ -26,7 +26,10 @@ export class DefaultStreamingHandler implements IStreamingHandler<MessageChunkRe
     
     // Call the optional callback
     if (afterChunk) {
-      afterChunk(chunk);
+      afterChunk({
+        additionalAttributes: {},
+        answer: chunk.answer ?? '',
+      });
     }
   }
   
@@ -71,7 +74,7 @@ export class DefaultStreamingHandler implements IStreamingHandler<MessageChunkRe
 export async function processStreamWithHandler(
   response: Response,
   handler: IStreamingHandler<MessageChunkResponse>,
-  afterChunk?: (chunk: MessageChunkResponse) => void
+  afterChunk?: AfterChunkCallback<LightSpeedCoreAdditionalProperties>
 ): Promise<void> {
   if (!response.body) {
     throw new Error('Response body is not available for streaming');

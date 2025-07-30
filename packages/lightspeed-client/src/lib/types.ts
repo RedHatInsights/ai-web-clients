@@ -208,3 +208,14 @@ export interface MessageChunkResponse {
   messageId?: string;
   [key: string]: unknown;
 } 
+
+
+export type LightSpeedCoreAdditionalProperties = {
+    referencedDocuments?: ReferencedDocument[];
+    truncated?: boolean;
+    inputTokens?: number;
+    outputTokens?: number;
+    availableQuotas?: Record<string, number>;
+    toolCalls?: unknown[];
+    toolResults?: unknown[];
+}

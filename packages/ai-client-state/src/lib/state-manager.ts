@@ -12,7 +12,7 @@ export interface Message<T extends Record<string, unknown> = Record<string, unkn
   id: string;
   answer: string;
   role: 'user' | 'bot';
-  additionalData?: T;
+  additionalAttributes?: T;
 }
 
 export type UserQuery = string
@@ -145,13 +145,13 @@ export function createClientStateManager<T extends Record<string, unknown>>(clie
           const humanMessage: Message<T> = {
             id: historyMessage.message_id,
             answer: historyMessage.input,
-            role: 'user'
+            role: 'user',
           }
           const botMessage: Message<T> = {
             id: historyMessage.message_id,
             answer: historyMessage.answer,
             role: 'bot',
-            additionalData: historyMessage.additionalData
+            additionalAttributes: historyMessage.additionalAttributes
           }
           acc.push(humanMessage, botMessage)
           return acc
@@ -197,13 +197,13 @@ export function createClientStateManager<T extends Record<string, unknown>>(clie
         const humanMessage: Message<T> = {
           id: historyMessage.message_id,
           answer: historyMessage.input,
-          role: 'user'
+          role: 'user',
         }
         const botMessage: Message<T> = {
           id: historyMessage.message_id,
           answer: historyMessage.answer,
           role: 'bot',
-          additionalData: historyMessage.additionalData
+          additionalAttributes: historyMessage.additionalAttributes
         }
         acc.push(humanMessage, botMessage)
         return acc
@@ -308,15 +308,12 @@ export function createClientStateManager<T extends Record<string, unknown>>(clie
         // Get the client's default streaming handler
         const originalHandler = client.getDefaultStreamingHandler?.();
         if (originalHandler) {
-          const enhancedOptions: ISendMessageOptions<string | { answer: string, messageId: string }> = {
+          const enhancedOptions: ISendMessageOptions<T> = {
             ...options,
             afterChunk: (chunk) => {
-              if (typeof chunk === 'string') {
-                botMessage.answer += chunk;
-              } else if (chunk && typeof chunk === 'object' && 'answer' in chunk) {
-                botMessage.answer = chunk.answer;
-                botMessage.id = chunk.messageId || botMessage.id;
-              }
+              botMessage.answer = chunk.answer;
+              botMessage.id = botMessage.id;
+              botMessage.additionalAttributes = chunk.additionalAttributes;
               notify(Events.MESSAGE);
             }
           }

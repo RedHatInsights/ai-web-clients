@@ -66,10 +66,10 @@ export interface IAIClient<AP extends Record<string, unknown> = Record<string, u
    * @param options - Optional configuration for the request
    * @returns Promise that resolves to the AI's response
    */
-  sendMessage<TChunk = unknown>(
+  sendMessage<TChunk = unknown, T extends Record<string, unknown> = Record<string, unknown>>(
     conversationId: string, 
     message: string, 
-    options?: ISendMessageOptions<TChunk>
+    options?: ISendMessageOptions<T>
   ): Promise<TChunk | IMessageResponse<AP> | void>;
 
   /**
@@ -162,7 +162,7 @@ export interface IStreamingHandler<TChunk = unknown> {
   /**
    * Handle a single chunk of streaming data
    */
-  onChunk(chunk: TChunk, afterChunk?: (chunk: TChunk) => void): void;
+  onChunk(chunk: TChunk, afterChunk?: (chunk: IStreamChunk) => void): void;
 
   /**
    * Called when the stream starts
@@ -254,7 +254,7 @@ export interface IConversationMessage<T extends Record<string, unknown> = Record
   answer: string;
   role: 'user' | 'bot';
   input: string; // For user messages, this is the input text
-  additionalData?: T;
+  additionalAttributes?: T;
 }
 
 /**
@@ -272,14 +272,21 @@ export interface IErrorMessageResponse {
   error: any;
 }
 
+export interface IStreamChunk<T extends Record<string, unknown> = Record<string, unknown>> {
+  answer: string;
+  additionalAttributes: T;
+}
+
+export type AfterChunkCallback<T extends Record<string, unknown> = Record<string, unknown>> = (chunk: IStreamChunk<T>) => void;
+
 /**
  * Options for sending messages, supporting both streaming and non-streaming modes
  */
-export interface ISendMessageOptions<TChunk = unknown> extends IRequestOptions {
+export interface ISendMessageOptions<T extends Record<string, unknown> = Record<string, unknown>> extends IRequestOptions {
   /**
    * Whether to use streaming mode for the response
    * When true, the client's default streaming handler will be used
    */
   stream?: boolean;
-  afterChunk?: (chunk: TChunk) => void;
+  afterChunk?: AfterChunkCallback<T>;
 }

@@ -449,7 +449,7 @@ describe('ClientStateManager', () => {
           input: 'Hello',
           answer: 'Hi there!',
           role: 'bot',
-          additionalData: { sources: [] }
+          additionalAttributes: { sources: [] }
         }
       ]);
     });
@@ -481,7 +481,7 @@ describe('ClientStateManager', () => {
         id: 'msg-1',
         answer: 'Hi there!',
         role: 'bot',
-        additionalData: { sources: [] }
+        additionalAttributes: { sources: [] }
       });
     });
 
@@ -609,7 +609,7 @@ describe('ClientStateManager', () => {
           input: 'Test input',
           answer: 'Test response',
           role: 'bot',
-          additionalData: { metadata: 'test' }
+          additionalAttributes: { metadata: 'test' }
         }
       ]);
     });
@@ -640,7 +640,7 @@ describe('ClientStateManager', () => {
         id: 'msg-1',
         answer: 'Test response',
         role: 'bot',
-        additionalData: { metadata: 'test' }
+        additionalAttributes: { metadata: 'test' }
       });
     });
 

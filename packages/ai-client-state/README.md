@@ -254,7 +254,7 @@ interface Message<T = Record<string, unknown>> {
   id: string;
   answer: string;
   role: 'user' | 'bot';
-  additionalData?: T;
+  additionalAttributes?: T;
 }
 
 // Conversation structure

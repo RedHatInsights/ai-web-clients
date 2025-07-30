@@ -248,8 +248,8 @@ await client.sendMessage(conversationId, 'Your question', { stream: true });
 ### Custom Streaming Handler
 
 ```typescript
-import { IStreamingHandler } from '@redhat-cloud-services/ai-client-common';
-import { MessageChunkResponse } from '@redhat-cloud-services/arh-client';
+import { IStreamingHandler, AfterChunkCallback } from '@redhat-cloud-services/ai-client-common';
+import { MessageChunkResponse, IFDAdditionalAttributes } from '@redhat-cloud-services/arh-client';
 
 class CustomStreamingHandler implements IStreamingHandler<MessageChunkResponse> {
   private messageBuffer = '';
@@ -259,10 +259,20 @@ class CustomStreamingHandler implements IStreamingHandler<MessageChunkResponse> 
     this.messageBuffer = '';
   }
 
-  onChunk(chunk: MessageChunkResponse): void {
+  onChunk(chunk: MessageChunkResponse, afterChunk?: AfterChunkCallback<IFDAdditionalAttributes>): void {
     this.messageBuffer = chunk.output;
     // Update UI with complete response so far
     updateUI(this.messageBuffer);
+    
+    // Call afterChunk with standardized format
+    afterChunk?.({
+      answer: chunk.answer,
+      additionalAttributes: {
+        sources: chunk.sources,
+        tool_call_metadata: chunk.tool_call_metadata,
+        output_guard_result: chunk.output_guard_result,
+      }
+    });
   }
 
   onComplete(finalChunk: MessageChunkResponse): void {
@@ -325,9 +335,9 @@ export function useIFDStreaming(client: IFDClient) {
     };
     
     const originalOnChunk = handler.onChunk;
-    handler.onChunk = (chunk) => {
+    handler.onChunk = (chunk, afterChunk) => {
       setMessage(chunk.output);
-      originalOnChunk.call(handler, chunk);
+      originalOnChunk.call(handler, chunk, afterChunk);
     };
     
     const originalOnComplete = handler.onComplete;
