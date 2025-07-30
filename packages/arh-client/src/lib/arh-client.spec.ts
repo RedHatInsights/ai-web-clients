@@ -371,6 +371,7 @@ describe('DefaultStreamingHandler', () => {
   });
 
   it('should handle streaming lifecycle', () => {
+    const handler = new DefaultStreamingHandler();
     const conversationId = 'conv-123';
     const messageId = 'msg-456';
     
@@ -378,7 +379,7 @@ describe('DefaultStreamingHandler', () => {
     handler.onStart(conversationId, messageId);
     expect(handler.getCurrentConversationId()).toBe(conversationId);
     expect(handler.getCurrentMessageId()).toBe(messageId);
-    expect(handler.getCompleteMessage()).toBe('');
+    expect(handler.getCompleteMessage()).toStrictEqual({answer: '', sources: []});
 
     // Process chunks
     const chunk1: MessageChunkResponse = {
@@ -398,10 +399,10 @@ describe('DefaultStreamingHandler', () => {
     };
 
     handler.onChunk(chunk1);
-    expect(handler.getCompleteMessage()).toBe('Hello ');
+    expect(handler.getCompleteMessage().answer).toBe('Hello ');
 
     handler.onChunk(chunk2);
-    expect(handler.getCompleteMessage()).toBe('Hello world!');
+    expect(handler.getCompleteMessage().answer).toBe('Hello world!');
 
     // Complete streaming
     handler.onComplete(chunk2);

@@ -1,5 +1,5 @@
-import { IStreamingHandler } from '@redhat-cloud-services/ai-client-common';
-import { MessageChunkResponse, IFDApiError } from './types';
+import { AfterChunkCallback, IStreamingHandler } from '@redhat-cloud-services/ai-client-common';
+import { MessageChunkResponse, IFDApiError, AnswerSource, IFDAdditionalAttributes } from './types';
 import { 
   StreamingMessageChunk, 
   isEmpty, 
@@ -75,7 +75,7 @@ async function processStreamResponse(
     onStart?: (conversationId: string, messageId: string) => void;
     onComplete?: (finalChunk: MessageChunkResponse) => void;
     onError?: (error: Error) => void;
-    afterChunk?: (chunk: MessageChunkResponse) => void
+    afterChunk?: AfterChunkCallback<IFDAdditionalAttributes>;
   }
 ): Promise<void> {
   const reader = response.body?.getReader();
@@ -142,7 +142,14 @@ async function processStreamResponse(
               };
               onError?.(new IFDApiError(parsed.status_code, 'Stream Error', errorMessage, parsed.detail));
               onChunk(errorChunk);
-              afterChunk?.(errorChunk);
+              afterChunk?.({
+                answer: errorChunk.answer,
+                additionalAttributes: {
+                  sources: errorChunk.sources,
+                  tool_call_metadata: errorChunk.tool_call_metadata,
+                  output_guard_result: errorChunk.output_guard_result,
+                }
+              });
               onComplete?.(errorChunk);
               done = true;
               continue;
@@ -172,7 +179,14 @@ async function processStreamResponse(
             }
 
             onChunk(chunkResponse);
-            afterChunk?.(chunkResponse);
+            afterChunk?.({
+              answer: accumulatedAnswer,
+              additionalAttributes: {
+                sources: parsed.sources || [],
+                tool_call_metadata: parsed.tool_call_metadata || null,
+                output_guard_result: parsed.output_guard_result || null,
+              }
+            });
             if (parsed.end_of_stream) {
               onComplete?.(chunkResponse);
               done = true;
@@ -189,22 +203,31 @@ async function processStreamResponse(
   }
 }
 
+export type MessageBuffer = { answer: string; sources: AnswerSource[] };
+
 /**
  * Default streaming handler implementation
  */
 export class DefaultStreamingHandler implements IStreamingHandler<MessageChunkResponse> {
-  private messageBuffer = '';
+  private messageBuffer: MessageBuffer = {
+    answer: '',
+    sources: [],
+  };
   private currentMessageId = '';
   private currentConversationId = '';
 
   onStart(conversationId: string, messageId: string): void {
     this.currentConversationId = conversationId;
     this.currentMessageId = messageId;
-    this.messageBuffer = '';
+    this.messageBuffer = {
+      answer: '',
+      sources: [],
+    };
   }
 
   onChunk(chunk: MessageChunkResponse): void {
-    this.messageBuffer = chunk.answer;
+    this.messageBuffer.answer = chunk.answer;
+    this.messageBuffer.sources = chunk.sources;
   }
 
   onComplete(_finalChunk: MessageChunkResponse): void {
@@ -219,7 +242,7 @@ export class DefaultStreamingHandler implements IStreamingHandler<MessageChunkRe
     // TBD
   }
 
-  getCompleteMessage(): string {
+  getCompleteMessage(): MessageBuffer {
     return this.messageBuffer;
   }
 
@@ -239,7 +262,7 @@ export async function processStreamWithHandler(
   response: Response,
   handler: IStreamingHandler<MessageChunkResponse>,
   conversationId: string,
-  afterChunk?: (chunk: MessageChunkResponse) => void
+  afterChunk?: AfterChunkCallback<IFDAdditionalAttributes>
 ): Promise<void> {
   await processStreamResponse({
     conversationId,

@@ -25,17 +25,9 @@ import {
   UserRequest,
   UserHistoryResponse,
   QuotaStatusResponse,
-  AnswerSource,
-  ToolCallMetadata,
-  OutputGuardResult
+  IFDAdditionalAttributes
 } from './types';
 import { DefaultStreamingHandler, processStreamWithHandler } from './default-streaming-handler';
-
-export type IFDAdditionalAttributes = {
-  sources?: AnswerSource[];
-  tool_call_metadata?: ToolCallMetadata | null | undefined;
-  output_guard_result?: OutputGuardResult | null | undefined;
-}
 
 /**
  * Intelligent Front Door (IFD) API Client

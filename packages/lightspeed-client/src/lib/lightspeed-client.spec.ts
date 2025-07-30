@@ -622,7 +622,10 @@ describe('DefaultStreamingHandler', () => {
 
       handler.onChunk(chunk, afterChunkCallback);
 
-      expect(afterChunkCallback).toHaveBeenCalledWith(chunk);
+      expect(afterChunkCallback).toHaveBeenCalledWith({
+        additionalAttributes: {},
+        answer: 'Test content',
+      });
     });
 
     it('should handle error chunks', () => {

@@ -33,10 +33,10 @@ interface IAIClient<AP extends Record<string, unknown> = Record<string, unknown>
     initialConversationId: string;
     conversations: IConversation[];
   }>;
-  sendMessage<TChunk = unknown>(
+  sendMessage<TChunk = unknown, T extends Record<string, unknown> = Record<string, unknown>>(
     conversationId: string, 
     message: string, 
-    options?: ISendMessageOptions<TChunk>
+    options?: ISendMessageOptions<T>
   ): Promise<TChunk | IMessageResponse<AP> | void>;
   getDefaultStreamingHandler?<TChunk = unknown>(): IStreamingHandler<TChunk> | undefined;
   getConversationHistory(conversationId: string, options?: IRequestOptions): Promise<IConversationHistoryResponse<AP>>;
@@ -84,17 +84,34 @@ const config: IBaseClientConfig = {
 
 ### Streaming Support
 
+The streaming interface has been updated to standardize chunk handling across all AI clients. The `afterChunk` callback now receives an `IStreamChunk` object with standardized structure.
+
+#### IStreamChunk Interface
+
+```typescript
+import { IStreamChunk } from '@redhat-cloud-services/ai-client-common';
+
+interface IStreamChunk<T extends Record<string, unknown> = Record<string, unknown>> {
+  answer: string;
+  additionalAttributes: T;
+}
+```
+
 #### Implementing a Custom Streaming Handler
 
 ```typescript
-import { IStreamingHandler } from '@redhat-cloud-services/ai-client-common';
+import { IStreamingHandler, AfterChunkCallback, IStreamChunk } from '@redhat-cloud-services/ai-client-common';
 
-class CustomStreamingHandler implements IStreamingHandler<string> {
-  onChunk(chunk: string, afterChunk?: (chunk: string) => void): void {
+class CustomStreamingHandler<TChunk = unknown> implements IStreamingHandler<TChunk> {
+  onChunk(chunk: TChunk, afterChunk?: AfterChunkCallback): void {
     console.log('Received chunk:', chunk);
-    // Process the chunk
+    
+    // Process the chunk and call afterChunk with standardized format
     if (afterChunk) {
-      afterChunk(chunk);
+      afterChunk({
+        answer: extractAnswer(chunk), // Extract answer from chunk
+        additionalAttributes: extractAttributes(chunk) // Extract additional data
+      });
     }
   }
 
@@ -102,7 +119,7 @@ class CustomStreamingHandler implements IStreamingHandler<string> {
     console.log('Stream started', { conversationId, messageId });
   }
 
-  onComplete?(finalChunk: string): void {
+  onComplete?(finalChunk: TChunk): void {
     console.log('Stream completed:', finalChunk);
   }
 
@@ -119,15 +136,17 @@ class CustomStreamingHandler implements IStreamingHandler<string> {
 #### Streaming Request Options
 
 ```typescript
-import { ISendMessageOptions } from '@redhat-cloud-services/ai-client-common';
+import { ISendMessageOptions, IStreamChunk } from '@redhat-cloud-services/ai-client-common';
 
-const streamingOptions: ISendMessageOptions<string> = {
+const streamingOptions: ISendMessageOptions = {
   stream: true,
   headers: { 'Custom-Header': 'value' },
   signal: abortController.signal,
-  afterChunk: (chunk) => {
-    // Process each chunk as it arrives
-    updateUI(chunk);
+  afterChunk: (chunk: IStreamChunk) => {
+    // Process each standardized chunk as it arrives
+    console.log('Answer:', chunk.answer);
+    console.log('Additional data:', chunk.additionalAttributes);
+    updateUI(chunk.answer);
   }
 };
 ```

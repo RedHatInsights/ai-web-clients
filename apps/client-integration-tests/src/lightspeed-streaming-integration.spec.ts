@@ -50,7 +50,7 @@ describe('Lightspeed Client Streaming Integration', () => {
       });
 
       await clientWithTestHandler.sendMessage(
-        conversationId,
+        conversationId.initialConversationId,
         'What is OpenShift?',
         { stream: true }
       );
@@ -71,23 +71,22 @@ describe('Lightspeed Client Streaming Integration', () => {
       let callbackInvoked = false;
 
       await client.sendMessage(
-        conversationId,
+        conversationId.initialConversationId,
         'Tell me about containers',
         {
           stream: true,
-          afterChunk: (chunk: MessageChunkResponse) => {
+          afterChunk: (chunk) => {
             callbackInvoked = true;
-            callbackChunks.push(chunk);
+            callbackChunks.push({
+              conversation_id: conversationId.initialConversationId,
+              answer: chunk.answer,
+            });
           }
         }
       );
 
       expect(callbackInvoked).toBe(true);
       expect(callbackChunks.length).toBeGreaterThan(0);
-      
-      // Verify final chunk
-      const finalChunk = callbackChunks[callbackChunks.length - 1];
-      expect(finalChunk.finished).toBe(true);
     }, 10000); // 10 second timeout for streaming test
 
     it('should handle streaming with custom handler configuration', async () => {
@@ -120,7 +119,7 @@ describe('Lightspeed Client Streaming Integration', () => {
       });
 
       await customClient.sendMessage(
-        conversationId,
+        conversationId.initialConversationId,
         'How do I deploy applications?',
         { stream: true }
       );
@@ -157,7 +156,7 @@ describe('Lightspeed Client Streaming Integration', () => {
 
       // Send non-streaming message first
       const nonStreamingResponse = await client.sendMessage(
-        conversationId,
+        conversationId.initialConversationId,
         'What is Kubernetes?'
       );
 
@@ -183,7 +182,7 @@ describe('Lightspeed Client Streaming Integration', () => {
       });
 
       await clientWithHandler.sendMessage(
-        conversationId,
+        conversationId.initialConversationId,
         'Tell me more about pods',
         { stream: true }
       );
@@ -220,7 +219,7 @@ describe('Lightspeed Client Streaming Integration', () => {
 
       const startTime = Date.now();
       await performanceClient.sendMessage(
-        conversationId,
+        conversationId.initialConversationId,
         'Explain deployment strategies',
         { stream: true }
       );

@@ -12,9 +12,10 @@
 import { IFDClient } from '@redhat-cloud-services/arh-client';
 import type { 
   IFDClientConfig, 
-  MessageChunkResponse
+  MessageChunkResponse,
+  IFDAdditionalAttributes
 } from '@redhat-cloud-services/arh-client';
-import type { IStreamingHandler } from '@redhat-cloud-services/ai-client-common';
+import type { AfterChunkCallback, IStreamingHandler } from '@redhat-cloud-services/ai-client-common';
 
 import { 
   createClientStateManager,
@@ -54,8 +55,15 @@ class TestStreamingHandler implements IStreamingHandler<MessageChunkResponse> {
     this.errorReceived = null;
   }
 
-  onChunk(chunk: MessageChunkResponse, afterChunk?: (chunk: MessageChunkResponse) => void): void {
-    afterChunk?.(chunk);
+  onChunk(chunk: MessageChunkResponse, afterChunk?: AfterChunkCallback<IFDAdditionalAttributes>): void {
+    afterChunk?.({
+      answer: chunk.answer,
+      additionalAttributes: {
+        sources: chunk.sources,
+        tool_call_metadata: chunk.tool_call_metadata,
+        output_guard_result: chunk.output_guard_result,
+      }
+    });
     this.chunks.push(chunk);
     this.finalMessage = chunk.answer;
   }
