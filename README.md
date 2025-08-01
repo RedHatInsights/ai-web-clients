@@ -2,6 +2,8 @@
 
 NX monorepo for AI-related web client libraries, starting with the Intelligent Front Door (IFD) TypeScript client and OpenShift Lightspeed client. This workspace provides a complete ecosystem for building AI-powered web clients.
 
+> **For AI Agents**: This workspace includes comprehensive AI agent context files in the [`ai-rules/`](./ai-rules/) directory. Start with [`ai-rules/AI_CONTEXT.md`](./ai-rules/AI_CONTEXT.md) for workspace overview and guidance.
+
 ## Packages Overview
 
 ### 🤖 AI Client Libraries
