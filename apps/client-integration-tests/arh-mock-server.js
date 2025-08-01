@@ -322,6 +322,15 @@ app.get('/api/ask/v1/health', (req, res) => {
 
 // Service status
 app.get('/api/ask/v1/status', (req, res) => {
+  // Check for custom header to trigger 403 response
+  const triggerUnauthorized = req.headers['x-mock-unauthorized'] === 'true';
+  
+  if (triggerUnauthorized) {
+    return res.status(403).json({
+      detail: 'Not authorized'
+    });
+  }
+  
   res.json({
     api: {
       status: 'operational',

@@ -316,6 +316,113 @@ describe('IFDClient', () => {
       expect(oldConv2?.locked).toBe(true);
     });
 
+    it('should throw IInitErrorResponse on health check failure during init', async () => {
+      (mockFetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        statusText: 'Forbidden',
+        json: async () => ({ detail: 'Not authorized' }),
+      });
+
+      await expect(client.init()).rejects.toEqual({
+        message: 'API request failed: 403 Forbidden',
+        status: 403
+      });
+    });
+
+    it('should throw IInitErrorResponse on status check failure during init', async () => {
+      const mockHealthResponse = { status: 'healthy' };
+      
+      (mockFetch as jest.Mock)
+        .mockResolvedValueOnce({ ok: true, json: async () => mockHealthResponse })
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 500,
+          statusText: 'Internal Server Error',
+          json: async () => ({ error: 'Service unavailable' }),
+        });
+
+      await expect(client.init()).rejects.toEqual({
+        message: 'API request failed: 500 Internal Server Error',
+        status: 500
+      });
+    });
+
+    it('should throw IInitErrorResponse on user settings failure during init', async () => {
+      const mockHealthResponse = { status: 'healthy' };
+      const mockStatusResponse = { api: { status: 'operational' } };
+      
+      (mockFetch as jest.Mock)
+        .mockResolvedValueOnce({ ok: true, json: async () => mockHealthResponse })
+        .mockResolvedValueOnce({ ok: true, json: async () => mockStatusResponse })
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 401,
+          statusText: 'Unauthorized',
+          json: async () => ({ detail: 'Authentication required' }),
+        });
+
+      await expect(client.init()).rejects.toEqual({
+        message: 'API request failed: 401 Unauthorized',
+        status: 401
+      });
+    });
+
+    it('should throw IInitErrorResponse on user history failure during init', async () => {
+      const mockHealthResponse = { status: 'healthy' };
+      const mockStatusResponse = { api: { status: 'operational' } };
+      const mockUserSettings = { id: 'user123' };
+      
+      (mockFetch as jest.Mock)
+        .mockResolvedValueOnce({ ok: true, json: async () => mockHealthResponse })
+        .mockResolvedValueOnce({ ok: true, json: async () => mockStatusResponse })
+        .mockResolvedValueOnce({ ok: true, json: async () => mockUserSettings })
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 403,
+          statusText: 'Forbidden',
+          json: async () => ({ detail: 'Access denied to user history' }),
+        });
+
+      await expect(client.init()).rejects.toEqual({
+        message: 'API request failed: 403 Forbidden',
+        status: 403
+      });
+    });
+
+    it('should throw IInitErrorResponse on conversation quota failure during init', async () => {
+      const mockHealthResponse = { status: 'healthy' };
+      const mockStatusResponse = { api: { status: 'operational' } };
+      const mockUserSettings = { id: 'user123' };
+      const mockHistoryResponse: any[] = [];
+      
+      (mockFetch as jest.Mock)
+        .mockResolvedValueOnce({ ok: true, json: async () => mockHealthResponse })
+        .mockResolvedValueOnce({ ok: true, json: async () => mockStatusResponse })
+        .mockResolvedValueOnce({ ok: true, json: async () => mockUserSettings })
+        .mockResolvedValueOnce({ ok: true, json: async () => mockHistoryResponse })
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 429,
+          statusText: 'Too Many Requests',
+          json: async () => ({ detail: 'Quota exceeded' }),
+        });
+
+      await expect(client.init()).rejects.toEqual({
+        message: 'API request failed: 429 Too Many Requests',
+        status: 429
+      });
+    });
+
+    it('should throw IInitErrorResponse with generic message for non-AIClientError during init', async () => {
+      (mockFetch as jest.Mock).mockRejectedValueOnce(new Error('Network connection failed'));
+
+      await expect(client.init()).rejects.toEqual({
+        message: 'Network connection failed',
+        status: 500
+      });
+    });
+
     it('should handle conversations without is_latest property during init', async () => {
       const mockHealthResponse = { status: 'healthy' };
       const mockStatusResponse = { api: { status: 'operational' } };

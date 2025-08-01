@@ -24,6 +24,7 @@ These tests use mocked HTTP responses and don't require external servers:
 These tests connect to actual running servers for end-to-end validation:
 
 - `arh-streaming-integration.spec.ts` - ARH client with mock server
+- `arh-error-handling-integration.spec.ts` - ARH client error handling with mock server ✨ NEW
 - `lightspeed-streaming-integration.spec.ts` - Lightspeed client with live server
 
 ## Running Tests
@@ -45,6 +46,9 @@ npx nx test client-integration-tests --testPathPattern="lightspeed-client-state"
 
 # Streaming tests only
 npx nx test client-integration-tests --testPathPattern="streaming"
+
+# Error handling tests only
+npx nx test client-integration-tests --testPathPattern="error-handling"
 ```
 
 ### Live Server Testing
@@ -68,6 +72,18 @@ npx nx test client-integration-tests --testPathPattern="streaming"
 2. Run the live integration tests:
    ```bash
    npx nx test client-integration-tests --testPathPattern="lightspeed-streaming"
+   ```
+
+#### For ARH Client Error Handling Tests
+
+1. Start the ARH mock server:
+   ```bash
+   npm run dev:mock:arh
+   ```
+
+2. Run the error handling tests:
+   ```bash
+   npx nx test client-integration-tests --testPathPattern="arh-error-handling"
    ```
 
 **Note**: Live Lightspeed tests may require authentication. Tests will automatically skip if the server is not available or requires credentials.
@@ -109,6 +125,41 @@ try {
 }
 ```
 
+### Mock Server Error Injection ✨ NEW
+
+The ARH mock server supports error injection via custom headers for testing error scenarios:
+
+```typescript
+// Example from arh-error-handling-integration.spec.ts
+const createMockServerFetch = (headers?: Record<string, string>) => {
+  return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    const mergedInit = {
+      ...init,
+      headers: {
+        ...init?.headers,
+        ...headers // Custom headers for error injection
+      }
+    };
+    return fetch(input, mergedInit);
+  };
+};
+
+// Trigger 403 Forbidden response on status endpoint
+const client = new IFDClient({
+  baseUrl: mockServerBaseUrl,
+  fetchFunction: createMockServerFetch({
+    'x-mock-unauthorized': 'true' // Returns 403 with {"detail":"Not authorized"}
+  })
+});
+```
+
+#### Available Mock Server Error Headers
+
+- `x-mock-unauthorized: 'true'` - Triggers 403 Forbidden on status endpoint
+- `x-mock-error-after-chunks: 'N'` - Triggers streaming error after N chunks
+- `x-mock-error-message: 'text'` - Custom error message for testing
+- `x-mock-error-type: 'type'` - Custom error type for streaming tests
+
 ### State Manager Integration
 
 Both ARH and Lightspeed clients are tested with the state manager:
@@ -145,7 +196,10 @@ const messages = stateManager.getActiveConversationMessages();
 - ✅ Message sending (streaming and non-streaming)
 - ✅ Custom streaming handlers
 - ✅ State manager integration
-- ✅ Error handling
+- ✅ Error handling (basic scenarios)
+- ✅ Initialization error handling (403, 401, 500, 429, network errors) ✨ NEW
+- ✅ State manager error recovery and user feedback ✨ NEW
+- ✅ Error injection via mock server headers ✨ NEW
 - ✅ Multiple conversation support
 
 ## Troubleshooting
@@ -174,6 +228,8 @@ When adding new integration tests:
 5. **Cover streaming and non-streaming modes**
 6. **Verify conversation flow and events**
 7. **Test error scenarios** and edge cases
+8. **Use mock server error injection** for consistent error testing ✨ NEW
+9. **Verify error recovery and user feedback** in state managers ✨ NEW
 
 ## Architecture Benefits
 

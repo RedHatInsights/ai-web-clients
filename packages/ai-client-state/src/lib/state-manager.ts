@@ -1,4 +1,4 @@
-import { IAIClient, IConversation, ISendMessageOptions } from '@redhat-cloud-services/ai-client-common';
+import { IAIClient, IConversation, ISendMessageOptions, isInitErrorResponse } from '@redhat-cloud-services/ai-client-common';
 
 export enum Events {
   MESSAGE = 'message',
@@ -49,7 +49,8 @@ export type StateManager<T extends Record<string, unknown> = Record<string, unkn
     init: () => Promise<void>;
     isInitialized: () => boolean;
     isInitializing: () => boolean;
-    setActiveConversationId: (conversationId: string) => void;
+    setActiveConversationId: (conversationId: string) => Promise<void>;
+    getActiveConversationId: () => string | null;
     getActiveConversationMessages: () => Message<T>[];
     sendMessage: (query: UserQuery, options?: MessageOptions) => Promise<any>;
     getMessageInProgress: () => boolean;
@@ -117,7 +118,10 @@ export function createClientStateManager<T extends Record<string, unknown>>(clie
     
     try {
       // Call the client's init method to get the initial conversation ID
-      const {initialConversationId, conversations} = await client.init();
+      const {initialConversationId, conversations, error} = await client.init();
+      if (error) {
+        throw error;
+      }
 
       conversations.forEach(conversation => {
         state.conversations[conversation.id] = {
@@ -141,7 +145,7 @@ export function createClientStateManager<T extends Record<string, unknown>>(clie
       let messages: Message<T>[] = []
       if(initialConversationId) {
         const history = await client.getConversationHistory(initialConversationId);
-        messages = (history || []).reduce((acc, historyMessage) => {
+        messages = (Array.isArray(history) ? history : []).reduce((acc, historyMessage) => {
           const humanMessage: Message<T> = {
             id: historyMessage.message_id,
             answer: historyMessage.input,
@@ -164,8 +168,24 @@ export function createClientStateManager<T extends Record<string, unknown>>(clie
       state.isInitializing = false;
     } catch (error) {
       console.error('Client initialization failed:', error);
-      state.isInitialized = false;
+      state.isInitialized = true;
       state.isInitializing = false;
+      const errorMessage: Message<T> = {
+        id: crypto.randomUUID(),
+        answer: '',
+        role: 'bot',
+      };
+      if (isInitErrorResponse(error)) {
+        errorMessage.answer = error.message;
+      } else {
+        errorMessage.answer = JSON.stringify(error);
+      }
+      const conversationId = state.activeConversationId || crypto.randomUUID();
+      if (!state.conversations[conversationId]) {
+        initializeConversationState(conversationId);
+      }
+      state.conversations[conversationId].messages.push(errorMessage);
+      state.activeConversationId = conversationId;
       throw error; // Re-throw so callers can handle the failure
     } finally {
       notifyAll();
@@ -180,7 +200,7 @@ export function createClientStateManager<T extends Record<string, unknown>>(clie
     return state.isInitializing;
   }
 
-  async function setActiveConversationId(conversationId: string) {
+  async function setActiveConversationId(conversationId: string): Promise<void> {
     state.activeConversationId = conversationId;
     
     // Auto-create conversation if it doesn't exist
@@ -193,7 +213,7 @@ export function createClientStateManager<T extends Record<string, unknown>>(clie
     state.isInitializing = true
     try {
       const history = await client.getConversationHistory(conversationId);
-      const messages = (history || []).reduce((acc, historyMessage) => {
+      const messages = (Array.isArray(history) ? history : []).reduce((acc, historyMessage) => {
         const humanMessage: Message<T> = {
           id: historyMessage.message_id,
           answer: historyMessage.input,
@@ -412,11 +432,16 @@ export function createClientStateManager<T extends Record<string, unknown>>(clie
     }
   }
 
+  function getActiveConversationId(): string | null {
+    return state.activeConversationId;
+  }
+
   return {
     init,
     isInitialized,
     isInitializing,
     setActiveConversationId,
+    getActiveConversationId,
     getActiveConversationMessages,
     sendMessage,
     getMessageInProgress,

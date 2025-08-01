@@ -44,6 +44,23 @@ export interface IRequestOptions {
   signal?: AbortSignal;
 }
 
+
+export interface IInitErrorResponse {
+  message: string;
+  status: number;
+}
+
+export function isInitErrorResponse(obj: unknown): obj is IInitErrorResponse {
+  return (
+    typeof obj === 'object' &&
+    obj !== null &&
+    'message' in obj &&
+    typeof (obj as IInitErrorResponse).message === 'string' &&
+    'status' in obj &&
+    typeof (obj as IInitErrorResponse).status === 'number'
+  );
+}
+
 /**
  * Common interface that all AI clients must implement
  * Provides a standardized way to interact with different AI services
@@ -57,6 +74,7 @@ export interface IAIClient<AP extends Record<string, unknown> = Record<string, u
   init(): Promise<{
     initialConversationId: string;
     conversations: IConversation[];
+    error?: IInitErrorResponse;
   }>;
 
   /**

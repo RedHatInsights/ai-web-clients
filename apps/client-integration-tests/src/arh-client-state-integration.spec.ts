@@ -194,10 +194,10 @@ describe('ARH Client Integration Tests', () => {
         expect(typeof stateManager.getMessageInProgress).toBe('function');
       });
 
-      it('should set active conversation and manage state', () => {
+      it('should set active conversation and manage state', async () => {
         const conversationId = 'conv-state-123';
         
-        stateManager.setActiveConversationId(conversationId);
+        await stateManager.setActiveConversationId(conversationId);
         
         // Manually create conversation state (this is how the state manager works)
         const state = stateManager.getState();
@@ -230,9 +230,31 @@ describe('ARH Client Integration Tests', () => {
           headers: new Headers({ 'content-type': 'application/json' })
         } as Response);
 
-        stateManager.setActiveConversationId(conversationId);
+        // Manually create conversation state (this is how the state manager works)
+        const state = stateManager.getState();
+        state.conversations[conversationId] = {
+          id: conversationId,
+          title: 'Test Conversation',
+          messages: [],
+          locked: false
+        };
         
-        const response = await stateManager.sendMessage(userMessage);
+        await stateManager.setActiveConversationId(conversationId);
+        
+        let response;
+        try {
+          response = await stateManager.sendMessage(userMessage);
+        } catch (error) {
+          console.error('Error in sendMessage:', error);
+          throw error;
+        }
+
+        // Debug: Check response and conversation state
+        console.log('Response from sendMessage:', response);
+        console.log('All conversations:', Object.keys(stateManager.getState().conversations));
+        console.log('Active conversation ID:', stateManager.getState().activeConversationId);
+        console.log('Conversation state:', stateManager.getState().conversations[conversationId]);
+        console.log('Active conversation messages:', stateManager.getActiveConversationMessages());
 
         // Verify response from ARH client is returned
         expect(response).toBeDefined();
@@ -272,8 +294,8 @@ describe('ARH Client Integration Tests', () => {
     describe('Message Queuing Integration', () => {
       const conversationId = 'conv-queue-integration';
 
-      beforeEach(() => {
-        stateManager.setActiveConversationId(conversationId);
+      beforeEach(async () => {
+        await stateManager.setActiveConversationId(conversationId);
       });
 
       it('should throw error when trying to send concurrent messages', async () => {
@@ -424,7 +446,7 @@ describe('ARH Client Integration Tests', () => {
         expect(progressCallback).toHaveBeenCalledTimes(2); // Called twice now
       });
 
-      it('should handle multiple event subscribers', () => {
+      it('should handle multiple event subscribers', async () => {
         const callback1 = jest.fn();
         const callback2 = jest.fn();
         
@@ -433,7 +455,7 @@ describe('ARH Client Integration Tests', () => {
          stateManager.subscribe(Events.MESSAGE, callback2);
         
         // Create a message to trigger events
-        stateManager.setActiveConversationId('test-conv');
+        await stateManager.setActiveConversationId('test-conv');
         
         // Subscribe method should return an unsubscribe function
         expect(typeof stateManager.subscribe).toBe('function');
@@ -455,7 +477,7 @@ describe('ARH Client Integration Tests', () => {
           text: async () => 'Server error occurred'
         } as Response);
 
-        stateManager.setActiveConversationId(conversationId);
+        await stateManager.setActiveConversationId(conversationId);
 
         const userMessage: UserQuery = 'This will cause an error';
 
@@ -473,7 +495,7 @@ describe('ARH Client Integration Tests', () => {
     describe('Multi-Message Conversation Flow', () => {
       it('should handle multiple messages in sequence', async () => {
         const conversationId = 'conv-multi';
-        stateManager.setActiveConversationId(conversationId);
+        await stateManager.setActiveConversationId(conversationId);
 
         // Mock responses for multiple calls
         mockFetch

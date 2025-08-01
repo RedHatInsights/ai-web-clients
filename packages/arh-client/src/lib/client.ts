@@ -12,7 +12,8 @@ import {
   IFetchFunction,
   IRequestOptions,
   IConversationHistoryResponse,
-  IConversation
+  IConversation,
+  IInitErrorResponse
 } from '@redhat-cloud-services/ai-client-common';
 import {
   NewConversationResponse,
@@ -75,7 +76,7 @@ export class IFDClient implements IAIClient<IFDAdditionalAttributes> {
         signal,
       });
 
-      if (!response.ok) {
+      if (!response || !response.ok) {
         await this.handleErrorResponse(response);
       }
 
@@ -88,16 +89,20 @@ export class IFDClient implements IAIClient<IFDAdditionalAttributes> {
   /**
    * Handle error responses
    */
-  private async handleErrorResponse(response: Response): Promise<never> {
+  private async handleErrorResponse(response: Response | null): Promise<never> {
     let errorData: { detail?: unknown } | string;
     try {
-      errorData = await response.json();
+      if (response) {
+        errorData = await response.json();
+      } else {
+        errorData = 'Unknown error';
+      }
     } catch {
-      // If we can't parse JSON, use response text
-      errorData = await response.text();
+      // If we can't parse JSON, use response text if response exists
+      errorData = response ? await response.text() : 'Unknown error';
     }
 
-    if (response.status === 422 && typeof errorData === 'object' && errorData?.detail) {
+    if (response && response.status === 422 && typeof errorData === 'object' && errorData?.detail) {
       const detail = errorData.detail;
       if (Array.isArray(detail)) {
         throw new AIClientValidationError(detail);
@@ -112,9 +117,9 @@ export class IFDClient implements IAIClient<IFDAdditionalAttributes> {
     }
 
     throw new AIClientError(
-      response.status,
-      response.statusText,
-      `API request failed: ${response.status} ${response.statusText}`,
+      response ? response.status : 500,
+      response ? response.statusText : 'Internal Server Error',
+      response ? `API request failed: ${response.status} ${response.statusText}` : 'Network error occurred',
       errorData
     );
   }
@@ -172,7 +177,14 @@ export class IFDClient implements IAIClient<IFDAdditionalAttributes> {
       };
     } catch (error) {
       console.error('ARH Client initialization failed:', error);
-      throw error;
+      const errorResponse: IInitErrorResponse = {
+        message: error instanceof AIClientValidationError ? 'Request validation failed' : 
+                error instanceof AIClientError ? error.message : 
+                error instanceof Error ? error.message : 
+                typeof error === 'string' ? error : 'Unknown error occurred',
+        status: error instanceof AIClientError ? error.status : 500
+      };
+      throw errorResponse;
     }
   }
 

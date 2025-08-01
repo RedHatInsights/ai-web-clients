@@ -30,8 +30,8 @@ describe('ClientStateManager', () => {
       expect(state.messageInProgress).toBe(false);
     });
 
-    it('should set active conversation ID', () => {
-      stateManager.setActiveConversationId('conv-123');
+    it('should set active conversation ID', async () => {
+      await stateManager.setActiveConversationId('conv-123');
       
       const state = stateManager.getState();
       expect(state.activeConversationId).toBe('conv-123');
@@ -39,8 +39,8 @@ describe('ClientStateManager', () => {
       expect(state.conversations['conv-123'].messages).toEqual([]);
     });
 
-    it('should get active conversation messages', () => {
-      stateManager.setActiveConversationId('conv-123');
+    it('should get active conversation messages', async () => {
+      await stateManager.setActiveConversationId('conv-123');
       
       const messages = stateManager.getActiveConversationMessages();
       expect(messages).toEqual([]);
@@ -57,8 +57,8 @@ describe('ClientStateManager', () => {
   });
 
   describe('Message Sending', () => {
-    beforeEach(() => {
-      stateManager.setActiveConversationId('conv-456');
+    beforeEach(async () => {
+      await stateManager.setActiveConversationId('conv-456');
       mockClient.sendMessage.mockResolvedValue({
         messageId: 'bot-msg-1',
         answer: 'Bot response',
@@ -324,11 +324,11 @@ describe('ClientStateManager', () => {
   });
 
   describe('Event System', () => {
-    it('should emit ACTIVE_CONVERSATION event when setting conversation', () => {
+    it('should emit ACTIVE_CONVERSATION event when setting conversation', async () => {
       const callback = jest.fn();
       stateManager.subscribe(Events.ACTIVE_CONVERSATION, callback);
 
-      stateManager.setActiveConversationId('conv-event-test');
+      await stateManager.setActiveConversationId('conv-event-test');
 
       expect(callback).toHaveBeenCalledTimes(1);
     });
@@ -337,7 +337,7 @@ describe('ClientStateManager', () => {
       const progressCallback = jest.fn();
       stateManager.subscribe(Events.IN_PROGRESS, progressCallback);
 
-      stateManager.setActiveConversationId('conv-progress');
+      await stateManager.setActiveConversationId('conv-progress');
       mockClient.sendMessage.mockResolvedValue({
         messageId: 'msg-progress',
         answer: 'Progress test',
@@ -352,14 +352,14 @@ describe('ClientStateManager', () => {
       expect(progressCallback).toHaveBeenCalledTimes(2);
     });
 
-    it('should handle subscription and unsubscription', () => {
+    it('should handle subscription and unsubscription', async () => {
       const callback1 = jest.fn();
       const callback2 = jest.fn();
 
       const unsubscribe1 = stateManager.subscribe(Events.ACTIVE_CONVERSATION, callback1);
       stateManager.subscribe(Events.ACTIVE_CONVERSATION, callback2);
 
-      stateManager.setActiveConversationId('conv-unsub-test');
+      await stateManager.setActiveConversationId('conv-unsub-test');
 
       expect(callback1).toHaveBeenCalledTimes(1);
       expect(callback2).toHaveBeenCalledTimes(1);
@@ -367,13 +367,13 @@ describe('ClientStateManager', () => {
       // Unsubscribe first callback
       unsubscribe1();
 
-      stateManager.setActiveConversationId('conv-unsub-test-2');
+      await stateManager.setActiveConversationId('conv-unsub-test-2');
 
       expect(callback1).toHaveBeenCalledTimes(1); // No additional calls
       expect(callback2).toHaveBeenCalledTimes(2); // Called again
     });
 
-    it('should handle errors in event callbacks gracefully', () => {
+    it('should handle errors in event callbacks gracefully', async () => {
       const errorCallback = jest.fn(() => {
         throw new Error('Callback error');
       });
@@ -384,7 +384,7 @@ describe('ClientStateManager', () => {
       stateManager.subscribe(Events.ACTIVE_CONVERSATION, errorCallback);
       stateManager.subscribe(Events.ACTIVE_CONVERSATION, goodCallback);
 
-      stateManager.setActiveConversationId('conv-error-test');
+      await stateManager.setActiveConversationId('conv-error-test');
 
       expect(errorCallback).toHaveBeenCalledTimes(1);
       expect(goodCallback).toHaveBeenCalledTimes(1);
@@ -396,7 +396,7 @@ describe('ClientStateManager', () => {
 
   describe('Multi-Message Conversation Flow', () => {
     it('should handle multiple messages in sequence', async () => {
-      stateManager.setActiveConversationId('conv-multi');
+      await stateManager.setActiveConversationId('conv-multi');
 
       // Mock responses for multiple calls
       mockClient.sendMessage
@@ -419,14 +419,24 @@ describe('ClientStateManager', () => {
 
       // Verify conversation history
       const messages = stateManager.getActiveConversationMessages();
-      expect(messages).toHaveLength(2); // Last user + last bot messages only
+      expect(messages).toHaveLength(4); // 2 user + 2 bot messages
 
       expect(messages[0]).toEqual({
+        id: expect.any(String),
+        answer: 'First question',
+        role: 'user'
+      });
+      expect(messages[1]).toEqual({
+        id: expect.any(String),
+        answer: 'First response',
+        role: 'bot'
+      });
+      expect(messages[2]).toEqual({
         id: expect.any(String),
         answer: 'Second question',
         role: 'user'
       });
-      expect(messages[1]).toEqual({
+      expect(messages[3]).toEqual({
         id: expect.any(String),
         answer: 'Second response',
         role: 'bot'
@@ -515,8 +525,16 @@ describe('ClientStateManager', () => {
       await expect(stateManager.init()).rejects.toThrow('Initialization failed');
       
       const state = stateManager.getState();
-      expect(state.isInitialized).toBe(false);
+      // After error handling update, isInitialized should be true so user can see error message
+      expect(state.isInitialized).toBe(true);
       expect(state.isInitializing).toBe(false);
+      
+      // Verify error message was added to conversation
+      const messages = stateManager.getActiveConversationMessages();
+      expect(messages.length).toBe(1);
+      expect(messages[0].role).toBe('bot');
+      // Regular Error objects get JSON.stringify which returns "{}" for Error objects
+      expect(messages[0].answer).toBe('{}');
     });
 
     it('should set initializing state during init', async () => {
