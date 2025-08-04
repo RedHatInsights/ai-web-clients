@@ -1,15 +1,18 @@
 /**
  * Lightspeed Client Streaming Integration Tests
- * 
+ *
  * Tests real streaming functionality using the live Lightspeed server.
  * This file specifically tests streaming message handling with the
  * @redhat-cloud-services/lightspeed-client and @redhat-cloud-services/ai-client-state packages.
- * 
+ *
  * Prerequisites: Lightspeed API server must be running on localhost:8080
  * The server should be the actual OpenShift Lightspeed service.
  */
 
-import { LightspeedClient, MessageChunkResponse } from '@redhat-cloud-services/lightspeed-client';
+import {
+  LightspeedClient,
+  MessageChunkResponse,
+} from '@redhat-cloud-services/lightspeed-client';
 import { IStreamingHandler } from '@redhat-cloud-services/ai-client-common';
 
 describe('Lightspeed Client Streaming Integration', () => {
@@ -19,7 +22,7 @@ describe('Lightspeed Client Streaming Integration', () => {
   beforeAll(() => {
     client = new LightspeedClient({
       baseUrl: mockServerUrl,
-      fetchFunction: (input, init) => fetch(input, init)
+      fetchFunction: (input, init) => fetch(input, init),
     });
   });
 
@@ -46,7 +49,7 @@ describe('Lightspeed Client Streaming Integration', () => {
       const clientWithTestHandler = new LightspeedClient({
         baseUrl: mockServerUrl,
         fetchFunction: (input, init) => fetch(input, init),
-        defaultStreamingHandler: testHandler
+        defaultStreamingHandler: testHandler,
       });
 
       await clientWithTestHandler.sendMessage(
@@ -58,7 +61,7 @@ describe('Lightspeed Client Streaming Integration', () => {
       // Verify streaming completed
       expect(streamCompleted).toBe(true);
       expect(chunks.length).toBeGreaterThan(0);
-      
+
       // Verify chunks contain expected content
       const lastChunk = chunks[chunks.length - 1];
       expect(lastChunk.finished).toBe(true);
@@ -81,7 +84,7 @@ describe('Lightspeed Client Streaming Integration', () => {
               conversation_id: conversationId.initialConversationId,
               answer: chunk.answer,
             });
-          }
+          },
         }
       );
 
@@ -115,7 +118,7 @@ describe('Lightspeed Client Streaming Integration', () => {
       const customClient = new LightspeedClient({
         baseUrl: mockServerUrl,
         fetchFunction: (input, init) => fetch(input, init),
-        defaultStreamingHandler: customHandler
+        defaultStreamingHandler: customHandler,
       });
 
       await customClient.sendMessage(
@@ -130,7 +133,9 @@ describe('Lightspeed Client Streaming Integration', () => {
       expect(receivedChunks.length).toBeGreaterThan(0);
 
       // Verify content quality
-      const allContent = receivedChunks.map(chunk => chunk.answer || '').join('');
+      const allContent = receivedChunks
+        .map((chunk) => chunk.answer || '')
+        .join('');
       expect(allContent).toContain('OpenShift');
       expect(allContent.length).toBeGreaterThan(50); // Reasonable response length
     }, 10000); // 10 second timeout for streaming test
@@ -139,15 +144,13 @@ describe('Lightspeed Client Streaming Integration', () => {
       // Test with invalid conversation ID to trigger error
       const invalidClient = new LightspeedClient({
         baseUrl: 'http://localhost:9999', // Non-existent server
-        fetchFunction: (input, init) => fetch(input, init)
+        fetchFunction: (input, init) => fetch(input, init),
       });
 
       await expect(
-        invalidClient.sendMessage(
-          'invalid-id',
-          'Test message',
-          { stream: true }
-        )
+        invalidClient.sendMessage('invalid-id', 'Test message', {
+          stream: true,
+        })
       ).rejects.toThrow();
     });
 
@@ -178,7 +181,7 @@ describe('Lightspeed Client Streaming Integration', () => {
       const clientWithHandler = new LightspeedClient({
         baseUrl: mockServerUrl,
         fetchFunction: (input, init) => fetch(input, init),
-        defaultStreamingHandler: streamingHandler
+        defaultStreamingHandler: streamingHandler,
       });
 
       await clientWithHandler.sendMessage(
@@ -196,7 +199,7 @@ describe('Lightspeed Client Streaming Integration', () => {
     it('should receive streaming chunks within reasonable time', async () => {
       const conversationId = await client.init();
       const chunkTimestamps: number[] = [];
-      
+
       const performanceHandler: IStreamingHandler<MessageChunkResponse> = {
         onStart: () => {
           chunkTimestamps.push(Date.now());
@@ -214,7 +217,7 @@ describe('Lightspeed Client Streaming Integration', () => {
       const performanceClient = new LightspeedClient({
         baseUrl: mockServerUrl,
         fetchFunction: (input, init) => fetch(input, init),
-        defaultStreamingHandler: performanceHandler
+        defaultStreamingHandler: performanceHandler,
       });
 
       const startTime = Date.now();
@@ -230,11 +233,11 @@ describe('Lightspeed Client Streaming Integration', () => {
 
       // Check that chunks arrived at reasonable intervals
       expect(chunkTimestamps.length).toBeGreaterThan(2);
-      
+
       for (let i = 1; i < chunkTimestamps.length; i++) {
         const intervalMs = chunkTimestamps[i] - chunkTimestamps[i - 1];
         expect(intervalMs).toBeLessThan(1000); // No single interval longer than 1 second
       }
     }, 10000);
   });
-}); 
+});

@@ -1,13 +1,19 @@
-import { AfterChunkCallback, IStreamingHandler } from '@redhat-cloud-services/ai-client-common';
-import { MessageChunkResponse, IFDApiError, AnswerSource, IFDAdditionalAttributes } from './types';
-import { 
-  StreamingMessageChunk, 
-  isEmpty, 
-  isString, 
-  isObject 
+import {
+  AfterChunkCallback,
+  IStreamingHandler,
+} from '@redhat-cloud-services/ai-client-common';
+import {
+  MessageChunkResponse,
+  IFDApiError,
+  AnswerSource,
+  IFDAdditionalAttributes,
+} from './types';
+import {
+  StreamingMessageChunk,
+  isEmpty,
+  isString,
+  isObject,
 } from './streaming-types';
-
-
 
 /**
  * Extract error message from various formats
@@ -59,32 +65,38 @@ function cleanAndParseLine(line: string): StreamingMessageChunk | null {
 /**
  * Process streaming response
  */
-async function processStreamResponse(
-  {
-    response,
-    conversationId,
-    onChunk,
-    onStart,
-    onComplete,
-    onError,
-    afterChunk
-  }: {
-    response: Response;
-    conversationId: string;
-    onChunk: (message: MessageChunkResponse) => void;
-    onStart?: (conversationId: string, messageId: string) => void;
-    onComplete?: (finalChunk: MessageChunkResponse) => void;
-    onError?: (error: Error) => void;
-    afterChunk?: AfterChunkCallback<IFDAdditionalAttributes>;
-  }
-): Promise<void> {
+async function processStreamResponse({
+  response,
+  conversationId,
+  onChunk,
+  onStart,
+  onComplete,
+  onError,
+  afterChunk,
+}: {
+  response: Response;
+  conversationId: string;
+  onChunk: (message: MessageChunkResponse) => void;
+  onStart?: (conversationId: string, messageId: string) => void;
+  onComplete?: (finalChunk: MessageChunkResponse) => void;
+  onError?: (error: Error) => void;
+  afterChunk?: AfterChunkCallback<IFDAdditionalAttributes>;
+}): Promise<void> {
   const reader = response.body?.getReader();
   if (!reader) {
-    throw new IFDApiError(500, 'Internal Server Error', 'No readable stream available');
+    throw new IFDApiError(
+      500,
+      'Internal Server Error',
+      'No readable stream available'
+    );
   }
 
   if (response.body === null) {
-    throw new IFDApiError(500, 'Internal Server Error', 'No response body received from server');
+    throw new IFDApiError(
+      500,
+      'Internal Server Error',
+      'No response body received from server'
+    );
   }
 
   try {
@@ -104,7 +116,12 @@ async function processStreamResponse(
       buffer = lines.pop() || '';
 
       // Handle case where buffer holds a complete JSON (no newline in chunk)
-      if (buffer && !isEmpty(buffer.trim()) && lines.length === 0 && isString(buffer)) {
+      if (
+        buffer &&
+        !isEmpty(buffer.trim()) &&
+        lines.length === 0 &&
+        isString(buffer)
+      ) {
         lines.push(buffer);
       }
 
@@ -119,18 +136,18 @@ async function processStreamResponse(
             // Handle error responses
             if (parsed.status_code && parsed.detail) {
               const errorMessage = extractErrorMessage(parsed.detail);
-              
+
               // Ensure messageId is set for error chunks
               if (parsed.message_id) {
                 messageId = parsed.message_id;
               }
-              
+
               // Call onStart if this is the first chunk (even if it's an error)
               if (firstChunk && onStart) {
                 onStart(conversationId, messageId);
                 firstChunk = false;
               }
-              
+
               const errorChunk: MessageChunkResponse = {
                 conversation_id: conversationId,
                 message_id: messageId,
@@ -140,7 +157,14 @@ async function processStreamResponse(
                 tool_call_metadata: null,
                 output_guard_result: null,
               };
-              onError?.(new IFDApiError(parsed.status_code, 'Stream Error', errorMessage, parsed.detail));
+              onError?.(
+                new IFDApiError(
+                  parsed.status_code,
+                  'Stream Error',
+                  errorMessage,
+                  parsed.detail
+                )
+              );
               onChunk(errorChunk);
               afterChunk?.({
                 answer: errorChunk.answer,
@@ -148,7 +172,7 @@ async function processStreamResponse(
                   sources: errorChunk.sources,
                   tool_call_metadata: errorChunk.tool_call_metadata,
                   output_guard_result: errorChunk.output_guard_result,
-                }
+                },
               });
               onComplete?.(errorChunk);
               done = true;
@@ -156,7 +180,7 @@ async function processStreamResponse(
             }
 
             accumulatedAnswer += parsed.answer || '';
-            
+
             // Store conversation and message IDs for callbacks
             if (parsed.message_id) {
               messageId = parsed.message_id;
@@ -185,7 +209,7 @@ async function processStreamResponse(
                 sources: parsed.sources || [],
                 tool_call_metadata: parsed.tool_call_metadata || null,
                 output_guard_result: parsed.output_guard_result || null,
-              }
+              },
             });
             if (parsed.end_of_stream) {
               onComplete?.(chunkResponse);
@@ -208,7 +232,9 @@ export type MessageBuffer = { answer: string; sources: AnswerSource[] };
 /**
  * Default streaming handler implementation
  */
-export class DefaultStreamingHandler implements IStreamingHandler<MessageChunkResponse> {
+export class DefaultStreamingHandler
+  implements IStreamingHandler<MessageChunkResponse>
+{
   private messageBuffer: MessageBuffer = {
     answer: '',
     sources: [],
@@ -268,9 +294,10 @@ export async function processStreamWithHandler(
     conversationId,
     response,
     onChunk: (message) => handler.onChunk(message),
-    onStart: (conversationId, messageId) => handler.onStart?.(conversationId, messageId),
+    onStart: (conversationId, messageId) =>
+      handler.onStart?.(conversationId, messageId),
     onComplete: (finalChunk) => handler.onComplete?.(finalChunk),
     onError: (error) => handler.onError?.(error),
-    afterChunk
+    afterChunk,
   });
 }

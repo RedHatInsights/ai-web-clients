@@ -1,14 +1,15 @@
 import { MessageChunkResponse } from './types';
-import { 
+import {
   IBaseClientConfig,
-  IRequestOptions
+  IRequestOptions,
 } from '@redhat-cloud-services/ai-client-common';
 
 /**
  * Configuration options for the IFD client
  * Extends the base client config with ARH-specific streaming handler
  */
-export interface IFDClientConfig extends IBaseClientConfig<MessageChunkResponse> {
+export interface IFDClientConfig
+  extends IBaseClientConfig<MessageChunkResponse> {
   // Inherits baseUrl, fetchFunction, and defaultStreamingHandler from IBaseClientConfig
 }
 
@@ -17,4 +18,4 @@ export interface IFDClientConfig extends IBaseClientConfig<MessageChunkResponse>
  */
 export interface RequestOptions extends IRequestOptions {
   // Standard request options with optional timeout, headers, etc.
-} 
+}

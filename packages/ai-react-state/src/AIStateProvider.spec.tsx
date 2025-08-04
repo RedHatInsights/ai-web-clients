@@ -9,10 +9,13 @@ import { AIStateContext } from './AiStateContext';
 
 // Mock the state manager
 jest.mock('@redhat-cloud-services/ai-client-state', () => ({
-  createClientStateManager: jest.fn()
+  createClientStateManager: jest.fn(),
 }));
 
-const mockCreateClientStateManager = createClientStateManager as jest.MockedFunction<typeof createClientStateManager>;
+const mockCreateClientStateManager =
+  createClientStateManager as jest.MockedFunction<
+    typeof createClientStateManager
+  >;
 
 describe('AIStateProvider', () => {
   let mockClient: jest.Mocked<IAIClient>;
@@ -30,7 +33,7 @@ describe('AIStateProvider', () => {
       getConversationHistory: jest.fn().mockResolvedValue([]),
       healthCheck: jest.fn().mockResolvedValue({ status: 'ok' }),
       sendMessage: jest.fn(),
-      getDefaultStreamingHandler: jest.fn()
+      getDefaultStreamingHandler: jest.fn(),
     } as jest.Mocked<IAIClient<AdditionalAttributesTest>>;
 
     mockStateManager = {
@@ -44,10 +47,10 @@ describe('AIStateProvider', () => {
       getState: jest.fn().mockReturnValue({
         conversations: {},
         activeConversationId: null,
-        messageInProgress: false
+        messageInProgress: false,
       }),
       subscribe: jest.fn(),
-      unsubscribe: jest.fn()
+      unsubscribe: jest.fn(),
     } as jest.Mocked<StateManager<AdditionalAttributesTest>>;
 
     mockCreateClientStateManager.mockReturnValue(mockStateManager);
@@ -74,7 +77,11 @@ describe('AIStateProvider', () => {
       const TestComponent = () => {
         const context = React.useContext(AIStateContext);
         const stateManager = context.getState();
-        return <div data-testid="test">{stateManager === mockStateManager ? 'same' : 'different'}</div>;
+        return (
+          <div data-testid="test">
+            {stateManager === mockStateManager ? 'same' : 'different'}
+          </div>
+        );
       };
 
       render(
@@ -91,7 +98,11 @@ describe('AIStateProvider', () => {
       const TestComponent = () => {
         const context = React.useContext(AIStateContext);
         const stateManager = context.getState();
-        return <div data-testid="test">{stateManager === mockStateManager ? 'same' : 'different'}</div>;
+        return (
+          <div data-testid="test">
+            {stateManager === mockStateManager ? 'same' : 'different'}
+          </div>
+        );
       };
 
       render(
@@ -127,7 +138,11 @@ describe('AIStateProvider', () => {
         return (
           <div>
             <div data-testid="hasGetState">{typeof context.getState}</div>
-            <div data-testid="stateManager">{context.getState() === mockStateManager ? 'correct' : 'incorrect'}</div>
+            <div data-testid="stateManager">
+              {context.getState() === mockStateManager
+                ? 'correct'
+                : 'incorrect'}
+            </div>
           </div>
         );
       };
@@ -148,7 +163,7 @@ describe('AIStateProvider', () => {
         init: jest.fn().mockResolvedValue('new-initial-conversation-id'),
         sendMessage: jest.fn(),
         healthCheck: jest.fn(),
-        getDefaultStreamingHandler: jest.fn()
+        getDefaultStreamingHandler: jest.fn(),
       } as jest.Mocked<IAIClient>;
 
       const newMockStateManager = {
@@ -161,7 +176,7 @@ describe('AIStateProvider', () => {
         getMessageInProgress: jest.fn().mockReturnValue(false),
         getState: jest.fn(),
         subscribe: jest.fn(),
-        unsubscribe: jest.fn()
+        unsubscribe: jest.fn(),
       } as jest.Mocked<StateManager>;
 
       mockCreateClientStateManager
@@ -171,7 +186,11 @@ describe('AIStateProvider', () => {
       const TestComponent = () => {
         const context = React.useContext(AIStateContext);
         const stateManager = context.getState();
-        return <div data-testid="stateManager">{stateManager === newMockStateManager ? 'new' : 'old'}</div>;
+        return (
+          <div data-testid="stateManager">
+            {stateManager === newMockStateManager ? 'new' : 'old'}
+          </div>
+        );
       };
 
       const { rerender } = render(
@@ -190,8 +209,14 @@ describe('AIStateProvider', () => {
 
       expect(screen.getByTestId('stateManager')).toHaveTextContent('new');
       expect(mockCreateClientStateManager).toHaveBeenCalledTimes(2);
-      expect(mockCreateClientStateManager).toHaveBeenNthCalledWith(1, mockClient);
-      expect(mockCreateClientStateManager).toHaveBeenNthCalledWith(2, newMockClient);
+      expect(mockCreateClientStateManager).toHaveBeenNthCalledWith(
+        1,
+        mockClient
+      );
+      expect(mockCreateClientStateManager).toHaveBeenNthCalledWith(
+        2,
+        newMockClient
+      );
     });
   });
 
@@ -218,4 +243,4 @@ describe('AIStateProvider', () => {
       expect(screen.getByTestId('child2')).toHaveTextContent('Child 2');
     });
   });
-}); 
+});

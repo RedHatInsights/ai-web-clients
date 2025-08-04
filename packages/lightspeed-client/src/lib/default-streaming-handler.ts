@@ -1,29 +1,39 @@
-import { AfterChunkCallback, IStreamingHandler } from '@redhat-cloud-services/ai-client-common';
-import { LightSpeedCoreAdditionalProperties, MessageChunkResponse } from './types';
+import {
+  AfterChunkCallback,
+  IStreamingHandler,
+} from '@redhat-cloud-services/ai-client-common';
+import {
+  LightSpeedCoreAdditionalProperties,
+  MessageChunkResponse,
+} from './types';
 
 /**
  * Default streaming handler for Lightspeed API responses
- * 
+ *
  * This handler processes Server-Sent Events (SSE) from the Lightspeed streaming endpoint.
  * It follows the workspace pattern of providing sensible defaults while allowing customization.
  */
-export class DefaultStreamingHandler implements IStreamingHandler<MessageChunkResponse> {
-  
+export class DefaultStreamingHandler
+  implements IStreamingHandler<MessageChunkResponse>
+{
   /**
    * Handle a single chunk of streaming data from Lightspeed
    * @param chunk - The message chunk from the stream
    * @param afterChunk - Optional callback to execute after processing the chunk
    */
-  onChunk(chunk: MessageChunkResponse, afterChunk?: AfterChunkCallback<LightSpeedCoreAdditionalProperties>) {
+  onChunk(
+    chunk: MessageChunkResponse,
+    afterChunk?: AfterChunkCallback<LightSpeedCoreAdditionalProperties>
+  ) {
     // Process the chunk (could be logged, stored, etc.)
     if (chunk.answer) {
       // Basic handling - in a real implementation, this might update UI, etc.
     }
-    
+
     if (chunk.error) {
       console.error('Streaming error:', chunk.error);
     }
-    
+
     // Call the optional callback
     if (afterChunk) {
       afterChunk({
@@ -32,22 +42,20 @@ export class DefaultStreamingHandler implements IStreamingHandler<MessageChunkRe
       });
     }
   }
-  
+
   /**
    * Called when the stream starts
    * @param conversationId - Optional conversation ID
-   * @param messageId - Optional message ID  
+   * @param messageId - Optional message ID
    */
-  onStart?(): void {
-  }
-  
+  onStart?(): void {}
+
   /**
    * Called when the stream completes successfully
    * @param finalChunk - The final chunk received
    */
-  onComplete?(): void {
-  }
-  
+  onComplete?(): void {}
+
   /**
    * Called when an error occurs during streaming
    * @param error - The error that occurred
@@ -55,17 +63,16 @@ export class DefaultStreamingHandler implements IStreamingHandler<MessageChunkRe
   onError?(error: Error): void {
     console.error('Streaming error:', error);
   }
-  
+
   /**
    * Called when the stream is aborted
    */
-  onAbort?(): void {
-  }
+  onAbort?(): void {}
 }
 
 /**
  * Process a streaming response with a given handler
- * 
+ *
  * @param response - The fetch Response object containing the stream
  * @param handler - The streaming handler to process chunks
  * @param afterChunk - Optional callback to execute after each chunk
@@ -93,7 +100,7 @@ export async function processStreamWithHandler(
 
     while (true) {
       const { done, value } = await reader.read();
-      
+
       if (done) {
         break;
       }
@@ -106,7 +113,7 @@ export async function processStreamWithHandler(
       const chunkResponse: MessageChunkResponse = {
         answer: fullMessage, // Send the accumulated message so far
         finished: false,
-        conversation_id: undefined // Will be set by state manager
+        conversation_id: undefined, // Will be set by state manager
       };
 
       // Process the chunk with the handler
@@ -118,7 +125,7 @@ export async function processStreamWithHandler(
       const finalChunk: MessageChunkResponse = {
         answer: fullMessage,
         finished: true,
-        conversation_id: undefined // Will be set by state manager
+        conversation_id: undefined, // Will be set by state manager
       };
 
       // Process the final chunk
@@ -129,7 +136,6 @@ export async function processStreamWithHandler(
         handler.onComplete(finalChunk);
       }
     }
-
   } catch (error) {
     // Call onError if available
     if (handler.onError) {
@@ -139,4 +145,4 @@ export async function processStreamWithHandler(
   } finally {
     reader.releaseLock();
   }
-} 
+}

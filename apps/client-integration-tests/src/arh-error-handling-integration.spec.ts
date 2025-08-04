@@ -1,32 +1,35 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 /**
  * ARH Client Error Handling Integration Tests
- * 
+ *
  * Tests error handling functionality using the ARH mock server with special headers.
  * This file specifically tests initialization errors and state manager error handling
  * with the @redhat-cloud-services/arh-client and @redhat-cloud-services/ai-client-state packages.
- * 
+ *
  * Prerequisites: ARH mock server must be running on localhost:3001
  * Start server: npm run arh-mock-server
  */
 
 import { IFDClient } from '@redhat-cloud-services/arh-client';
 import { isInitErrorResponse } from '@redhat-cloud-services/ai-client-common';
-import { 
+import {
   createClientStateManager,
   Events,
 } from '@redhat-cloud-services/ai-client-state';
 
 // Custom fetch function that uses the mock server with error headers
 const createMockServerFetch = (headers?: Record<string, string>) => {
-  return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+  return async (
+    input: RequestInfo | URL,
+    init?: RequestInit
+  ): Promise<Response> => {
     const url = typeof input === 'string' ? input : input.toString();
     const mergedInit = {
       ...init,
       headers: {
         ...init?.headers,
-        ...headers
-      }
+        ...headers,
+      },
     };
     return fetch(url, mergedInit);
   };
@@ -38,16 +41,21 @@ describe('ARH Client Error Handling Integration Tests', () => {
   beforeAll(async () => {
     // Verify mock server is running
     try {
-      console.log('Testing connection to:', `${mockServerBaseUrl}/api/ask/v1/health`);
+      console.log(
+        'Testing connection to:',
+        `${mockServerBaseUrl}/api/ask/v1/health`
+      );
       const response = await fetch(`${mockServerBaseUrl}/api/ask/v1/health`);
       console.log('Health check response status:', response.status);
       const healthData = await response.json();
       console.log('Health check data:', healthData);
-      
+
       if (!response.ok) {
         throw new Error(`Mock server health check failed: ${response.status}`);
       }
-      console.log('ARH mock server is healthy and ready for error handling tests');
+      console.log(
+        'ARH mock server is healthy and ready for error handling tests'
+      );
     } catch (error) {
       console.error('Health check failed with error:', error);
       throw new Error(
@@ -61,8 +69,8 @@ describe('ARH Client Error Handling Integration Tests', () => {
       const client = new IFDClient({
         baseUrl: mockServerBaseUrl,
         fetchFunction: createMockServerFetch({
-          'x-mock-unauthorized': 'true' // Trigger 403 on status endpoint
-        })
+          'x-mock-unauthorized': 'true', // Trigger 403 on status endpoint
+        }),
       });
 
       try {
@@ -80,7 +88,7 @@ describe('ARH Client Error Handling Integration Tests', () => {
     it('should handle network errors during initialization', async () => {
       const client = new IFDClient({
         baseUrl: 'http://localhost:9999', // Non-existent server
-        fetchFunction: (input, init) => fetch(input, init)
+        fetchFunction: (input, init) => fetch(input, init),
       });
 
       try {
@@ -92,14 +100,15 @@ describe('ARH Client Error Handling Integration Tests', () => {
           expect(error.status).toBe(500);
           expect(error.message).toContain('error');
         }
-    }});
+      }
+    });
 
     it('should preserve error details in IInitErrorResponse format', async () => {
       const client = new IFDClient({
         baseUrl: mockServerBaseUrl,
         fetchFunction: createMockServerFetch({
-          'x-mock-unauthorized': 'true'
-        })
+          'x-mock-unauthorized': 'true',
+        }),
       });
 
       try {
@@ -115,7 +124,7 @@ describe('ARH Client Error Handling Integration Tests', () => {
         expect('status' in error).toBe(true);
         expect(typeof (error as any).message).toBe('string');
         expect(typeof (error as any).status).toBe('number');
-        
+
         // Verify it can be properly identified by type guard
         expect(isInitErrorResponse(error)).toBe(true);
       }
@@ -127,8 +136,8 @@ describe('ARH Client Error Handling Integration Tests', () => {
       const client = new IFDClient({
         baseUrl: mockServerBaseUrl,
         fetchFunction: createMockServerFetch({
-          'x-mock-unauthorized': 'true'
-        })
+          'x-mock-unauthorized': 'true',
+        }),
       });
 
       const stateManager = createClientStateManager(client);
@@ -156,14 +165,16 @@ describe('ARH Client Error Handling Integration Tests', () => {
       const conversationMessages = stateManager.getActiveConversationMessages();
       expect(conversationMessages.length).toBe(1);
       expect(conversationMessages[0].role).toBe('bot');
-      expect(conversationMessages[0].answer).toBe('API request failed: 403 Forbidden');
+      expect(conversationMessages[0].answer).toBe(
+        'API request failed: 403 Forbidden'
+      );
     });
 
     it('should handle different types of initialization errors gracefully', async () => {
       // Test with network error
       const networkErrorClient = new IFDClient({
         baseUrl: 'http://localhost:9999',
-        fetchFunction: (input, init) => fetch(input, init)
+        fetchFunction: (input, init) => fetch(input, init),
       });
 
       const stateManager = createClientStateManager(networkErrorClient);
@@ -187,8 +198,8 @@ describe('ARH Client Error Handling Integration Tests', () => {
       const client = new IFDClient({
         baseUrl: mockServerBaseUrl,
         fetchFunction: createMockServerFetch({
-          'x-mock-unauthorized': 'true'
-        })
+          'x-mock-unauthorized': 'true',
+        }),
       });
 
       const stateManager = createClientStateManager(client);
@@ -217,8 +228,8 @@ describe('ARH Client Error Handling Integration Tests', () => {
       const client = new IFDClient({
         baseUrl: mockServerBaseUrl,
         fetchFunction: createMockServerFetch({
-          'x-mock-unauthorized': 'true'
-        })
+          'x-mock-unauthorized': 'true',
+        }),
       });
 
       const stateManager = createClientStateManager(client);
@@ -257,30 +268,37 @@ describe('ARH Client Error Handling Integration Tests', () => {
       expect(finalMessages.length).toBe(1);
       expect(finalMessages[0].answer).toBe('API request failed: 403 Forbidden');
 
-      const finalConversationId = conversationEvents[conversationEvents.length - 1];
+      const finalConversationId =
+        conversationEvents[conversationEvents.length - 1];
       expect(finalConversationId).not.toBeNull();
     });
 
     it('should handle error messages with proper JSON formatting for complex errors', async () => {
       // Create a client that will fail during user history fetch (later in init process)
-      const conditionalFetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      const conditionalFetch = async (
+        input: RequestInfo | URL,
+        init?: RequestInit
+      ): Promise<Response> => {
         const url = typeof input === 'string' ? input : input.toString();
-        
+
         // Let health and status pass, but fail on user/current
         if (url.includes('/user/current') && !url.includes('/history')) {
-          return new Response(JSON.stringify({ detail: 'Complex error object' }), {
-            status: 422,
-            statusText: 'Unprocessable Entity',
-            headers: { 'Content-Type': 'application/json' }
-          });
+          return new Response(
+            JSON.stringify({ detail: 'Complex error object' }),
+            {
+              status: 422,
+              statusText: 'Unprocessable Entity',
+              headers: { 'Content-Type': 'application/json' },
+            }
+          );
         }
-        
+
         return fetch(url, init);
       };
 
       const client = new IFDClient({
         baseUrl: mockServerBaseUrl,
-        fetchFunction: conditionalFetch
+        fetchFunction: conditionalFetch,
       });
 
       const stateManager = createClientStateManager(client);
@@ -308,8 +326,8 @@ describe('ARH Client Error Handling Integration Tests', () => {
       const client = new IFDClient({
         baseUrl: mockServerBaseUrl,
         fetchFunction: createMockServerFetch({
-          'x-mock-unauthorized': 'true'
-        })
+          'x-mock-unauthorized': 'true',
+        }),
       });
 
       const stateManager = createClientStateManager(client);
@@ -338,8 +356,8 @@ describe('ARH Client Error Handling Integration Tests', () => {
       const client = new IFDClient({
         baseUrl: mockServerBaseUrl,
         fetchFunction: createMockServerFetch({
-          'x-mock-unauthorized': 'true'
-        })
+          'x-mock-unauthorized': 'true',
+        }),
       });
 
       const stateManager = createClientStateManager(client);
@@ -363,8 +381,8 @@ describe('ARH Client Error Handling Integration Tests', () => {
       const failingClient = new IFDClient({
         baseUrl: mockServerBaseUrl,
         fetchFunction: createMockServerFetch({
-          'x-mock-unauthorized': 'true'
-        })
+          'x-mock-unauthorized': 'true',
+        }),
       });
 
       const stateManager = createClientStateManager(failingClient);
@@ -377,23 +395,25 @@ describe('ARH Client Error Handling Integration Tests', () => {
       }
 
       // Verify error state
-      expect(stateManager.getActiveConversationMessages()[0].answer).toBe('API request failed: 403 Forbidden');
+      expect(stateManager.getActiveConversationMessages()[0].answer).toBe(
+        'API request failed: 403 Forbidden'
+      );
 
       // Create a working client and new state manager
       const workingClient = new IFDClient({
         baseUrl: mockServerBaseUrl,
-        fetchFunction: createMockServerFetch() // No error headers
+        fetchFunction: createMockServerFetch(), // No error headers
       });
 
       const newStateManager = createClientStateManager(workingClient);
 
       // This should succeed
       await newStateManager.init();
-      
+
       // Get actual state to verify
       const conversations = newStateManager.getConversations();
       expect(conversations.length).toBeGreaterThanOrEqual(0);
-      
+
       // Verify working state
       expect(newStateManager.isInitialized()).toBe(true);
       expect(newStateManager.isInitializing()).toBe(false);
@@ -413,7 +433,9 @@ describe('ARH Client Error Handling Integration Tests', () => {
       expect(isInitErrorResponse({ message: 'Test' })).toBe(false); // Missing status
       expect(isInitErrorResponse({ status: 500 })).toBe(false); // Missing message
       expect(isInitErrorResponse({ message: 123, status: 500 })).toBe(false); // Wrong message type
-      expect(isInitErrorResponse({ message: 'Test', status: 'error' })).toBe(false); // Wrong status type
+      expect(isInitErrorResponse({ message: 'Test', status: 'error' })).toBe(
+        false
+      ); // Wrong status type
       expect(isInitErrorResponse(new Error('Regular error'))).toBe(false); // Regular Error object
       expect(isInitErrorResponse('string error')).toBe(false); // String
       expect(isInitErrorResponse(42)).toBe(false); // Number
@@ -423,8 +445,8 @@ describe('ARH Client Error Handling Integration Tests', () => {
       const client = new IFDClient({
         baseUrl: mockServerBaseUrl,
         fetchFunction: createMockServerFetch({
-          'x-mock-unauthorized': 'true'
-        })
+          'x-mock-unauthorized': 'true',
+        }),
       });
 
       try {
@@ -433,7 +455,7 @@ describe('ARH Client Error Handling Integration Tests', () => {
       } catch (error) {
         // Verify the thrown error is properly formatted
         expect(isInitErrorResponse(error)).toBe(true);
-        
+
         // Verify type narrowing works
         if (isInitErrorResponse(error)) {
           expect(typeof error.message).toBe('string');

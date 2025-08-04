@@ -1,7 +1,4 @@
-import {
-  IFDClientConfig,
-  RequestOptions
-} from './interfaces';
+import { IFDClientConfig, RequestOptions } from './interfaces';
 import {
   IAIClient,
   AIClientError,
@@ -13,7 +10,7 @@ import {
   IRequestOptions,
   IConversationHistoryResponse,
   IConversation,
-  IInitErrorResponse
+  IInitErrorResponse,
 } from '@redhat-cloud-services/ai-client-common';
 import {
   NewConversationResponse,
@@ -26,13 +23,16 @@ import {
   UserRequest,
   UserHistoryResponse,
   QuotaStatusResponse,
-  IFDAdditionalAttributes
+  IFDAdditionalAttributes,
 } from './types';
-import { DefaultStreamingHandler, processStreamWithHandler } from './default-streaming-handler';
+import {
+  DefaultStreamingHandler,
+  processStreamWithHandler,
+} from './default-streaming-handler';
 
 /**
  * Intelligent Front Door (IFD) API Client
- * 
+ *
  * A flexible TypeScript client for the IFD API with dependency injection support
  * for custom fetch implementations and streaming handlers.
  */
@@ -44,14 +44,19 @@ export class IFDClient implements IAIClient<IFDAdditionalAttributes> {
   constructor(config: IFDClientConfig) {
     this.baseUrl = config.baseUrl;
     this.fetchFunction = config.fetchFunction;
-    this.defaultStreamingHandler = config.defaultStreamingHandler || new DefaultStreamingHandler();
+    this.defaultStreamingHandler =
+      config.defaultStreamingHandler || new DefaultStreamingHandler();
   }
 
   /**
    * Get the default streaming handler configured for this client
    */
-  getDefaultStreamingHandler<TChunk = MessageChunkResponse>(): IStreamingHandler<TChunk> | undefined {
-    return this.defaultStreamingHandler as IStreamingHandler<TChunk> | undefined;
+  getDefaultStreamingHandler<TChunk = MessageChunkResponse>():
+    | IStreamingHandler<TChunk>
+    | undefined {
+    return this.defaultStreamingHandler as
+      | IStreamingHandler<TChunk>
+      | undefined;
   }
 
   /**
@@ -62,7 +67,7 @@ export class IFDClient implements IAIClient<IFDAdditionalAttributes> {
     options: RequestInit & RequestOptions = {}
   ): Promise<T> {
     const { headers: customHeaders, signal, ...fetchOptions } = options;
-    
+
     const url = `${this.baseUrl}${path}`;
     const headers = {
       'Content-Type': 'application/json',
@@ -102,24 +107,33 @@ export class IFDClient implements IAIClient<IFDAdditionalAttributes> {
       errorData = response ? await response.text() : 'Unknown error';
     }
 
-    if (response && response.status === 422 && typeof errorData === 'object' && errorData?.detail) {
+    if (
+      response &&
+      response.status === 422 &&
+      typeof errorData === 'object' &&
+      errorData?.detail
+    ) {
       const detail = errorData.detail;
       if (Array.isArray(detail)) {
         throw new AIClientValidationError(detail);
       } else {
         // Fallback for non-array validation errors
-        throw new AIClientValidationError([{
-          loc: ['unknown'],
-          msg: typeof detail === 'string' ? detail : 'Validation failed',
-          type: 'validation_error'
-        }]);
+        throw new AIClientValidationError([
+          {
+            loc: ['unknown'],
+            msg: typeof detail === 'string' ? detail : 'Validation failed',
+            type: 'validation_error',
+          },
+        ]);
       }
     }
 
     throw new AIClientError(
       response ? response.status : 500,
       response ? response.statusText : 'Internal Server Error',
-      response ? `API request failed: ${response.status} ${response.statusText}` : 'Network error occurred',
+      response
+        ? `API request failed: ${response.status} ${response.statusText}`
+        : 'Network error occurred',
       errorData
     );
   }
@@ -127,11 +141,16 @@ export class IFDClient implements IAIClient<IFDAdditionalAttributes> {
   /**
    * Create a new conversation
    */
-  async createConversation(options?: RequestOptions): Promise<NewConversationResponse> {
-    return this.makeRequest<NewConversationResponse>('/api/ask/v1/conversation', {
-      method: 'POST',
-      ...options,
-    });
+  async createConversation(
+    options?: RequestOptions
+  ): Promise<NewConversationResponse> {
+    return this.makeRequest<NewConversationResponse>(
+      '/api/ask/v1/conversation',
+      {
+        method: 'POST',
+        ...options,
+      }
+    );
   }
 
   async createNewConversation(): Promise<IConversation> {
@@ -139,14 +158,14 @@ export class IFDClient implements IAIClient<IFDAdditionalAttributes> {
     return {
       id: response.conversation_id,
       title: 'New Conversation',
-      locked: false
+      locked: false,
     };
   }
 
   async init(): Promise<{
-      initialConversationId: string;
-      conversations: IConversation[];
-    }> {
+    initialConversationId: string;
+    conversations: IConversation[];
+  }> {
     try {
       // ARH init procedure
       await this.healthCheck();
@@ -154,35 +173,43 @@ export class IFDClient implements IAIClient<IFDAdditionalAttributes> {
       await this.getUserSettings();
       const history = await this.getUserHistory();
       await this.getConversationQuota();
-      const defaultConversation = history.find((conversation) => conversation.is_latest);
+      const defaultConversation = history.find(
+        (conversation) => conversation.is_latest
+      );
 
-      let initialConversationId: string
-      const conversations: IConversation[] = history.map(conversation => {
+      let initialConversationId: string;
+      const conversations: IConversation[] = history.map((conversation) => {
         return {
           id: conversation.conversation_id,
           title: conversation.title,
-          locked: !conversation.is_latest
-        }
+          locked: !conversation.is_latest,
+        };
       });
       if (defaultConversation) {
         initialConversationId = defaultConversation.conversation_id;
-        history
+        history;
       } else {
         const newConversation = await this.createConversation();
         initialConversationId = newConversation.conversation_id;
       }
       return {
         initialConversationId,
-        conversations
+        conversations,
       };
     } catch (error) {
       console.error('ARH Client initialization failed:', error);
       const errorResponse: IInitErrorResponse = {
-        message: error instanceof AIClientValidationError ? 'Request validation failed' : 
-                error instanceof AIClientError ? error.message : 
-                error instanceof Error ? error.message : 
-                typeof error === 'string' ? error : 'Unknown error occurred',
-        status: error instanceof AIClientError ? error.status : 500
+        message:
+          error instanceof AIClientValidationError
+            ? 'Request validation failed'
+            : error instanceof AIClientError
+            ? error.message
+            : error instanceof Error
+            ? error.message
+            : typeof error === 'string'
+            ? error
+            : 'Unknown error occurred',
+        status: error instanceof AIClientError ? error.status : 500,
       };
       throw errorResponse;
     }
@@ -201,21 +228,23 @@ export class IFDClient implements IAIClient<IFDAdditionalAttributes> {
     message: string,
     options?: ISendMessageOptions
   ): Promise<IMessageResponse | void> {
-    const requestBody = { 
-      input: message, 
+    const requestBody = {
+      input: message,
       received_at: new Date().toISOString(),
-      stream: options?.stream || false 
+      stream: options?.stream || false,
     };
 
     if (options?.stream) {
       // Handle streaming mode
       const handler = this.defaultStreamingHandler;
       if (!handler) {
-        throw new AIClientValidationError([{
-          loc: ['options', 'stream'],
-          msg: 'Streaming mode requires a streaming handler to be configured',
-          type: 'value_error'
-        }]);
+        throw new AIClientValidationError([
+          {
+            loc: ['options', 'stream'],
+            msg: 'Streaming mode requires a streaming handler to be configured',
+            type: 'value_error',
+          },
+        ]);
       }
 
       const url = `${this.baseUrl}/api/ask/v1/conversation/${conversationId}/message`;
@@ -240,7 +269,12 @@ export class IFDClient implements IAIClient<IFDAdditionalAttributes> {
           throw new Error('Response body is null');
         }
 
-        return processStreamWithHandler(response, handler, conversationId, options.afterChunk);
+        return processStreamWithHandler(
+          response,
+          handler,
+          conversationId,
+          options.afterChunk
+        );
       } catch (error) {
         handler.onError?.(error as Error);
         throw error;
@@ -264,10 +298,9 @@ export class IFDClient implements IAIClient<IFDAdditionalAttributes> {
         additionalAttributes: {
           sources: response.sources,
           tool_call_metadata: response.tool_call_metadata,
-          output_guard_result: response.output_guard_result
-        }
-
-      }
+          output_guard_result: response.output_guard_result,
+        },
+      };
 
       return messageResponse;
     }
@@ -280,13 +313,12 @@ export class IFDClient implements IAIClient<IFDAdditionalAttributes> {
     conversationId: string,
     options?: IRequestOptions
   ): Promise<IConversationHistoryResponse<IFDAdditionalAttributes>> {
-    return this.makeRequest<IConversationHistoryResponse<IFDAdditionalAttributes>>(
-      `/api/ask/v1/conversation/${conversationId}/history`,
-      {
-        method: 'GET',
-        ...options,
-      }
-    );
+    return this.makeRequest<
+      IConversationHistoryResponse<IFDAdditionalAttributes>
+    >(`/api/ask/v1/conversation/${conversationId}/history`, {
+      method: 'GET',
+      ...options,
+    });
   }
 
   /**
@@ -363,9 +395,11 @@ export class IFDClient implements IAIClient<IFDAdditionalAttributes> {
     if (limit !== undefined) {
       searchParams.append('limit', limit.toString());
     }
-    
-    const path = `/api/ask/v1/user/current/history${searchParams.toString() ? '?' + searchParams.toString() : ''}`;
-    
+
+    const path = `/api/ask/v1/user/current/history${
+      searchParams.toString() ? '?' + searchParams.toString() : ''
+    }`;
+
     return this.makeRequest<UserHistoryResponse>(path, {
       method: 'GET',
       ...options,
@@ -375,11 +409,16 @@ export class IFDClient implements IAIClient<IFDAdditionalAttributes> {
   /**
    * Get conversation quota status
    */
-  async getConversationQuota(options?: RequestOptions): Promise<QuotaStatusResponse> {
-    return this.makeRequest<QuotaStatusResponse>('/api/ask/v1/quota/conversations', {
-      method: 'GET',
-      ...options,
-    });
+  async getConversationQuota(
+    options?: RequestOptions
+  ): Promise<QuotaStatusResponse> {
+    return this.makeRequest<QuotaStatusResponse>(
+      '/api/ask/v1/quota/conversations',
+      {
+        method: 'GET',
+        ...options,
+      }
+    );
   }
 
   /**
@@ -397,4 +436,4 @@ export class IFDClient implements IAIClient<IFDAdditionalAttributes> {
       }
     );
   }
-} 
+}

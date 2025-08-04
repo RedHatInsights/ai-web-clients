@@ -3,8 +3,15 @@
  * These demonstrate how to use the client with custom fetch and streaming handlers
  */
 
-import { IFDClient, MessageChunkResponse, DefaultStreamingHandler } from './index';
-import { IFetchFunction, IStreamingHandler } from '@redhat-cloud-services/ai-client-common';
+import {
+  IFDClient,
+  MessageChunkResponse,
+  DefaultStreamingHandler,
+} from './index';
+import {
+  IFetchFunction,
+  IStreamingHandler,
+} from '@redhat-cloud-services/ai-client-common';
 
 /**
  * Example: Custom fetch function with Bearer token authentication
@@ -12,7 +19,7 @@ import { IFetchFunction, IStreamingHandler } from '@redhat-cloud-services/ai-cli
 export function createAuthenticatedFetch(bearerToken: string): IFetchFunction {
   return async (input: RequestInfo | URL, init?: RequestInit) => {
     const headers = {
-      'Authorization': `Bearer ${bearerToken}`,
+      Authorization: `Bearer ${bearerToken}`,
       ...init?.headers,
     };
 
@@ -26,22 +33,27 @@ export function createAuthenticatedFetch(bearerToken: string): IFetchFunction {
 /**
  * Example: Retry-enabled fetch function
  */
-export function createRetryFetch(maxRetries: number = 3, delayMs: number = 1000): IFetchFunction {
+export function createRetryFetch(
+  maxRetries: number = 3,
+  delayMs: number = 1000
+): IFetchFunction {
   return async (input: RequestInfo | URL, init?: RequestInit) => {
     let lastError: Error;
-    
+
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
         return await fetch(input, init);
       } catch (error) {
         lastError = error as Error;
-        
+
         if (attempt < maxRetries) {
-          await new Promise(resolve => setTimeout(resolve, delayMs * Math.pow(2, attempt)));
+          await new Promise((resolve) =>
+            setTimeout(resolve, delayMs * Math.pow(2, attempt))
+          );
         }
       }
     }
-    
+
     throw lastError!;
   };
 }
@@ -50,11 +62,15 @@ export function createRetryFetch(maxRetries: number = 3, delayMs: number = 1000)
  * Example: Simple console logging streaming handler
  * Implements the common IStreamingHandler interface
  */
-export class ConsoleStreamingHandler implements IStreamingHandler<MessageChunkResponse> {
+export class ConsoleStreamingHandler
+  implements IStreamingHandler<MessageChunkResponse>
+{
   private messageBuffer: string = '';
 
   onStart(conversationId?: string, messageId?: string): void {
-    console.log(`Starting stream for conversation ${conversationId}, message ${messageId}`);
+    console.log(
+      `Starting stream for conversation ${conversationId}, message ${messageId}`
+    );
     this.messageBuffer = '';
   }
 
@@ -84,34 +100,44 @@ export class ConsoleStreamingHandler implements IStreamingHandler<MessageChunkRe
  * Example: Event-based streaming handler for React/browser applications
  * Implements the common IStreamingHandler interface
  */
-export class EventStreamingHandler implements IStreamingHandler<MessageChunkResponse> {
+export class EventStreamingHandler
+  implements IStreamingHandler<MessageChunkResponse>
+{
   private eventTarget = new EventTarget();
   private messageBuffer: string = '';
 
   onStart(conversationId?: string, messageId?: string): void {
     this.messageBuffer = '';
-    this.eventTarget.dispatchEvent(new CustomEvent('stream:start', { 
-      detail: { conversationId, messageId } 
-    }));
+    this.eventTarget.dispatchEvent(
+      new CustomEvent('stream:start', {
+        detail: { conversationId, messageId },
+      })
+    );
   }
 
   onChunk(chunk: MessageChunkResponse): void {
     this.messageBuffer = chunk.answer || '';
-    this.eventTarget.dispatchEvent(new CustomEvent('stream:chunk', {
-      detail: { chunk, completeMessage: this.messageBuffer }
-    }));
+    this.eventTarget.dispatchEvent(
+      new CustomEvent('stream:chunk', {
+        detail: { chunk, completeMessage: this.messageBuffer },
+      })
+    );
   }
 
   onComplete(finalChunk?: MessageChunkResponse): void {
-    this.eventTarget.dispatchEvent(new CustomEvent('stream:complete', {
-      detail: { finalChunk, completeMessage: this.messageBuffer }
-    }));
+    this.eventTarget.dispatchEvent(
+      new CustomEvent('stream:complete', {
+        detail: { finalChunk, completeMessage: this.messageBuffer },
+      })
+    );
   }
 
   onError(error: Error): void {
-    this.eventTarget.dispatchEvent(new CustomEvent('stream:error', {
-      detail: { error }
-    }));
+    this.eventTarget.dispatchEvent(
+      new CustomEvent('stream:error', {
+        detail: { error },
+      })
+    );
   }
 
   onAbort(): void {
@@ -136,7 +162,7 @@ export class EventStreamingHandler implements IStreamingHandler<MessageChunkResp
  */
 export async function exampleUsage() {
   const bearerToken = 'your-jwt-token-here';
-  
+
   // Example 1: Client with default streaming handler
   const clientWithDefaultHandler = new IFDClient({
     baseUrl: 'https://your-ifd-api.com',
@@ -157,7 +183,7 @@ export async function exampleUsage() {
 
     // Example 3: Send a non-streaming message (returns IMessageResponse)
     const response = await client.sendMessage(
-      conversation.conversation_id, 
+      conversation.conversation_id,
       'What is Red Hat OpenShift?'
     );
     console.log('Response:', response?.answer);
@@ -184,7 +210,8 @@ export async function exampleUsage() {
     }
 
     // Example 7: Access the default streaming handler for inspection
-    const defaultHandler = clientWithDefaultHandler.getDefaultStreamingHandler();
+    const defaultHandler =
+      clientWithDefaultHandler.getDefaultStreamingHandler();
     if (defaultHandler) {
       console.log('Client has a default streaming handler configured');
       // You could inspect or extend it with additional functionality here
@@ -204,13 +231,14 @@ export async function exampleUsage() {
     );
 
     // Get conversation history
-    const history = await client.getConversationHistory(conversation.conversation_id);
+    const history = await client.getConversationHistory(
+      conversation.conversation_id
+    );
     console.log('Conversation history:', history?.length, 'messages');
 
     // Check quotas
     const quota = await client.getConversationQuota();
     console.log('Conversation quota:', quota);
-
   } catch (error) {
     console.error('Error:', error);
   }
@@ -315,4 +343,4 @@ export function useIFDStreamingWithDefault() {
   };
 }
 `;
-} 
+}

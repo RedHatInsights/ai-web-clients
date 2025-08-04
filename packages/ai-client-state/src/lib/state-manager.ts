@@ -1,4 +1,9 @@
-import { IAIClient, IConversation, ISendMessageOptions, isInitErrorResponse } from '@redhat-cloud-services/ai-client-common';
+import {
+  IAIClient,
+  IConversation,
+  ISendMessageOptions,
+  isInitErrorResponse,
+} from '@redhat-cloud-services/ai-client-common';
 
 export enum Events {
   MESSAGE = 'message',
@@ -8,16 +13,20 @@ export enum Events {
   INITIALIZING_MESSAGES = 'initializing-messages',
 }
 
-export interface Message<T extends Record<string, unknown> = Record<string, unknown>> {
+export interface Message<
+  T extends Record<string, unknown> = Record<string, unknown>
+> {
   id: string;
   answer: string;
   role: 'user' | 'bot';
   additionalAttributes?: T;
 }
 
-export type UserQuery = string
+export type UserQuery = string;
 
-export interface Conversation<T extends Record<string, unknown> = Record<string, unknown>> {
+export interface Conversation<
+  T extends Record<string, unknown> = Record<string, unknown>
+> {
   id: string;
   title: string;
   messages: Message<T>[];
@@ -29,7 +38,9 @@ export interface MessageOptions {
   [key: string]: unknown;
 }
 
-interface ClientState<T extends Record<string, unknown> = Record<string, unknown>> {
+interface ClientState<
+  T extends Record<string, unknown> = Record<string, unknown>
+> {
   conversations: Record<string, Conversation<T>>;
   activeConversationId: string | null;
   messageInProgress: boolean;
@@ -43,24 +54,26 @@ interface EventSubscription {
   callback: () => void;
 }
 
+export type StateManager<
+  T extends Record<string, unknown> = Record<string, unknown>
+> = {
+  init: () => Promise<void>;
+  isInitialized: () => boolean;
+  isInitializing: () => boolean;
+  setActiveConversationId: (conversationId: string) => Promise<void>;
+  getActiveConversationId: () => string | null;
+  getActiveConversationMessages: () => Message<T>[];
+  sendMessage: (query: UserQuery, options?: MessageOptions) => Promise<any>;
+  getMessageInProgress: () => boolean;
+  getState: () => ClientState<T>;
+  subscribe: (event: Events, callback: () => void) => () => void;
+  getConversations: () => Conversation<T>[];
+  createNewConversation: () => Promise<IConversation>;
+};
 
-
-export type StateManager<T extends Record<string, unknown> = Record<string, unknown>> = {
-    init: () => Promise<void>;
-    isInitialized: () => boolean;
-    isInitializing: () => boolean;
-    setActiveConversationId: (conversationId: string) => Promise<void>;
-    getActiveConversationId: () => string | null;
-    getActiveConversationMessages: () => Message<T>[];
-    sendMessage: (query: UserQuery, options?: MessageOptions) => Promise<any>;
-    getMessageInProgress: () => boolean;
-    getState: () => ClientState<T>;
-    subscribe: (event: Events, callback: () => void) => () => void;
-    getConversations: () => Conversation<T>[];
-    createNewConversation: () => Promise<IConversation>;
-}
-
-export function createClientStateManager<T extends Record<string, unknown>>(client: IAIClient<T>): StateManager<T> {
+export function createClientStateManager<T extends Record<string, unknown>>(
+  client: IAIClient<T>
+): StateManager<T> {
   const state: ClientState<T> = {
     conversations: {},
     activeConversationId: null,
@@ -75,12 +88,12 @@ export function createClientStateManager<T extends Record<string, unknown>>(clie
     [Events.ACTIVE_CONVERSATION]: [],
     [Events.IN_PROGRESS]: [],
     [Events.CONVERSATIONS]: [],
-    [Events.INITIALIZING_MESSAGES]: []
+    [Events.INITIALIZING_MESSAGES]: [],
   };
 
   function notify(event: Events) {
     const subscriptions = eventSubscriptions[event] || [];
-    subscriptions.forEach(sub => {
+    subscriptions.forEach((sub) => {
       try {
         sub.callback();
       } catch (error) {
@@ -90,7 +103,13 @@ export function createClientStateManager<T extends Record<string, unknown>>(clie
   }
 
   function notifyAll() {
-    [Events.MESSAGE, Events.ACTIVE_CONVERSATION, Events.IN_PROGRESS, Events.CONVERSATIONS, Events.INITIALIZING_MESSAGES].forEach(event => {
+    [
+      Events.MESSAGE,
+      Events.ACTIVE_CONVERSATION,
+      Events.IN_PROGRESS,
+      Events.CONVERSATIONS,
+      Events.INITIALIZING_MESSAGES,
+    ].forEach((event) => {
       notify(event);
     });
   }
@@ -100,7 +119,7 @@ export function createClientStateManager<T extends Record<string, unknown>>(clie
       id,
       title: 'New conversation',
       messages: [],
-      locked: false
+      locked: false,
     };
     state.conversations[id] = newConversation;
     notify(Events.CONVERSATIONS);
@@ -111,24 +130,25 @@ export function createClientStateManager<T extends Record<string, unknown>>(clie
     if (state.isInitialized || state.isInitializing) {
       return;
     }
-    
+
     state.isInitializing = true;
     notify(Events.IN_PROGRESS);
     notify(Events.INITIALIZING_MESSAGES);
-    
+
     try {
       // Call the client's init method to get the initial conversation ID
-      const {initialConversationId, conversations, error} = await client.init();
+      const { initialConversationId, conversations, error } =
+        await client.init();
       if (error) {
         throw error;
       }
 
-      conversations.forEach(conversation => {
+      conversations.forEach((conversation) => {
         state.conversations[conversation.id] = {
           id: conversation.id,
           title: conversation.title,
           messages: [],
-          locked: conversation.locked
+          locked: conversation.locked,
         };
       });
       notify(Events.CONVERSATIONS);
@@ -136,34 +156,38 @@ export function createClientStateManager<T extends Record<string, unknown>>(clie
       // Set the initial conversation as the active conversation
       state.activeConversationId = initialConversationId;
 
-      
       // Create the initial conversation if it doesn't exist
       if (!state.conversations[initialConversationId]) {
         initializeConversationState(initialConversationId);
       }
 
-      let messages: Message<T>[] = []
-      if(initialConversationId) {
-        const history = await client.getConversationHistory(initialConversationId);
-        messages = (Array.isArray(history) ? history : []).reduce((acc, historyMessage) => {
-          const humanMessage: Message<T> = {
-            id: historyMessage.message_id,
-            answer: historyMessage.input,
-            role: 'user',
-          }
-          const botMessage: Message<T> = {
-            id: historyMessage.message_id,
-            answer: historyMessage.answer,
-            role: 'bot',
-            additionalAttributes: historyMessage.additionalAttributes
-          }
-          acc.push(humanMessage, botMessage)
-          return acc
-        }, [] as Message<T>[]);
+      let messages: Message<T>[] = [];
+      if (initialConversationId) {
+        const history = await client.getConversationHistory(
+          initialConversationId
+        );
+        messages = (Array.isArray(history) ? history : []).reduce(
+          (acc, historyMessage) => {
+            const humanMessage: Message<T> = {
+              id: historyMessage.message_id,
+              answer: historyMessage.input,
+              role: 'user',
+            };
+            const botMessage: Message<T> = {
+              id: historyMessage.message_id,
+              answer: historyMessage.answer,
+              role: 'bot',
+              additionalAttributes: historyMessage.additionalAttributes,
+            };
+            acc.push(humanMessage, botMessage);
+            return acc;
+          },
+          [] as Message<T>[]
+        );
       }
 
       state.conversations[initialConversationId].messages = messages;
-      
+
       state.isInitialized = true;
       state.isInitializing = false;
     } catch (error) {
@@ -200,9 +224,11 @@ export function createClientStateManager<T extends Record<string, unknown>>(clie
     return state.isInitializing;
   }
 
-  async function setActiveConversationId(conversationId: string): Promise<void> {
+  async function setActiveConversationId(
+    conversationId: string
+  ): Promise<void> {
     state.activeConversationId = conversationId;
-    
+
     // Auto-create conversation if it doesn't exist
     if (!state.conversations[conversationId]) {
       initializeConversationState(conversationId);
@@ -210,24 +236,27 @@ export function createClientStateManager<T extends Record<string, unknown>>(clie
     notify(Events.ACTIVE_CONVERSATION);
     notify(Events.CONVERSATIONS);
 
-    state.isInitializing = true
+    state.isInitializing = true;
     try {
       const history = await client.getConversationHistory(conversationId);
-      const messages = (Array.isArray(history) ? history : []).reduce((acc, historyMessage) => {
-        const humanMessage: Message<T> = {
-          id: historyMessage.message_id,
-          answer: historyMessage.input,
-          role: 'user',
-        }
-        const botMessage: Message<T> = {
-          id: historyMessage.message_id,
-          answer: historyMessage.answer,
-          role: 'bot',
-          additionalAttributes: historyMessage.additionalAttributes
-        }
-        acc.push(humanMessage, botMessage)
-        return acc
-      }, [] as Message<T>[]);
+      const messages = (Array.isArray(history) ? history : []).reduce(
+        (acc, historyMessage) => {
+          const humanMessage: Message<T> = {
+            id: historyMessage.message_id,
+            answer: historyMessage.input,
+            role: 'user',
+          };
+          const botMessage: Message<T> = {
+            id: historyMessage.message_id,
+            answer: historyMessage.answer,
+            role: 'bot',
+            additionalAttributes: historyMessage.additionalAttributes,
+          };
+          acc.push(humanMessage, botMessage);
+          return acc;
+        },
+        [] as Message<T>[]
+      );
       state.conversations[conversationId].messages = messages;
     } catch (error) {
       console.error('Error fetching conversation history:', error);
@@ -236,15 +265,13 @@ export function createClientStateManager<T extends Record<string, unknown>>(clie
       notify(Events.INITIALIZING_MESSAGES);
       notify(Events.MESSAGE);
     }
-    
-
   }
 
   function getActiveConversationMessages(): Message<T>[] {
     if (!state.activeConversationId) {
       return [];
     }
-    
+
     const conversation = state.conversations[state.activeConversationId];
     return conversation ? conversation.messages : [];
   }
@@ -253,23 +280,33 @@ export function createClientStateManager<T extends Record<string, unknown>>(clie
     return state;
   }
 
-  function removeMessageFromConversation(messageId: string, conversationId: string) {
+  function removeMessageFromConversation(
+    messageId: string,
+    conversationId: string
+  ) {
     if (!state.conversations[conversationId]) {
       return;
     }
     const conversation = state.conversations[conversationId];
     if (conversation) {
-      conversation.messages = conversation.messages.filter(message => message.id !== messageId);
+      conversation.messages = conversation.messages.filter(
+        (message) => message.id !== messageId
+      );
     }
   }
 
-  async function sendMessage(query: UserQuery, options?: MessageOptions): Promise<any> {
+  async function sendMessage(
+    query: UserQuery,
+    options?: MessageOptions
+  ): Promise<any> {
     if (query.trim().length === 0) {
       return;
     }
     // Check if a message is already in progress
     if (state.messageInProgress) {
-      throw new Error('A message is already being processed. Wait for it to complete before sending another message.');
+      throw new Error(
+        'A message is already being processed. Wait for it to complete before sending another message.'
+      );
     }
 
     // Set message in progress
@@ -279,21 +316,23 @@ export function createClientStateManager<T extends Record<string, unknown>>(clie
     try {
       // Ensure we have an active conversation
       if (!state.activeConversationId) {
-        throw new Error('No active conversation set. Call setActiveConversationId() first.');
+        throw new Error(
+          'No active conversation set. Call setActiveConversationId() first.'
+        );
       }
-      
+
       // Auto-create conversation if it doesn't exist
       if (!state.conversations[state.activeConversationId]) {
         initializeConversationState(state.activeConversationId);
       }
-      
+
       const conversation = state.conversations[state.activeConversationId];
-      if(conversation.messages.length === 0) {
+      if (conversation.messages.length === 0) {
         // new conversation, update the title to the initial query
         conversation.title = query;
         notify(Events.CONVERSATIONS);
       }
-      
+
       // Add user message to state immediately
       conversation.messages.push({
         id: crypto.randomUUID(),
@@ -302,12 +341,12 @@ export function createClientStateManager<T extends Record<string, unknown>>(clie
       });
       notify(Events.MESSAGE);
 
-      if(conversation.locked) {
+      if (conversation.locked) {
         console.error('Cannot send message in a locked conversation');
         const lockedMessage: Message<T> = {
           id: crypto.randomUUID(),
           answer: 'This conversation is locked and cannot accept new messages.',
-          role: 'bot'
+          role: 'bot',
         };
         conversation.messages.push(lockedMessage);
         notify(Events.MESSAGE);
@@ -315,15 +354,15 @@ export function createClientStateManager<T extends Record<string, unknown>>(clie
         notify(Events.IN_PROGRESS);
         return;
       }
-      
+
       // Create bot message placeholder for streaming updates
       const botMessage: Message<T> = {
         id: crypto.randomUUID(),
         answer: '',
-        role: 'bot'
+        role: 'bot',
       };
       conversation.messages.push(botMessage);
-      
+
       if (options?.stream) {
         // Get the client's default streaming handler
         const originalHandler = client.getDefaultStreamingHandler?.();
@@ -335,10 +374,11 @@ export function createClientStateManager<T extends Record<string, unknown>>(clie
               botMessage.id = botMessage.id;
               botMessage.additionalAttributes = chunk.additionalAttributes;
               notify(Events.MESSAGE);
-            }
-          }
+            },
+          };
 
-          return client.sendMessage(conversation.id, query, enhancedOptions)
+          return client
+            .sendMessage(conversation.id, query, enhancedOptions)
             .catch((error) => {
               removeMessageFromConversation(botMessage.id, conversation.id);
               notify(Events.MESSAGE);
@@ -353,19 +393,30 @@ export function createClientStateManager<T extends Record<string, unknown>>(clie
             });
         } else {
           // No streaming handler available but stream was requested
-          throw new Error('Streaming requested but no default streaming handler available in client');
+          throw new Error(
+            'Streaming requested but no default streaming handler available in client'
+          );
         }
       } else {
         // Non-streaming: update bot message after response
-        return client.sendMessage(conversation.id, query, options)
+        return client
+          .sendMessage(conversation.id, query, options)
           .catch((error) => {
             removeMessageFromConversation(botMessage.id, conversation.id);
             throw error;
           })
           .then((response) => {
             if (response) {
-              if (typeof response === 'object' && response && 'answer' in response && 'messageId' in response) {
-                const typedResponse = response as { answer: string; messageId: string };
+              if (
+                typeof response === 'object' &&
+                response &&
+                'answer' in response &&
+                'messageId' in response
+              ) {
+                const typedResponse = response as {
+                  answer: string;
+                  messageId: string;
+                };
                 botMessage.answer = typedResponse.answer;
                 botMessage.id = typedResponse.messageId || botMessage.id;
               } else if (typeof response === 'string') {
@@ -373,7 +424,8 @@ export function createClientStateManager<T extends Record<string, unknown>>(clie
               }
             }
             return response;
-          }).finally(() => {
+          })
+          .finally(() => {
             state.messageInProgress = false;
             notify(Events.IN_PROGRESS);
             notify(Events.MESSAGE);
@@ -386,7 +438,6 @@ export function createClientStateManager<T extends Record<string, unknown>>(clie
       throw error;
     }
   }
-
 
   function getConversations(): Conversation<T>[] {
     return Object.values(state.conversations);
@@ -404,20 +455,19 @@ export function createClientStateManager<T extends Record<string, unknown>>(clie
     setActiveConversationId(newConversation.id);
     notifyAll();
 
-    return newConversation
-
+    return newConversation;
   }
 
   function subscribe(event: Events, callback: () => void) {
     const id = crypto.randomUUID();
     const subscription: EventSubscription = { id, callback };
-    
+
     if (!eventSubscriptions[event]) {
       eventSubscriptions[event] = [];
     }
-    
+
     eventSubscriptions[event].push(subscription);
-    
+
     return () => unsubscribe(event, id);
   }
 
@@ -425,8 +475,10 @@ export function createClientStateManager<T extends Record<string, unknown>>(clie
     if (!eventSubscriptions[event]) {
       return;
     }
-    
-    const index = eventSubscriptions[event].findIndex(sub => sub.id === subscriptionId);
+
+    const index = eventSubscriptions[event].findIndex(
+      (sub) => sub.id === subscriptionId
+    );
     if (index !== -1) {
       eventSubscriptions[event].splice(index, 1);
     }

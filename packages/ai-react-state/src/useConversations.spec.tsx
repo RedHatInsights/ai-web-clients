@@ -3,24 +3,29 @@ import { render, act, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { useConversations } from './useConversations';
 import { AIStateProvider } from './AIStateProvider';
-import { createClientStateManager, Events } from '@redhat-cloud-services/ai-client-state';
+import {
+  createClientStateManager,
+  Events,
+} from '@redhat-cloud-services/ai-client-state';
 import { IAIClient } from '@redhat-cloud-services/ai-client-common';
 
 // Mock client for testing
 const createMockClient = (): jest.Mocked<IAIClient> => ({
-  init: jest.fn().mockResolvedValue({ 
-    initialConversationId: 'test-conversation-1', 
+  init: jest.fn().mockResolvedValue({
+    initialConversationId: 'test-conversation-1',
     conversations: [
       { id: 'test-conversation-1', title: 'Test Conversation 1' },
-      { id: 'test-conversation-2', title: 'Test Conversation 2' }
-    ] 
+      { id: 'test-conversation-2', title: 'Test Conversation 2' },
+    ],
   }),
   sendMessage: jest.fn(),
   getDefaultStreamingHandler: jest.fn(),
   getConversationHistory: jest.fn().mockResolvedValue([]),
   healthCheck: jest.fn(),
   getServiceStatus: jest.fn(),
-  createNewConversation: jest.fn().mockResolvedValue({ id: 'new-id', title: 'New Conversation' })
+  createNewConversation: jest
+    .fn()
+    .mockResolvedValue({ id: 'new-id', title: 'New Conversation' }),
 });
 
 describe('useConversations', () => {
@@ -37,7 +42,9 @@ describe('useConversations', () => {
   it('should return empty array initially before initialization', () => {
     const TestComponent = () => {
       const conversations = useConversations();
-      return <div data-testid="conversations-count">{conversations.length}</div>;
+      return (
+        <div data-testid="conversations-count">{conversations.length}</div>
+      );
     };
 
     const stateManager = createClientStateManager(mockClient);
@@ -57,7 +64,7 @@ describe('useConversations', () => {
         <div>
           <div data-testid="conversations-count">{conversations.length}</div>
           <div data-testid="conversation-ids">
-            {conversations.map(c => c.id).join(',')}
+            {conversations.map((c) => c.id).join(',')}
           </div>
         </div>
       );
@@ -75,13 +82,17 @@ describe('useConversations', () => {
     );
 
     expect(getByTestId('conversations-count').textContent).toBe('2');
-    expect(getByTestId('conversation-ids').textContent).toBe('test-conversation-1,test-conversation-2');
+    expect(getByTestId('conversation-ids').textContent).toBe(
+      'test-conversation-1,test-conversation-2'
+    );
   });
 
   it('should update when conversations change', async () => {
     const TestComponent = () => {
       const conversations = useConversations();
-      return <div data-testid="conversations-count">{conversations.length}</div>;
+      return (
+        <div data-testid="conversations-count">{conversations.length}</div>
+      );
     };
 
     const stateManager = createClientStateManager(mockClient);
@@ -110,7 +121,9 @@ describe('useConversations', () => {
   it('should clean up subscription on unmount', async () => {
     const TestComponent = () => {
       const conversations = useConversations();
-      return <div data-testid="conversations-count">{conversations.length}</div>;
+      return (
+        <div data-testid="conversations-count">{conversations.length}</div>
+      );
     };
 
     const stateManager = createClientStateManager(mockClient);
@@ -125,13 +138,19 @@ describe('useConversations', () => {
       </AIStateProvider>
     );
 
-    expect(subscribeSpy).toHaveBeenCalledWith(Events.CONVERSATIONS, expect.any(Function));
-    
+    expect(subscribeSpy).toHaveBeenCalledWith(
+      Events.CONVERSATIONS,
+      expect.any(Function)
+    );
+
     unmount();
 
     // The unsubscribe function should have been called during cleanup
     // We can't directly test this, but we can verify the subscription was set up correctly
-    expect(subscribeSpy).toHaveBeenCalledWith(Events.CONVERSATIONS, expect.any(Function));
+    expect(subscribeSpy).toHaveBeenCalledWith(
+      Events.CONVERSATIONS,
+      expect.any(Function)
+    );
 
     subscribeSpy.mockRestore();
   });
@@ -139,7 +158,9 @@ describe('useConversations', () => {
   it('should handle context switching properly', async () => {
     const TestComponent = () => {
       const conversations = useConversations();
-      return <div data-testid="conversations-count">{conversations.length}</div>;
+      return (
+        <div data-testid="conversations-count">{conversations.length}</div>
+      );
     };
 
     // First state manager with different data
@@ -159,11 +180,13 @@ describe('useConversations', () => {
 
     // Second state manager with different mock data
     const mockClient2 = createMockClient();
-    mockClient2.init.mockResolvedValue({ 
-      initialConversationId: 'different-conversation', 
-      conversations: [{ id: 'different-conversation', title: 'Different Conversation' }] 
+    mockClient2.init.mockResolvedValue({
+      initialConversationId: 'different-conversation',
+      conversations: [
+        { id: 'different-conversation', title: 'Different Conversation' },
+      ],
     });
-    
+
     const stateManager2 = createClientStateManager(mockClient2);
     await act(async () => {
       await stateManager2.init();
@@ -177,4 +200,4 @@ describe('useConversations', () => {
 
     expect(getByTestId2('conversations-count').textContent).toBe('1');
   });
-}); 
+});

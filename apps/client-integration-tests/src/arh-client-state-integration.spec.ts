@@ -1,12 +1,12 @@
 import { IFDClient } from '@redhat-cloud-services/arh-client';
-import type { 
-  IFDClientConfig, 
-  MessageChunkResponse
+import type {
+  IFDClientConfig,
+  MessageChunkResponse,
 } from '@redhat-cloud-services/arh-client';
 import type { IStreamingHandler } from '@redhat-cloud-services/ai-client-common';
 
 // Import state manager components
-import { 
+import {
   createClientStateManager,
   Events,
   UserQuery,
@@ -17,26 +17,26 @@ import {
 
 /**
  * ARH Client Integration Tests
- * 
+ *
  * These tests verify the integration between:
  * - @redhat-cloud-services/arh-client (ARH API client)
  * - @redhat-cloud-services/ai-client-state (State management)
- * 
+ *
  * Note: For full streaming tests, use the ARH mock server:
  * npm run arh-mock-server
  */
 describe('ARH Client Integration Tests', () => {
   let mockFetch: jest.MockedFunction<typeof fetch>;
   let client: IFDClient;
-  
+
   beforeEach(() => {
     mockFetch = jest.fn();
-    
+
     const config: IFDClientConfig = {
       baseUrl: 'https://api.test.com',
-      fetchFunction: mockFetch
+      fetchFunction: mockFetch,
     };
-    
+
     client = new IFDClient(config);
   });
 
@@ -57,14 +57,14 @@ describe('ARH Client Integration Tests', () => {
         answer: 'Hello! How can I help?',
         conversation_id: 'conv-456',
         received_at: new Date().toISOString(),
-        sources: []
+        sources: [],
       };
 
       mockFetch.mockResolvedValue({
         ok: true,
         status: 200,
         json: async () => expectedResponse,
-        headers: new Headers({ 'content-type': 'application/json' })
+        headers: new Headers({ 'content-type': 'application/json' }),
       } as Response);
 
       const response = await client.sendMessage('conv-456', 'Hello AI');
@@ -80,12 +80,12 @@ describe('ARH Client Integration Tests', () => {
     it('should handle streaming with default handler', async () => {
       // Skip streaming test for now - requires more complex ReadableStream setup
       // This is a known limitation of testing streaming in Node.js environment
-      // 
+      //
       // For full streaming integration tests, use the ARH mock server:
       // 1. Start: npm run arh-mock-server
       // 2. Configure client to use http://localhost:3001 as baseUrl
       // 3. Send requests with stream: true
-      // 
+      //
       // The ARH mock server (arh-mock-server.js) provides realistic streaming
       // responses that match the ARH OpenAPI specification.
       expect(true).toBe(true);
@@ -95,13 +95,13 @@ describe('ARH Client Integration Tests', () => {
       const mockHandler: IStreamingHandler<MessageChunkResponse> = {
         onChunk: jest.fn(),
         onStart: jest.fn(),
-        onComplete: jest.fn()
+        onComplete: jest.fn(),
       };
 
       const clientWithDefault = new IFDClient({
         baseUrl: 'https://api.test.com',
         fetchFunction: mockFetch,
-        defaultStreamingHandler: mockHandler
+        defaultStreamingHandler: mockHandler,
       });
 
       const retrievedHandler = clientWithDefault.getDefaultStreamingHandler();
@@ -115,50 +115,48 @@ describe('ARH Client Integration Tests', () => {
         ok: false,
         status: 500,
         statusText: 'Internal Server Error',
-        text: async () => 'Server error occurred'
+        text: async () => 'Server error occurred',
       } as Response);
 
-      await expect(
-        client.sendMessage('conv-123', 'Hello')
-      ).rejects.toThrow();
+      await expect(client.sendMessage('conv-123', 'Hello')).rejects.toThrow();
     });
 
     it('should handle network errors', async () => {
       mockFetch.mockRejectedValue(new Error('Network error'));
 
-      await expect(
-        client.sendMessage('conv-123', 'Hello')
-      ).rejects.toThrow('Network error');
+      await expect(client.sendMessage('conv-123', 'Hello')).rejects.toThrow(
+        'Network error'
+      );
     });
   });
 
   describe('Client Configuration', () => {
     it('should handle custom headers and request options', async () => {
-             const expectedResponse = {
-         message_id: 'msg-custom',
-         answer: 'Custom response',
-         conversation_id: 'conv-custom',
-         received_at: new Date().toISOString(),
-         sources: []
-       };
+      const expectedResponse = {
+        message_id: 'msg-custom',
+        answer: 'Custom response',
+        conversation_id: 'conv-custom',
+        received_at: new Date().toISOString(),
+        sources: [],
+      };
 
       mockFetch.mockResolvedValue({
         ok: true,
         status: 200,
         json: async () => expectedResponse,
-        headers: new Headers({ 'content-type': 'application/json' })
+        headers: new Headers({ 'content-type': 'application/json' }),
       } as Response);
 
       const response = await client.sendMessage('conv-custom', 'Hello', {
-        headers: { 'X-Custom-Header': 'test-value' }
+        headers: { 'X-Custom-Header': 'test-value' },
       });
 
       expect(mockFetch).toHaveBeenCalledWith(
         expect.any(String),
         expect.objectContaining({
           headers: expect.objectContaining({
-            'X-Custom-Header': 'test-value'
-          })
+            'X-Custom-Header': 'test-value',
+          }),
         })
       );
 
@@ -176,9 +174,9 @@ describe('ARH Client Integration Tests', () => {
       // Create state manager with ARH client
       const config: IFDClientConfig = {
         baseUrl: 'https://api.test.com',
-        fetchFunction: mockFetch
+        fetchFunction: mockFetch,
       };
-      
+
       const client = new IFDClient(config);
       stateManager = createClientStateManager(client);
     });
@@ -190,22 +188,24 @@ describe('ARH Client Integration Tests', () => {
         expect(stateManager).toBeDefined();
         expect(typeof stateManager.sendMessage).toBe('function');
         expect(typeof stateManager.setActiveConversationId).toBe('function');
-        expect(typeof stateManager.getActiveConversationMessages).toBe('function');
+        expect(typeof stateManager.getActiveConversationMessages).toBe(
+          'function'
+        );
         expect(typeof stateManager.getMessageInProgress).toBe('function');
       });
 
       it('should set active conversation and manage state', async () => {
         const conversationId = 'conv-state-123';
-        
+
         await stateManager.setActiveConversationId(conversationId);
-        
+
         // Manually create conversation state (this is how the state manager works)
         const state = stateManager.getState();
         state.conversations[conversationId] = {
           id: conversationId,
-          messages: []
+          messages: [],
         };
-        
+
         expect(state.activeConversationId).toBe(conversationId);
         expect(state.conversations[conversationId]).toBeDefined();
         expect(state.conversations[conversationId].messages).toEqual([]);
@@ -220,14 +220,14 @@ describe('ARH Client Integration Tests', () => {
           answer: 'Hello from ARH API!',
           conversation_id: conversationId,
           received_at: new Date().toISOString(),
-          sources: []
+          sources: [],
         };
 
         mockFetch.mockResolvedValue({
           ok: true,
           status: 200,
           json: async () => expectedResponse,
-          headers: new Headers({ 'content-type': 'application/json' })
+          headers: new Headers({ 'content-type': 'application/json' }),
         } as Response);
 
         // Manually create conversation state (this is how the state manager works)
@@ -236,11 +236,11 @@ describe('ARH Client Integration Tests', () => {
           id: conversationId,
           title: 'Test Conversation',
           messages: [],
-          locked: false
+          locked: false,
         };
-        
+
         await stateManager.setActiveConversationId(conversationId);
-        
+
         let response;
         try {
           response = await stateManager.sendMessage(userMessage);
@@ -251,10 +251,22 @@ describe('ARH Client Integration Tests', () => {
 
         // Debug: Check response and conversation state
         console.log('Response from sendMessage:', response);
-        console.log('All conversations:', Object.keys(stateManager.getState().conversations));
-        console.log('Active conversation ID:', stateManager.getState().activeConversationId);
-        console.log('Conversation state:', stateManager.getState().conversations[conversationId]);
-        console.log('Active conversation messages:', stateManager.getActiveConversationMessages());
+        console.log(
+          'All conversations:',
+          Object.keys(stateManager.getState().conversations)
+        );
+        console.log(
+          'Active conversation ID:',
+          stateManager.getState().activeConversationId
+        );
+        console.log(
+          'Conversation state:',
+          stateManager.getState().conversations[conversationId]
+        );
+        console.log(
+          'Active conversation messages:',
+          stateManager.getActiveConversationMessages()
+        );
 
         // Verify response from ARH client is returned
         expect(response).toBeDefined();
@@ -266,28 +278,28 @@ describe('ARH Client Integration Tests', () => {
         // Verify state was updated correctly
         const messages = stateManager.getActiveConversationMessages();
         expect(messages).toHaveLength(2);
-        
+
         // User message
         expect(messages[0]).toEqual({
           id: expect.any(String),
           answer: 'Hello from integration test',
-          role: 'user'
+          role: 'user',
         });
-        
+
         // Bot message
         expect(messages[1]).toEqual({
           id: expect.any(String),
           answer: 'Hello from ARH API!',
-          role: 'bot'
+          role: 'bot',
         });
       });
 
       it('should throw error when no active conversation is set', async () => {
         const userMessage: UserQuery = 'This should fail';
 
-        await expect(
-          stateManager.sendMessage(userMessage)
-        ).rejects.toThrow('No active conversation');
+        await expect(stateManager.sendMessage(userMessage)).rejects.toThrow(
+          'No active conversation'
+        );
       });
     });
 
@@ -309,9 +321,9 @@ describe('ARH Client Integration Tests', () => {
         const promise1 = stateManager.sendMessage(message1);
 
         // Try to send second message immediately - should throw error
-        await expect(
-          stateManager.sendMessage(message2)
-        ).rejects.toThrow('A message is already being processed. Wait for it to complete before sending another message.');
+        await expect(stateManager.sendMessage(message2)).rejects.toThrow(
+          'A message is already being processed. Wait for it to complete before sending another message.'
+        );
 
         // Clean up the hanging promise
         promise1.catch(() => {}); // Prevent unhandled rejection warning
@@ -326,7 +338,7 @@ describe('ARH Client Integration Tests', () => {
           answer: 'First response',
           conversation_id: conversationId,
           received_at: new Date().toISOString(),
-          sources: []
+          sources: [],
         };
 
         const response2 = {
@@ -334,7 +346,7 @@ describe('ARH Client Integration Tests', () => {
           answer: 'Second response',
           conversation_id: conversationId,
           received_at: new Date().toISOString(),
-          sources: []
+          sources: [],
         };
 
         mockFetch
@@ -342,13 +354,13 @@ describe('ARH Client Integration Tests', () => {
             ok: true,
             status: 200,
             json: async () => response1,
-            headers: new Headers({ 'content-type': 'application/json' })
+            headers: new Headers({ 'content-type': 'application/json' }),
           } as Response)
           .mockResolvedValueOnce({
             ok: true,
             status: 200,
             json: async () => response2,
-            headers: new Headers({ 'content-type': 'application/json' })
+            headers: new Headers({ 'content-type': 'application/json' }),
           } as Response);
 
         // Send first message and wait for completion
@@ -375,7 +387,7 @@ describe('ARH Client Integration Tests', () => {
           answer: 'Success response',
           conversation_id: conversationId,
           received_at: new Date().toISOString(),
-          sources: []
+          sources: [],
         };
 
         mockFetch
@@ -384,11 +396,13 @@ describe('ARH Client Integration Tests', () => {
             ok: true,
             status: 200,
             json: async () => successResponse,
-            headers: new Headers({ 'content-type': 'application/json' })
+            headers: new Headers({ 'content-type': 'application/json' }),
           } as Response);
 
         // First message should error
-        await expect(stateManager.sendMessage(message1)).rejects.toThrow('Network error');
+        await expect(stateManager.sendMessage(message1)).rejects.toThrow(
+          'Network error'
+        );
 
         // Should be able to send another message now
         const result = await stateManager.sendMessage(message2);
@@ -407,21 +421,24 @@ describe('ARH Client Integration Tests', () => {
         // Subscribe to events using enum values
         stateManager.subscribe(Events.MESSAGE, messageCallback);
         stateManager.subscribe(Events.IN_PROGRESS, progressCallback);
-        stateManager.subscribe(Events.ACTIVE_CONVERSATION, conversationCallback);
+        stateManager.subscribe(
+          Events.ACTIVE_CONVERSATION,
+          conversationCallback
+        );
 
         const expectedResponse = {
           message_id: 'event-msg',
           answer: 'Event test response',
           conversation_id: conversationId,
           received_at: new Date().toISOString(),
-          sources: []
+          sources: [],
         };
 
         mockFetch.mockResolvedValue({
           ok: true,
           status: 200,
           json: async () => expectedResponse,
-          headers: new Headers({ 'content-type': 'application/json' })
+          headers: new Headers({ 'content-type': 'application/json' }),
         } as Response);
 
         // Set conversation (should trigger ACTIVE_CONVERSATION event)
@@ -439,7 +456,7 @@ describe('ARH Client Integration Tests', () => {
         // Based on new sendMessage flow:
         // 3. notify(Events.IN_PROGRESS) - start
         // 4. notify(Events.MESSAGE) - user message
-        // 5. await sendMessage() 
+        // 5. await sendMessage()
         // 6. notify(Events.MESSAGE) - bot message
         // 7. notify(Events.IN_PROGRESS) - end (from executeSendMessage)
         expect(messageCallback).toHaveBeenCalledTimes(3);
@@ -449,17 +466,17 @@ describe('ARH Client Integration Tests', () => {
       it('should handle multiple event subscribers', async () => {
         const callback1 = jest.fn();
         const callback2 = jest.fn();
-        
-                 // Subscribe multiple callbacks to same event
-         stateManager.subscribe(Events.MESSAGE, callback1);
-         stateManager.subscribe(Events.MESSAGE, callback2);
-        
+
+        // Subscribe multiple callbacks to same event
+        stateManager.subscribe(Events.MESSAGE, callback1);
+        stateManager.subscribe(Events.MESSAGE, callback2);
+
         // Create a message to trigger events
         await stateManager.setActiveConversationId('test-conv');
-        
+
         // Subscribe method should return an unsubscribe function
         expect(typeof stateManager.subscribe).toBe('function');
-        
+
         // Test that subscribe returns an unsubscribe function
         const unsubscribe = stateManager.subscribe(Events.MESSAGE, () => {});
         expect(typeof unsubscribe).toBe('function');
@@ -469,21 +486,19 @@ describe('ARH Client Integration Tests', () => {
     describe('Error Handling Integration', () => {
       it('should handle ARH client errors gracefully in state manager', async () => {
         const conversationId = 'conv-error';
-        
+
         mockFetch.mockResolvedValue({
           ok: false,
           status: 500,
           statusText: 'Internal Server Error',
-          text: async () => 'Server error occurred'
+          text: async () => 'Server error occurred',
         } as Response);
 
         await stateManager.setActiveConversationId(conversationId);
 
         const userMessage: UserQuery = 'This will cause an error';
 
-        await expect(
-          stateManager.sendMessage(userMessage)
-        ).rejects.toThrow();
+        await expect(stateManager.sendMessage(userMessage)).rejects.toThrow();
 
         // Verify state shows user message was added but no bot response
         const messages = stateManager.getActiveConversationMessages();
@@ -507,8 +522,8 @@ describe('ARH Client Integration Tests', () => {
               answer: 'First response',
               conversation_id: conversationId,
               received_at: new Date().toISOString(),
-              sources: []
-            })
+              sources: [],
+            }),
           } as Response)
           .mockResolvedValueOnce({
             ok: true,
@@ -518,8 +533,8 @@ describe('ARH Client Integration Tests', () => {
               answer: 'Second response',
               conversation_id: conversationId,
               received_at: new Date().toISOString(),
-              sources: []
-            })
+              sources: [],
+            }),
           } as Response);
 
         // Send first message
@@ -535,24 +550,24 @@ describe('ARH Client Integration Tests', () => {
         expect(messages[0]).toEqual({
           id: expect.any(String),
           answer: 'First question',
-          role: 'user'
+          role: 'user',
         });
         expect(messages[1]).toEqual({
           id: expect.any(String),
           answer: 'First response',
-          role: 'bot'
+          role: 'bot',
         });
         expect(messages[2]).toEqual({
           id: expect.any(String),
           answer: 'Second question',
-          role: 'user'
+          role: 'user',
         });
         expect(messages[3]).toEqual({
           id: expect.any(String),
           answer: 'Second response',
-          role: 'bot'
+          role: 'bot',
         });
       });
     });
   });
-}); 
+});

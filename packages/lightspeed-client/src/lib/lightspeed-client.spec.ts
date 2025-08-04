@@ -1,5 +1,12 @@
-import { LightspeedClient, MessageChunkResponse, DefaultStreamingHandler } from './index';
-import { IFetchFunction, IStreamingHandler } from '@redhat-cloud-services/ai-client-common';
+import {
+  LightspeedClient,
+  MessageChunkResponse,
+  DefaultStreamingHandler,
+} from './index';
+import {
+  IFetchFunction,
+  IStreamingHandler,
+} from '@redhat-cloud-services/ai-client-common';
 import { LightspeedClientError, LightspeedValidationError } from './types';
 
 // Mock fetch function for testing
@@ -58,20 +65,24 @@ describe('LightspeedClient', () => {
   describe('Client Initialization', () => {
     it('should initialize and return a conversation ID', async () => {
       const result = await client.init();
-      
+
       expect(typeof result).toBe('object');
       expect(result).toHaveProperty('initialConversationId');
       expect(result).toHaveProperty('conversations');
       expect(typeof result.initialConversationId).toBe('string');
-      expect(result.initialConversationId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+      expect(result.initialConversationId).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+      );
       expect(Array.isArray(result.conversations)).toBe(true);
     });
 
     it('should generate different conversation IDs on multiple calls', async () => {
       const result1 = await client.init();
       const result2 = await client.init();
-      
-      expect(result1.initialConversationId).not.toBe(result2.initialConversationId);
+
+      expect(result1.initialConversationId).not.toBe(
+        result2.initialConversationId
+      );
     });
   });
 
@@ -83,33 +94,33 @@ describe('LightspeedClient', () => {
         referenced_documents: [
           {
             doc_url: 'https://docs.openshift.com/test',
-            doc_title: 'Test Documentation'
-          }
+            doc_title: 'Test Documentation',
+          },
         ],
         truncated: false,
         input_tokens: 10,
         output_tokens: 15,
         available_quotas: { UserQuotaLimiter: 100 },
         tool_calls: [],
-        tool_results: []
+        tool_results: [],
       };
 
       (mockFetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
         status: 200,
         json: async () => mockResponse,
-        headers: new Headers({ 'content-type': 'application/json' })
+        headers: new Headers({ 'content-type': 'application/json' }),
       });
 
       const result = await client.sendMessage('conv-123', 'What is OpenShift?');
-      
+
       expect(mockFetch).toHaveBeenCalledWith(
         'https://test-lightspeed.example.com/v1/query',
         expect.objectContaining({
           method: 'POST',
           headers: expect.objectContaining({
             'Content-Type': 'application/json',
-            'Accept': 'application/json',
+            Accept: 'application/json',
           }),
           body: expect.stringContaining('"query":"What is OpenShift?"'),
         })
@@ -133,21 +144,21 @@ describe('LightspeedClient', () => {
         output_tokens: 8,
         available_quotas: {},
         tool_calls: [],
-        tool_results: []
+        tool_results: [],
       };
 
       (mockFetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
         status: 200,
         json: async () => mockResponse,
-        headers: new Headers({ 'content-type': 'application/json' })
+        headers: new Headers({ 'content-type': 'application/json' }),
       });
 
       await client.sendMessage('conv-custom', 'Test message', {
         headers: {
           'X-Custom-Header': 'test-value',
-          'Authorization': 'Bearer test-token'
-        }
+          Authorization: 'Bearer test-token',
+        },
       });
 
       expect(mockFetch).toHaveBeenCalledWith(
@@ -156,17 +167,17 @@ describe('LightspeedClient', () => {
           method: 'POST',
           headers: expect.objectContaining({
             'Content-Type': 'application/json',
-            'Accept': 'application/json',
+            Accept: 'application/json',
             'X-Custom-Header': 'test-value',
-            'Authorization': 'Bearer test-token'
-          })
+            Authorization: 'Bearer test-token',
+          }),
         })
       );
     });
 
     it('should handle AbortSignal for request cancellation', async () => {
       const controller = new AbortController();
-      
+
       (mockFetch as jest.Mock).mockImplementation(() => {
         return new Promise((_, reject) => {
           controller.signal.addEventListener('abort', () => {
@@ -176,7 +187,7 @@ describe('LightspeedClient', () => {
       });
 
       const sendPromise = client.sendMessage('conv-abort', 'Test message', {
-        signal: controller.signal
+        signal: controller.signal,
       });
 
       controller.abort();
@@ -211,21 +222,25 @@ describe('LightspeedClient', () => {
         body: new ReadableStream({
           start(controller) {
             controller.close();
-          }
-        })
+          },
+        }),
       };
 
       (mockFetch as jest.Mock).mockResolvedValueOnce(mockResponse);
 
-      const result = await clientWithHandler.sendMessage(conversationId, message, { stream: true });
-      
+      const result = await clientWithHandler.sendMessage(
+        conversationId,
+        message,
+        { stream: true }
+      );
+
       expect(mockFetch).toHaveBeenCalledWith(
         'https://test-lightspeed.example.com/v1/streaming_query',
         expect.objectContaining({
           method: 'POST',
           headers: expect.objectContaining({
             'Content-Type': 'application/json',
-            'Accept': 'application/json',
+            Accept: 'application/json',
           }),
           body: expect.stringContaining('"media_type":"text/plain"'),
         })
@@ -241,7 +256,7 @@ describe('LightspeedClient', () => {
         baseUrl: 'https://test-lightspeed.example.com',
         defaultStreamingHandler: undefined,
       });
-      
+
       // Force the handler to be undefined to test the error case
       (clientNoHandler as any).defaultStreamingHandler = undefined;
 
@@ -262,23 +277,25 @@ describe('LightspeedClient', () => {
           ok: true,
           status: 200,
           json: async () => readinessResponse,
-          headers: new Headers({ 'content-type': 'application/json' })
+          headers: new Headers({ 'content-type': 'application/json' }),
         })
         .mockResolvedValueOnce({
           ok: true,
           status: 200,
           json: async () => livenessResponse,
-          headers: new Headers({ 'content-type': 'application/json' })
+          headers: new Headers({ 'content-type': 'application/json' }),
         });
 
       const healthStatus = await client.healthCheck();
 
       expect(mockFetch).toHaveBeenCalledTimes(2);
-      expect(mockFetch).toHaveBeenNthCalledWith(1,
+      expect(mockFetch).toHaveBeenNthCalledWith(
+        1,
         'https://test-lightspeed.example.com/readiness',
         expect.objectContaining({ method: 'GET' })
       );
-      expect(mockFetch).toHaveBeenNthCalledWith(2,
+      expect(mockFetch).toHaveBeenNthCalledWith(
+        2,
         'https://test-lightspeed.example.com/liveness',
         expect.objectContaining({ method: 'GET' })
       );
@@ -291,7 +308,9 @@ describe('LightspeedClient', () => {
     });
 
     it('should handle unhealthy service status', async () => {
-      (mockFetch as jest.Mock).mockRejectedValue(new Error('Service unavailable'));
+      (mockFetch as jest.Mock).mockRejectedValue(
+        new Error('Service unavailable')
+      );
 
       const healthStatus = await client.healthCheck();
 
@@ -304,14 +323,14 @@ describe('LightspeedClient', () => {
     it('should get service status', async () => {
       const serviceStatus = {
         functionality: 'feedback',
-        status: { enabled: true }
+        status: { enabled: true },
       };
 
       (mockFetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
         status: 200,
         json: async () => serviceStatus,
-        headers: new Headers({ 'content-type': 'application/json' })
+        headers: new Headers({ 'content-type': 'application/json' }),
       });
 
       if (client.getServiceStatus) {
@@ -340,9 +359,9 @@ describe('LightspeedClient', () => {
         json: async () => ({
           detail: {
             response: 'LLM service is unavailable',
-            cause: 'Connection timeout'
-          }
-        })
+            cause: 'Connection timeout',
+          },
+        }),
       });
 
       try {
@@ -367,15 +386,15 @@ describe('LightspeedClient', () => {
             {
               loc: ['body', 'query'],
               msg: 'field required',
-              type: 'value_error.missing'
-            }
-          ]
-        })
+              type: 'value_error.missing',
+            },
+          ],
+        }),
       });
 
-      await expect(
-        client.sendMessage('conv-123', '')
-      ).rejects.toThrow(LightspeedValidationError);
+      await expect(client.sendMessage('conv-123', '')).rejects.toThrow(
+        LightspeedValidationError
+      );
     });
 
     it('should handle unauthorized errors (401)', async () => {
@@ -384,21 +403,21 @@ describe('LightspeedClient', () => {
         status: 401,
         statusText: 'Unauthorized',
         json: async () => ({
-          detail: 'Missing or invalid credentials'
-        })
+          detail: 'Missing or invalid credentials',
+        }),
       });
 
-      await expect(
-        client.sendMessage('conv-123', 'Hello')
-      ).rejects.toThrow(LightspeedClientError);
+      await expect(client.sendMessage('conv-123', 'Hello')).rejects.toThrow(
+        LightspeedClientError
+      );
     });
 
     it('should handle network errors', async () => {
       (mockFetch as jest.Mock).mockRejectedValue(new Error('Network error'));
 
-      await expect(
-        client.sendMessage('conv-123', 'Hello')
-      ).rejects.toThrow('Network error');
+      await expect(client.sendMessage('conv-123', 'Hello')).rejects.toThrow(
+        'Network error'
+      );
     });
 
     it('should handle unparseable error responses', async () => {
@@ -408,12 +427,12 @@ describe('LightspeedClient', () => {
         statusText: 'Internal Server Error',
         json: async () => {
           throw new Error('Invalid JSON');
-        }
+        },
       });
 
-      await expect(
-        client.sendMessage('conv-123', 'Hello')
-      ).rejects.toThrow('HTTP 500: Internal Server Error');
+      await expect(client.sendMessage('conv-123', 'Hello')).rejects.toThrow(
+        'HTTP 500: Internal Server Error'
+      );
     });
   });
 
@@ -425,7 +444,7 @@ describe('LightspeedClient', () => {
         ok: true,
         status: 200,
         json: async () => feedbackResponse,
-        headers: new Headers({ 'content-type': 'application/json' })
+        headers: new Headers({ 'content-type': 'application/json' }),
       });
 
       const result = await client.storeFeedback({
@@ -433,7 +452,7 @@ describe('LightspeedClient', () => {
         user_question: 'How do I deploy a pod?',
         llm_response: 'To deploy a pod...',
         sentiment: 1,
-        user_feedback: 'Very helpful!'
+        user_feedback: 'Very helpful!',
       });
 
       expect(mockFetch).toHaveBeenCalledWith(
@@ -441,9 +460,9 @@ describe('LightspeedClient', () => {
         expect.objectContaining({
           method: 'POST',
           headers: expect.objectContaining({
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
           }),
-          body: expect.stringContaining('"sentiment":1')
+          body: expect.stringContaining('"sentiment":1'),
         })
       );
 
@@ -454,14 +473,14 @@ describe('LightspeedClient', () => {
       const authResponse = {
         user_id: '123e4567-e89b-12d3-a456-426614174000',
         username: 'testuser',
-        skip_user_id_check: false
+        skip_user_id_check: false,
       };
 
       (mockFetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
         status: 200,
         json: async () => authResponse,
-        headers: new Headers({ 'content-type': 'application/json' })
+        headers: new Headers({ 'content-type': 'application/json' }),
       });
 
       const result = await client.checkAuthorization();
@@ -479,14 +498,14 @@ describe('LightspeedClient', () => {
       const authResponse = {
         user_id: 'user123',
         username: 'testuser',
-        skip_user_id_check: true
+        skip_user_id_check: true,
       };
 
       (mockFetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
         status: 200,
         json: async () => authResponse,
-        headers: new Headers({ 'content-type': 'application/json' })
+        headers: new Headers({ 'content-type': 'application/json' }),
       });
 
       await client.checkAuthorization('user123');
@@ -498,13 +517,14 @@ describe('LightspeedClient', () => {
     });
 
     it('should get metrics successfully', async () => {
-      const metricsData = '# HELP http_requests_total Total HTTP requests\nhttp_requests_total{method="GET"} 100';
+      const metricsData =
+        '# HELP http_requests_total Total HTTP requests\nhttp_requests_total{method="GET"} 100';
 
       const mockResponse = {
         ok: true,
         status: 200,
         text: async () => metricsData,
-        headers: new Headers({ 'content-type': 'text/plain' })
+        headers: new Headers({ 'content-type': 'text/plain' }),
       };
 
       (mockFetch as jest.Mock).mockResolvedValueOnce(mockResponse);
@@ -526,7 +546,7 @@ describe('LightspeedClient', () => {
         ok: true,
         status: 200,
         json: async () => ({}),
-        headers: new Headers({ 'content-type': 'application/json' })
+        headers: new Headers({ 'content-type': 'application/json' }),
       });
 
       // Test various endpoints
@@ -539,7 +559,7 @@ describe('LightspeedClient', () => {
       await client.storeFeedback({
         conversation_id: 'conv-123',
         user_question: 'test',
-        llm_response: 'response'
+        llm_response: 'response',
       });
       expect(mockFetch).toHaveBeenLastCalledWith(
         'https://test-lightspeed.example.com/v1/feedback',
@@ -551,8 +571,12 @@ describe('LightspeedClient', () => {
       (mockFetch as jest.Mock).mockResolvedValue({
         ok: true,
         status: 200,
-        json: async () => ({ user_id: 'test', username: 'test', skip_user_id_check: false }),
-        headers: new Headers({ 'content-type': 'application/json' })
+        json: async () => ({
+          user_id: 'test',
+          username: 'test',
+          skip_user_id_check: false,
+        }),
+        headers: new Headers({ 'content-type': 'application/json' }),
       });
 
       await client.checkAuthorization('special@user');
@@ -567,7 +591,7 @@ describe('LightspeedClient', () => {
   describe('Conversation Management', () => {
     it('should create new conversations with locked set to false', async () => {
       const result = await client.createNewConversation();
-      
+
       expect(result.id).toBeDefined();
       expect(result.title).toBe('New Conversation');
       expect(result.locked).toBe(false);
@@ -575,7 +599,7 @@ describe('LightspeedClient', () => {
 
     it('should handle init with empty conversations list', async () => {
       const result = await client.init();
-      
+
       expect(result.initialConversationId).toBeDefined();
       expect(result.conversations).toEqual([]);
     });
@@ -583,7 +607,7 @@ describe('LightspeedClient', () => {
     it('should create conversations with proper locked property', async () => {
       const conversation1 = await client.createNewConversation();
       const conversation2 = await client.createNewConversation();
-      
+
       expect(conversation1.locked).toBe(false);
       expect(conversation2.locked).toBe(false);
       expect(conversation1.id).not.toBe(conversation2.id);
@@ -612,12 +636,11 @@ describe('DefaultStreamingHandler', () => {
   });
 
   describe('Streaming Lifecycle', () => {
-
     it('should handle chunks with afterChunk callback', () => {
       const afterChunkCallback = jest.fn();
       const chunk: MessageChunkResponse = {
         answer: 'Test content',
-        conversation_id: 'conv-123'
+        conversation_id: 'conv-123',
       };
 
       handler.onChunk(chunk, afterChunkCallback);
@@ -632,24 +655,27 @@ describe('DefaultStreamingHandler', () => {
       const errorChunk: MessageChunkResponse = {
         answer: '',
         error: 'Something went wrong',
-        conversation_id: 'conv-123'
+        conversation_id: 'conv-123',
       };
 
       handler.onChunk(errorChunk);
 
-      expect(console.error).toHaveBeenCalledWith('Streaming error:', 'Something went wrong');
+      expect(console.error).toHaveBeenCalledWith(
+        'Streaming error:',
+        'Something went wrong'
+      );
     });
   });
 
   describe('Error Handling', () => {
     it('should handle streaming errors', () => {
       const error = new Error('Test streaming error');
-      
+
       if (handler.onError) {
         handler.onError(error);
       }
-      
+
       expect(console.error).toHaveBeenCalledWith('Streaming error:', error);
     });
   });
-}); 
+});

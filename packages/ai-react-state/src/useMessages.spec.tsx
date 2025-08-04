@@ -3,7 +3,10 @@ import { render, waitFor } from '@testing-library/react';
 import { renderHook, act } from '@testing-library/react';
 import { useMessages } from './useMessages';
 import { AIStateProvider } from './AIStateProvider';
-import { createClientStateManager, Events } from '@redhat-cloud-services/ai-client-state';
+import {
+  createClientStateManager,
+  Events,
+} from '@redhat-cloud-services/ai-client-state';
 import type { Message } from '@redhat-cloud-services/ai-client-state';
 import type { IAIClient } from '@redhat-cloud-services/ai-client-common';
 
@@ -19,10 +22,10 @@ describe('useMessages', () => {
       sendMessage: jest.fn().mockResolvedValue({
         id: 'response-id',
         answer: 'Mock response',
-        role: 'bot'
+        role: 'bot',
       }),
       healthCheck: jest.fn().mockResolvedValue({ status: 'ok' }),
-      getConversationHistory: jest.fn().mockResolvedValue([])
+      getConversationHistory: jest.fn().mockResolvedValue([]),
     };
 
     mockSendMessage = jest.spyOn(mockClient, 'sendMessage');
@@ -41,11 +44,12 @@ describe('useMessages', () => {
       const testMessages: Message[] = [
         { id: 'msg-1', answer: 'Hello', role: 'user' },
         { id: 'msg-2', answer: 'Hi there!', role: 'bot' },
-        { id: 'msg-3', answer: 'How are you?', role: 'user' }
+        { id: 'msg-3', answer: 'How are you?', role: 'user' },
       ];
 
       // Mock the internal state to have messages
-      const getMessagesSpy = jest.spyOn(stateManager, 'getActiveConversationMessages')
+      const getMessagesSpy = jest
+        .spyOn(stateManager, 'getActiveConversationMessages')
         .mockReturnValue(testMessages);
 
       const wrapper = ({ children }: { children: React.ReactNode }) => (
@@ -55,7 +59,7 @@ describe('useMessages', () => {
       );
 
       const { result } = renderHook(() => useMessages(), { wrapper });
-      
+
       expect(result.current).toEqual(testMessages);
       expect(getMessagesSpy).toHaveBeenCalled();
 
@@ -66,7 +70,8 @@ describe('useMessages', () => {
       const stateManager = createClientStateManager(mockClient);
       stateManager.setActiveConversationId('empty-conversation');
 
-      const getMessagesSpy = jest.spyOn(stateManager, 'getActiveConversationMessages')
+      const getMessagesSpy = jest
+        .spyOn(stateManager, 'getActiveConversationMessages')
         .mockReturnValue([]);
 
       const wrapper = ({ children }: { children: React.ReactNode }) => (
@@ -76,7 +81,7 @@ describe('useMessages', () => {
       );
 
       const { result } = renderHook(() => useMessages(), { wrapper });
-      
+
       expect(result.current).toEqual([]);
 
       getMessagesSpy.mockRestore();
@@ -88,10 +93,11 @@ describe('useMessages', () => {
 
       const messagesWithAnswer: Message[] = [
         { id: 'msg-1', answer: 'First message', role: 'user' },
-        { id: 'msg-2', answer: 'Second message', role: 'bot' }
+        { id: 'msg-2', answer: 'Second message', role: 'bot' },
       ];
-      
-      const getMessagesSpy = jest.spyOn(stateManager, 'getActiveConversationMessages')
+
+      const getMessagesSpy = jest
+        .spyOn(stateManager, 'getActiveConversationMessages')
         .mockReturnValue(messagesWithAnswer);
 
       const wrapper = ({ children }: { children: React.ReactNode }) => (
@@ -101,7 +107,7 @@ describe('useMessages', () => {
       );
 
       const { result } = renderHook(() => useMessages(), { wrapper });
-      
+
       expect(result.current).toEqual(messagesWithAnswer);
       expect(result.current[0].answer).toBe('First message');
       expect(result.current[1].answer).toBe('Second message');
@@ -122,8 +128,11 @@ describe('useMessages', () => {
       );
 
       renderHook(() => useMessages(), { wrapper });
-      
-      expect(subscribeSpy).toHaveBeenCalledWith(Events.MESSAGE, expect.any(Function));
+
+      expect(subscribeSpy).toHaveBeenCalledWith(
+        Events.MESSAGE,
+        expect.any(Function)
+      );
 
       subscribeSpy.mockRestore();
     });
@@ -139,8 +148,11 @@ describe('useMessages', () => {
       );
 
       renderHook(() => useMessages(), { wrapper });
-      
-      expect(subscribeSpy).toHaveBeenCalledWith(Events.ACTIVE_CONVERSATION, expect.any(Function));
+
+      expect(subscribeSpy).toHaveBeenCalledWith(
+        Events.ACTIVE_CONVERSATION,
+        expect.any(Function)
+      );
       expect(subscribeSpy).toHaveBeenCalledTimes(2);
 
       subscribeSpy.mockRestore();
@@ -149,7 +161,8 @@ describe('useMessages', () => {
     it('should unsubscribe from both events on unmount', () => {
       const stateManager = createClientStateManager(mockClient);
       const mockUnsubscribe = jest.fn();
-      const subscribeSpy = jest.spyOn(stateManager, 'subscribe')
+      const subscribeSpy = jest
+        .spyOn(stateManager, 'subscribe')
         .mockReturnValue(mockUnsubscribe);
 
       const wrapper = ({ children }: { children: React.ReactNode }) => (
@@ -159,9 +172,9 @@ describe('useMessages', () => {
       );
 
       const { unmount } = renderHook(() => useMessages(), { wrapper });
-      
+
       unmount();
-      
+
       expect(mockUnsubscribe).toHaveBeenCalledTimes(2);
 
       subscribeSpy.mockRestore();
@@ -214,16 +227,17 @@ describe('useMessages', () => {
       stateManager.setActiveConversationId('test-conversation');
 
       const initialMessages: Message[] = [
-        { id: 'msg-1', answer: 'Hello', role: 'user' }
+        { id: 'msg-1', answer: 'Hello', role: 'user' },
       ];
 
       const updatedMessages: Message[] = [
         ...initialMessages,
-        { id: 'msg-2', answer: 'New message', role: 'bot' }
+        { id: 'msg-2', answer: 'New message', role: 'bot' },
       ];
 
       let messageCallback: (() => void) | null = null;
-      const subscribeSpy = jest.spyOn(stateManager, 'subscribe')
+      const subscribeSpy = jest
+        .spyOn(stateManager, 'subscribe')
         .mockImplementation((event, callback) => {
           if (event === Events.MESSAGE) {
             messageCallback = callback;
@@ -231,7 +245,8 @@ describe('useMessages', () => {
           return jest.fn();
         });
 
-      const getMessagesSpy = jest.spyOn(stateManager, 'getActiveConversationMessages')
+      const getMessagesSpy = jest
+        .spyOn(stateManager, 'getActiveConversationMessages')
         .mockReturnValue(initialMessages);
 
       const wrapper = ({ children }: { children: React.ReactNode }) => (
@@ -241,7 +256,7 @@ describe('useMessages', () => {
       );
 
       const { result } = renderHook(() => useMessages(), { wrapper });
-      
+
       expect(result.current).toEqual(initialMessages);
 
       // Update the mock to return new messages
@@ -263,15 +278,16 @@ describe('useMessages', () => {
       stateManager.setActiveConversationId('conversation-1');
 
       const conversation1Messages: Message[] = [
-        { id: 'msg-1', answer: 'Conversation 1 message', role: 'user' }
+        { id: 'msg-1', answer: 'Conversation 1 message', role: 'user' },
       ];
 
       const conversation2Messages: Message[] = [
-        { id: 'msg-2', answer: 'Conversation 2 message', role: 'user' }
+        { id: 'msg-2', answer: 'Conversation 2 message', role: 'user' },
       ];
 
       let conversationCallback: (() => void) | null = null;
-      const subscribeSpy = jest.spyOn(stateManager, 'subscribe')
+      const subscribeSpy = jest
+        .spyOn(stateManager, 'subscribe')
         .mockImplementation((event, callback) => {
           if (event === Events.ACTIVE_CONVERSATION) {
             conversationCallback = callback;
@@ -279,7 +295,8 @@ describe('useMessages', () => {
           return jest.fn();
         });
 
-      const getMessagesSpy = jest.spyOn(stateManager, 'getActiveConversationMessages')
+      const getMessagesSpy = jest
+        .spyOn(stateManager, 'getActiveConversationMessages')
         .mockReturnValue(conversation1Messages);
 
       const wrapper = ({ children }: { children: React.ReactNode }) => (
@@ -289,7 +306,7 @@ describe('useMessages', () => {
       );
 
       const { result } = renderHook(() => useMessages(), { wrapper });
-      
+
       expect(result.current).toEqual(conversation1Messages);
 
       // Simulate conversation change
@@ -311,7 +328,8 @@ describe('useMessages', () => {
       stateManager.setActiveConversationId('test-conversation');
 
       let messageCallback: (() => void) | null = null;
-      const subscribeSpy = jest.spyOn(stateManager, 'subscribe')
+      const subscribeSpy = jest
+        .spyOn(stateManager, 'subscribe')
         .mockImplementation((event, callback) => {
           if (event === Events.MESSAGE) {
             messageCallback = callback;
@@ -320,10 +338,11 @@ describe('useMessages', () => {
         });
 
       const initialMessages: Message[] = [
-        { id: 'msg-1', answer: 'Initial', role: 'user' }
+        { id: 'msg-1', answer: 'Initial', role: 'user' },
       ];
 
-      const getMessagesSpy = jest.spyOn(stateManager, 'getActiveConversationMessages')
+      const getMessagesSpy = jest
+        .spyOn(stateManager, 'getActiveConversationMessages')
         .mockReturnValue(initialMessages);
 
       const wrapper = ({ children }: { children: React.ReactNode }) => (
@@ -335,7 +354,10 @@ describe('useMessages', () => {
       const { result } = renderHook(() => useMessages(), { wrapper });
 
       // First update
-      const messages1 = [...initialMessages, { id: 'msg-2', answer: 'Update 1', role: 'bot' as const }];
+      const messages1 = [
+        ...initialMessages,
+        { id: 'msg-2', answer: 'Update 1', role: 'bot' as const },
+      ];
       getMessagesSpy.mockReturnValue(messages1);
 
       act(() => {
@@ -345,7 +367,10 @@ describe('useMessages', () => {
       expect(result.current).toEqual(messages1);
 
       // Second update
-      const messages2 = [...messages1, { id: 'msg-3', answer: 'Update 2', role: 'user' as const }];
+      const messages2 = [
+        ...messages1,
+        { id: 'msg-3', answer: 'Update 2', role: 'user' as const },
+      ];
       getMessagesSpy.mockReturnValue(messages2);
 
       act(() => {
@@ -363,7 +388,8 @@ describe('useMessages', () => {
       stateManager.setActiveConversationId('test-conversation');
 
       let messageCallback: (() => void) | null = null;
-      const subscribeSpy = jest.spyOn(stateManager, 'subscribe')
+      const subscribeSpy = jest
+        .spyOn(stateManager, 'subscribe')
         .mockImplementation((event, callback) => {
           if (event === Events.MESSAGE) {
             messageCallback = callback;
@@ -371,7 +397,8 @@ describe('useMessages', () => {
           return jest.fn();
         });
 
-      const getMessagesSpy = jest.spyOn(stateManager, 'getActiveConversationMessages')
+      const getMessagesSpy = jest
+        .spyOn(stateManager, 'getActiveConversationMessages')
         .mockReturnValue([{ id: 'msg-1', answer: 'Initial', role: 'user' }]);
 
       const wrapper = ({ children }: { children: React.ReactNode }) => (
@@ -381,7 +408,7 @@ describe('useMessages', () => {
       );
 
       const { result } = renderHook(() => useMessages(), { wrapper });
-      
+
       // Update to empty array
       getMessagesSpy.mockReturnValue([]);
 
@@ -402,7 +429,8 @@ describe('useMessages', () => {
       stateManager.setActiveConversationId('test-conversation');
 
       let messageCallback: (() => void) | null = null;
-      const subscribeSpy = jest.spyOn(stateManager, 'subscribe')
+      const subscribeSpy = jest
+        .spyOn(stateManager, 'subscribe')
         .mockImplementation((event, callback) => {
           if (event === Events.MESSAGE) {
             messageCallback = callback;
@@ -411,10 +439,11 @@ describe('useMessages', () => {
         });
 
       const initialMessages: Message[] = [
-        { id: 'msg-1', answer: 'Initial', role: 'user' }
+        { id: 'msg-1', answer: 'Initial', role: 'user' },
       ];
 
-      const getMessagesSpy = jest.spyOn(stateManager, 'getActiveConversationMessages')
+      const getMessagesSpy = jest
+        .spyOn(stateManager, 'getActiveConversationMessages')
         .mockReturnValue(initialMessages);
 
       const wrapper = ({ children }: { children: React.ReactNode }) => (
@@ -425,8 +454,11 @@ describe('useMessages', () => {
 
       const { result } = renderHook(() => useMessages(), { wrapper });
       const firstMessages = result.current;
-      
-      const newMessages = [...initialMessages, { id: 'msg-2', answer: 'New', role: 'bot' as const }];
+
+      const newMessages = [
+        ...initialMessages,
+        { id: 'msg-2', answer: 'New', role: 'bot' as const },
+      ];
       getMessagesSpy.mockReturnValue(newMessages);
 
       act(() => {
@@ -445,10 +477,11 @@ describe('useMessages', () => {
       stateManager.setActiveConversationId('test-conversation');
 
       const testMessages: Message[] = [
-        { id: 'msg-1', answer: 'Test message', role: 'user' }
+        { id: 'msg-1', answer: 'Test message', role: 'user' },
       ];
 
-      const getMessagesSpy = jest.spyOn(stateManager, 'getActiveConversationMessages')
+      const getMessagesSpy = jest
+        .spyOn(stateManager, 'getActiveConversationMessages')
         .mockReturnValue(testMessages);
 
       const wrapper = ({ children }: { children: React.ReactNode }) => (
@@ -458,7 +491,7 @@ describe('useMessages', () => {
       );
 
       const { result } = renderHook(() => useMessages(), { wrapper });
-      
+
       const spreadMessages = [...result.current];
       expect(spreadMessages).toEqual(testMessages);
       expect(spreadMessages).not.toBe(result.current);
@@ -481,8 +514,9 @@ describe('useMessages', () => {
 
     it('should handle getActiveConversationMessages errors gracefully', () => {
       const stateManager = createClientStateManager(mockClient);
-      
-      const getMessagesSpy = jest.spyOn(stateManager, 'getActiveConversationMessages')
+
+      const getMessagesSpy = jest
+        .spyOn(stateManager, 'getActiveConversationMessages')
         .mockImplementation(() => {
           throw new Error('Messages error');
         });
@@ -502,8 +536,9 @@ describe('useMessages', () => {
 
     it('should handle subscription errors gracefully', () => {
       const stateManager = createClientStateManager(mockClient);
-      
-      const subscribeSpy = jest.spyOn(stateManager, 'subscribe')
+
+      const subscribeSpy = jest
+        .spyOn(stateManager, 'subscribe')
         .mockImplementation(() => {
           throw new Error('Subscription error');
         });
@@ -528,7 +563,8 @@ describe('useMessages', () => {
       stateManager.setActiveConversationId('test-conversation');
 
       let messageCallback: (() => void) | null = null;
-      const subscribeSpy = jest.spyOn(stateManager, 'subscribe')
+      const subscribeSpy = jest
+        .spyOn(stateManager, 'subscribe')
         .mockImplementation((event, callback) => {
           if (event === Events.MESSAGE) {
             messageCallback = callback;
@@ -536,7 +572,8 @@ describe('useMessages', () => {
           return jest.fn();
         });
 
-      const getMessagesSpy = jest.spyOn(stateManager, 'getActiveConversationMessages')
+      const getMessagesSpy = jest
+        .spyOn(stateManager, 'getActiveConversationMessages')
         .mockReturnValue([]);
 
       const wrapper = ({ children }: { children: React.ReactNode }) => (
@@ -550,7 +587,7 @@ describe('useMessages', () => {
       // Simulate many updates
       for (let i = 0; i < 100; i++) {
         const newMessages: Message[] = [
-          { id: `msg-${i}`, answer: `Message ${i}`, role: 'user' }
+          { id: `msg-${i}`, answer: `Message ${i}`, role: 'user' },
         ];
         getMessagesSpy.mockReturnValue(newMessages);
 
@@ -569,7 +606,8 @@ describe('useMessages', () => {
     it('should properly cleanup subscriptions on rapid remounts', () => {
       const stateManager = createClientStateManager(mockClient);
       const mockUnsubscribe = jest.fn();
-      const subscribeSpy = jest.spyOn(stateManager, 'subscribe')
+      const subscribeSpy = jest
+        .spyOn(stateManager, 'subscribe')
         .mockReturnValue(mockUnsubscribe);
 
       const wrapper = ({ children }: { children: React.ReactNode }) => (
@@ -579,17 +617,19 @@ describe('useMessages', () => {
       );
 
       const { unmount } = renderHook(() => useMessages(), { wrapper });
-      
+
       unmount();
       expect(mockUnsubscribe).toHaveBeenCalledTimes(2);
 
       // Mount again
-      const { unmount: unmount2 } = renderHook(() => useMessages(), { wrapper });
-      
+      const { unmount: unmount2 } = renderHook(() => useMessages(), {
+        wrapper,
+      });
+
       unmount2();
       expect(mockUnsubscribe).toHaveBeenCalledTimes(4);
 
       subscribeSpy.mockRestore();
     });
   });
-}); 
+});

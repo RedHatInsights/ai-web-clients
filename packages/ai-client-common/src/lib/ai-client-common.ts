@@ -44,7 +44,6 @@ export interface IRequestOptions {
   signal?: AbortSignal;
 }
 
-
 export interface IInitErrorResponse {
   message: string;
   status: number;
@@ -65,7 +64,9 @@ export function isInitErrorResponse(obj: unknown): obj is IInitErrorResponse {
  * Common interface that all AI clients must implement
  * Provides a standardized way to interact with different AI services
  */
-export interface IAIClient<AP extends Record<string, unknown> = Record<string, unknown>> {
+export interface IAIClient<
+  AP extends Record<string, unknown> = Record<string, unknown>
+> {
   /**
    * Initialize the client and return the initial conversation ID
    * This method is called once when the client is first used by a state manager
@@ -84,9 +85,12 @@ export interface IAIClient<AP extends Record<string, unknown> = Record<string, u
    * @param options - Optional configuration for the request
    * @returns Promise that resolves to the AI's response
    */
-  sendMessage<TChunk = unknown, T extends Record<string, unknown> = Record<string, unknown>>(
-    conversationId: string, 
-    message: string, 
+  sendMessage<
+    TChunk = unknown,
+    T extends Record<string, unknown> = Record<string, unknown>
+  >(
+    conversationId: string,
+    message: string,
     options?: ISendMessageOptions<T>
   ): Promise<TChunk | IMessageResponse<AP> | void>;
 
@@ -94,7 +98,9 @@ export interface IAIClient<AP extends Record<string, unknown> = Record<string, u
    * Get the default streaming handler for this client (if any)
    * @returns The default streaming handler or undefined if not configured
    */
-  getDefaultStreamingHandler?<TChunk = unknown>(): IStreamingHandler<TChunk> | undefined;
+  getDefaultStreamingHandler?<TChunk = unknown>():
+    | IStreamingHandler<TChunk>
+    | undefined;
 
   /**
    * Get the conversation history for a specific conversation
@@ -103,11 +109,11 @@ export interface IAIClient<AP extends Record<string, unknown> = Record<string, u
    * @returns Promise that resolves to the conversation history
    */
   getConversationHistory(
-    conversationId: string, 
+    conversationId: string,
     options?: IRequestOptions
   ): Promise<IConversationHistoryResponse<AP>>;
 
-  /** 
+  /**
    * Perform a health check on the AI service
    * @param options - Optional request configuration
    * @returns Promise that resolves to health status information
@@ -116,7 +122,7 @@ export interface IAIClient<AP extends Record<string, unknown> = Record<string, u
 
   /**
    * Get the current status of the AI service
-   * @param options - Optional request configuration  
+   * @param options - Optional request configuration
    * @returns Promise that resolves to service status information
    */
   getServiceStatus?(options?: IRequestOptions): Promise<unknown>;
@@ -154,7 +160,12 @@ export interface IValidationError {
 
 export class AIClientValidationError extends AIClientError {
   constructor(public validationErrors: IValidationError[]) {
-    super(422, 'Validation Error', 'Request validation failed', validationErrors);
+    super(
+      422,
+      'Validation Error',
+      'Request validation failed',
+      validationErrors
+    );
     this.name = 'AIClientValidationError';
   }
 }
@@ -206,7 +217,8 @@ export interface IStreamingHandler<TChunk = unknown> {
 /**
  * Streaming request options for clients that support streaming
  */
-export interface IStreamingRequestOptions<TChunk = unknown> extends IRequestOptions {
+export interface IStreamingRequestOptions<TChunk = unknown>
+  extends IRequestOptions {
   /**
    * The streaming handler to process the response
    */
@@ -216,22 +228,24 @@ export interface IStreamingRequestOptions<TChunk = unknown> extends IRequestOpti
 /**
  * Standard message response for non-streaming requests
  */
-export interface IMessageResponse<AP extends Record<string, unknown> = Record<string, unknown>> {
+export interface IMessageResponse<
+  AP extends Record<string, unknown> = Record<string, unknown>
+> {
   /**
    * Unique identifier for the message
    */
   messageId: string;
-  
+
   /**
    * The response answer/text
    */
   answer: string;
-  
+
   /**
    * Conversation identifier this message belongs to
    */
   conversationId: string;
-  
+
   /**
    * Timestamp when the message was created
    */
@@ -250,24 +264,26 @@ export interface IAnswerSource {
    * URL to the source content
    */
   link?: string | null;
-  
+
   /**
    * Title of the source content
    */
   title?: string | null;
-  
+
   /**
    * Relevance score of the source
    */
   score?: number | null;
-  
+
   /**
    * Text snippet from the source
    */
   snippet?: string | null;
 }
 
-export interface IConversationMessage<T extends Record<string, unknown> = Record<string, unknown>> {
+export interface IConversationMessage<
+  T extends Record<string, unknown> = Record<string, unknown>
+> {
   message_id: string;
   answer: string;
   role: 'user' | 'bot';
@@ -278,7 +294,9 @@ export interface IConversationMessage<T extends Record<string, unknown> = Record
 /**
  * Response type for conversation history requests
  */
-export type IConversationHistoryResponse<T extends Record<string, unknown> = Record<string, unknown>> = IConversationMessage<T>[] | null;
+export type IConversationHistoryResponse<
+  T extends Record<string, unknown> = Record<string, unknown>
+> = IConversationMessage<T>[] | null;
 
 export interface IConversation {
   id: string;
@@ -290,17 +308,23 @@ export interface IErrorMessageResponse {
   error: any;
 }
 
-export interface IStreamChunk<T extends Record<string, unknown> = Record<string, unknown>> {
+export interface IStreamChunk<
+  T extends Record<string, unknown> = Record<string, unknown>
+> {
   answer: string;
   additionalAttributes: T;
 }
 
-export type AfterChunkCallback<T extends Record<string, unknown> = Record<string, unknown>> = (chunk: IStreamChunk<T>) => void;
+export type AfterChunkCallback<
+  T extends Record<string, unknown> = Record<string, unknown>
+> = (chunk: IStreamChunk<T>) => void;
 
 /**
  * Options for sending messages, supporting both streaming and non-streaming modes
  */
-export interface ISendMessageOptions<T extends Record<string, unknown> = Record<string, unknown>> extends IRequestOptions {
+export interface ISendMessageOptions<
+  T extends Record<string, unknown> = Record<string, unknown>
+> extends IRequestOptions {
   /**
    * Whether to use streaming mode for the response
    * When true, the client's default streaming handler will be used

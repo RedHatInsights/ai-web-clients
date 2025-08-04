@@ -1,14 +1,15 @@
 import { MessageChunkResponse } from './types';
-import { 
+import {
   IBaseClientConfig,
-  IRequestOptions
+  IRequestOptions,
 } from '@redhat-cloud-services/ai-client-common';
 
 /**
  * Configuration options for the Lightspeed client
  * Extends the base client config with Lightspeed-specific streaming handler
  */
-export interface LightspeedClientConfig extends IBaseClientConfig<MessageChunkResponse> {
+export interface LightspeedClientConfig
+  extends IBaseClientConfig<MessageChunkResponse> {
   // Inherits baseUrl, fetchFunction, and defaultStreamingHandler from IBaseClientConfig
 }
 
@@ -17,4 +18,4 @@ export interface LightspeedClientConfig extends IBaseClientConfig<MessageChunkRe
  */
 export interface RequestOptions extends IRequestOptions {
   // Standard request options with optional timeout, headers, etc.
-} 
+}

@@ -1,6 +1,4 @@
-import {
-  LightspeedClientConfig
-} from './interfaces';
+import { LightspeedClientConfig } from './interfaces';
 import {
   IAIClient,
   IStreamingHandler,
@@ -9,7 +7,7 @@ import {
   IFetchFunction,
   IRequestOptions,
   IConversationHistoryResponse,
-  IConversation
+  IConversation,
 } from '@redhat-cloud-services/ai-client-common';
 import {
   LLMRequest,
@@ -24,19 +22,24 @@ import {
   HealthCheck,
   LightspeedClientError,
   LightspeedValidationError,
-  LightSpeedCoreAdditionalProperties
+  LightSpeedCoreAdditionalProperties,
 } from './types';
-import { DefaultStreamingHandler, processStreamWithHandler } from './default-streaming-handler';
+import {
+  DefaultStreamingHandler,
+  processStreamWithHandler,
+} from './default-streaming-handler';
 
 /**
  * OpenShift Lightspeed API Client
- * 
+ *
  * A flexible TypeScript client for the Lightspeed API with dependency injection support
  * for custom fetch implementations and streaming handlers.
- * 
+ *
  * Implements the exact OpenAPI specification for Lightspeed v1.0.1
  */
-export class LightspeedClient implements IAIClient<LightSpeedCoreAdditionalProperties> {
+export class LightspeedClient
+  implements IAIClient<LightSpeedCoreAdditionalProperties>
+{
   private readonly baseUrl: string;
   private readonly fetchFunction: IFetchFunction;
   private readonly defaultStreamingHandler?: IStreamingHandler<MessageChunkResponse>;
@@ -44,7 +47,8 @@ export class LightspeedClient implements IAIClient<LightSpeedCoreAdditionalPrope
   constructor(config: LightspeedClientConfig) {
     this.baseUrl = config.baseUrl.replace(/\/$/, ''); // Remove trailing slash
     this.fetchFunction = config.fetchFunction;
-    this.defaultStreamingHandler = config.defaultStreamingHandler || new DefaultStreamingHandler();
+    this.defaultStreamingHandler =
+      config.defaultStreamingHandler || new DefaultStreamingHandler();
   }
 
   // ====================
@@ -55,7 +59,10 @@ export class LightspeedClient implements IAIClient<LightSpeedCoreAdditionalPrope
    * Initialize the client and return the initial conversation ID
    * @returns Promise that resolves to a new conversation ID
    */
-  async init(): Promise<{ initialConversationId: string; conversations: IConversation[] }> {
+  async init(): Promise<{
+    initialConversationId: string;
+    conversations: IConversation[];
+  }> {
     const initialConversationId = this.generateConversationId();
     // Just a stub for now
     return { initialConversationId, conversations: [] };
@@ -70,14 +77,18 @@ export class LightspeedClient implements IAIClient<LightSpeedCoreAdditionalPrope
    * @returns Promise that resolves to the AI's response
    */
   async sendMessage<TChunk = MessageChunkResponse>(
-    conversationId: string, 
-    message: string, 
-    options?: ISendMessageOptions<LightSpeedCoreAdditionalProperties> & { userId?: string }
-  ): Promise<TChunk | IMessageResponse<LightSpeedCoreAdditionalProperties> | void> {
+    conversationId: string,
+    message: string,
+    options?: ISendMessageOptions<LightSpeedCoreAdditionalProperties> & {
+      userId?: string;
+    }
+  ): Promise<
+    TChunk | IMessageResponse<LightSpeedCoreAdditionalProperties> | void
+  > {
     const request: LLMRequest = {
       query: message,
       conversation_id: conversationId,
-      media_type: 'text/plain' // API only accepts 'text/plain' or 'application/json'
+      media_type: 'text/plain', // API only accepts 'text/plain' or 'application/json'
     };
 
     // Add optional fields if provided in options (these would need to be passed via custom options)
@@ -87,7 +98,11 @@ export class LightspeedClient implements IAIClient<LightSpeedCoreAdditionalPrope
       // Streaming request
       const handler = this.defaultStreamingHandler as IStreamingHandler<TChunk>;
       if (!handler) {
-        throw new LightspeedClientError(500, 'Configuration Error', 'No streaming handler configured');
+        throw new LightspeedClientError(
+          500,
+          'Configuration Error',
+          'No streaming handler configured'
+        );
       }
 
       const url = this.buildUrl('/v1/streaming_query', options?.userId);
@@ -96,10 +111,10 @@ export class LightspeedClient implements IAIClient<LightSpeedCoreAdditionalPrope
         body: JSON.stringify(request),
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json', // API spec shows streaming returns application/json
-          ...options?.headers
+          Accept: 'application/json', // API spec shows streaming returns application/json
+          ...options?.headers,
         },
-        signal: options?.signal
+        signal: options?.signal,
       });
 
       // Process the streaming response
@@ -118,30 +133,30 @@ export class LightspeedClient implements IAIClient<LightSpeedCoreAdditionalPrope
         body: JSON.stringify(request),
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          ...options?.headers
+          Accept: 'application/json',
+          ...options?.headers,
         },
-        signal: options?.signal
+        signal: options?.signal,
       });
 
       // Convert LLMResponse to IMessageResponse format for common interface compatibility
-      const messageResponse: IMessageResponse<LightSpeedCoreAdditionalProperties> = {
-        messageId: this.generateMessageId(),
-        // LC returns response.response as 'answer' in the latest spec
-        answer: response.response,
-        createdAt: new Date().toISOString(),
-        conversationId: response.conversation_id,
-        additionalAttributes: {
-          referencedDocuments: response.referenced_documents,
-          truncated: response.truncated,
-          inputTokens: response.input_tokens,
-          outputTokens: response.output_tokens,
-          availableQuotas: response.available_quotas,
-          toolCalls: response.tool_calls,
-          toolResults: response.tool_results
-
-        },
-      };
+      const messageResponse: IMessageResponse<LightSpeedCoreAdditionalProperties> =
+        {
+          messageId: this.generateMessageId(),
+          // LC returns response.response as 'answer' in the latest spec
+          answer: response.response,
+          createdAt: new Date().toISOString(),
+          conversationId: response.conversation_id,
+          additionalAttributes: {
+            referencedDocuments: response.referenced_documents,
+            truncated: response.truncated,
+            inputTokens: response.input_tokens,
+            outputTokens: response.output_tokens,
+            availableQuotas: response.available_quotas,
+            toolCalls: response.tool_calls,
+            toolResults: response.tool_results,
+          },
+        };
 
       return messageResponse;
     }
@@ -154,7 +169,7 @@ export class LightspeedClient implements IAIClient<LightSpeedCoreAdditionalPrope
       title: 'New Conversation',
       locked: false,
     };
-    
+
     // In a real implementation, you would likely want to store this conversation
     // in some state management or database. Here we just return it.
     return newConversation;
@@ -164,8 +179,12 @@ export class LightspeedClient implements IAIClient<LightSpeedCoreAdditionalPrope
    * Get the default streaming handler for this client
    * @returns The default streaming handler or undefined if not configured
    */
-  getDefaultStreamingHandler<TChunk = MessageChunkResponse>(): IStreamingHandler<TChunk> | undefined {
-    return this.defaultStreamingHandler as IStreamingHandler<TChunk> | undefined;
+  getDefaultStreamingHandler<TChunk = MessageChunkResponse>():
+    | IStreamingHandler<TChunk>
+    | undefined {
+    return this.defaultStreamingHandler as
+      | IStreamingHandler<TChunk>
+      | undefined;
   }
 
   /**
@@ -176,12 +195,15 @@ export class LightspeedClient implements IAIClient<LightSpeedCoreAdditionalPrope
    * @returns Promise that resolves to null (not implemented in API)
    */
   async getConversationHistory(
-    conversationId: string, 
+    conversationId: string,
     options?: IRequestOptions
   ): Promise<IConversationHistoryResponse<LightSpeedCoreAdditionalProperties>> {
     // Lightspeed API v1.0.1 doesn't have a dedicated history endpoint
     // This is documented in the OpenAPI spec - only query endpoints exist
-    console.warn(`getConversationHistory is not implemented for conversation ${conversationId} - Lightspeed API does not have a history endpoint`, options);
+    console.warn(
+      `getConversationHistory is not implemented for conversation ${conversationId} - Lightspeed API does not have a history endpoint`,
+      options
+    );
     return [];
   }
 
@@ -198,13 +220,13 @@ export class LightspeedClient implements IAIClient<LightSpeedCoreAdditionalPrope
         this.makeRequest<ReadinessResponse>('/readiness', {
           method: 'GET',
           headers: options?.headers,
-          signal: options?.signal
+          signal: options?.signal,
         }),
         this.makeRequest<LivenessResponse>('/liveness', {
           method: 'GET',
           headers: options?.headers,
-          signal: options?.signal
-        })
+          signal: options?.signal,
+        }),
       ]);
 
       return {
@@ -212,30 +234,29 @@ export class LightspeedClient implements IAIClient<LightSpeedCoreAdditionalPrope
         ready: readinessResponse.ready,
         alive: livenessResponse.alive,
         reason: readinessResponse.reason,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       };
-
     } catch (error) {
       return {
         status: 'unhealthy',
         ready: false,
         alive: false,
         reason: error instanceof Error ? error.message : 'Unknown error',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       };
     }
   }
 
   /**
    * Get the service status (feedback functionality status)
-   * @param options - Optional request configuration  
+   * @param options - Optional request configuration
    * @returns Promise that resolves to service status information
    */
   async getServiceStatus(options?: IRequestOptions): Promise<StatusResponse> {
     return this.makeRequest<StatusResponse>('/v1/feedback/status', {
       method: 'GET',
       headers: options?.headers,
-      signal: options?.signal
+      signal: options?.signal,
     });
   }
 
@@ -250,7 +271,7 @@ export class LightspeedClient implements IAIClient<LightSpeedCoreAdditionalPrope
    * @returns Promise that resolves to feedback response
    */
   async storeFeedback(
-    feedback: FeedbackRequest, 
+    feedback: FeedbackRequest,
     options?: IRequestOptions
   ): Promise<FeedbackResponse> {
     return this.makeRequest<FeedbackResponse>('/v1/feedback', {
@@ -258,9 +279,9 @@ export class LightspeedClient implements IAIClient<LightSpeedCoreAdditionalPrope
       body: JSON.stringify(feedback),
       headers: {
         'Content-Type': 'application/json',
-        ...options?.headers
+        ...options?.headers,
       },
-      signal: options?.signal
+      signal: options?.signal,
     });
   }
 
@@ -278,7 +299,7 @@ export class LightspeedClient implements IAIClient<LightSpeedCoreAdditionalPrope
     return this.makeRequest<AuthorizationResponse>(url, {
       method: 'POST',
       headers: options?.headers,
-      signal: options?.signal
+      signal: options?.signal,
     });
   }
 
@@ -291,7 +312,7 @@ export class LightspeedClient implements IAIClient<LightSpeedCoreAdditionalPrope
     const response = await this.makeRequest<Response>('/metrics', {
       method: 'GET',
       headers: options?.headers,
-      signal: options?.signal
+      signal: options?.signal,
     });
 
     return response.text();
@@ -321,29 +342,43 @@ export class LightspeedClient implements IAIClient<LightSpeedCoreAdditionalPrope
    * @param options - Request options
    * @returns Promise that resolves to the response data
    */
-  private async makeRequest<T>(urlOrPath: string, options: RequestInit): Promise<T> {
-    const url = urlOrPath.startsWith('http') ? urlOrPath : `${this.baseUrl}${urlOrPath}`;
-    
+  private async makeRequest<T>(
+    urlOrPath: string,
+    options: RequestInit
+  ): Promise<T> {
+    const url = urlOrPath.startsWith('http')
+      ? urlOrPath
+      : `${this.baseUrl}${urlOrPath}`;
+
     try {
       const response = await this.fetchFunction(url, options);
-      
+
       if (!response.ok) {
         await this.handleErrorResponse(response);
       }
 
       // For Response objects (like streaming or metrics), return as-is
-      if (urlOrPath.includes('/streaming_query') || urlOrPath.includes('/metrics')) {
+      if (
+        urlOrPath.includes('/streaming_query') ||
+        urlOrPath.includes('/metrics')
+      ) {
         return response as T;
       }
 
       // For JSON responses, parse and return
-      return await response.json() as T;
-      
+      return (await response.json()) as T;
     } catch (error) {
-      if (error instanceof LightspeedClientError || error instanceof LightspeedValidationError) {
+      if (
+        error instanceof LightspeedClientError ||
+        error instanceof LightspeedValidationError
+      ) {
         throw error;
       }
-      throw new LightspeedClientError(0, 'Network Error', `Failed to make request to ${url}: ${error}`);
+      throw new LightspeedClientError(
+        0,
+        'Network Error',
+        `Failed to make request to ${url}: ${error}`
+      );
     }
   }
 
@@ -354,15 +389,19 @@ export class LightspeedClient implements IAIClient<LightSpeedCoreAdditionalPrope
   private async handleErrorResponse(response: Response): Promise<never> {
     const status = response.status;
     const statusText = response.statusText;
-    
+
     try {
       const errorBody = await response.json();
-      
+
       // Handle validation errors (422) - exact OpenAPI spec format
-      if (status === 422 && errorBody.detail && Array.isArray(errorBody.detail)) {
+      if (
+        status === 422 &&
+        errorBody.detail &&
+        Array.isArray(errorBody.detail)
+      ) {
         throw new LightspeedValidationError(errorBody.detail);
       }
-      
+
       // Handle other error formats based on OpenAPI spec
       let message: string;
       if (typeof errorBody.detail === 'string') {
@@ -380,17 +419,24 @@ export class LightspeedClient implements IAIClient<LightSpeedCoreAdditionalPrope
       } else {
         message = statusText || 'Unknown error';
       }
-      
+
       throw new LightspeedClientError(status, statusText, message, response);
-      
     } catch (parseError) {
       // If parseError is our own thrown error, re-throw it
-      if (parseError instanceof LightspeedClientError || parseError instanceof LightspeedValidationError) {
+      if (
+        parseError instanceof LightspeedClientError ||
+        parseError instanceof LightspeedValidationError
+      ) {
         throw parseError;
       }
-      
+
       // If we can't parse the error response, throw a generic error
-      throw new LightspeedClientError(status, statusText, `HTTP ${status}: ${statusText}`, response);
+      throw new LightspeedClientError(
+        status,
+        statusText,
+        `HTTP ${status}: ${statusText}`,
+        response
+      );
     }
   }
 
@@ -399,11 +445,14 @@ export class LightspeedClient implements IAIClient<LightSpeedCoreAdditionalPrope
    * @returns A new UUID string
    */
   private generateConversationId(): string {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-      const r = Math.random() * 16 | 0;
-      const v = c == 'x' ? r : (r & 0x3 | 0x8);
-      return v.toString(16);
-    });
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(
+      /[xy]/g,
+      function (c) {
+        const r = (Math.random() * 16) | 0;
+        const v = c == 'x' ? r : (r & 0x3) | 0x8;
+        return v.toString(16);
+      }
+    );
   }
 
   /**
@@ -413,4 +462,4 @@ export class LightspeedClient implements IAIClient<LightSpeedCoreAdditionalPrope
   private generateMessageId(): string {
     return `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   }
-} 
+}

@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState, KeyboardEvent } from 'react';
-import { useMessages, useSendMessage, useInProgress } from '@redhat-cloud-services/ai-react-state';
+import {
+  useMessages,
+  useSendMessage,
+  useInProgress,
+} from '@redhat-cloud-services/ai-react-state';
 
 // Custom Message component that replicates PF Chatbot Message
 interface CustomMessageProps {
@@ -11,18 +15,25 @@ interface CustomMessageProps {
   'aria-label'?: string;
 }
 
-const CustomMessage = ({ id, role, content, avatar, isLoading, 'aria-label': ariaLabel }: CustomMessageProps) => {
+const CustomMessage = ({
+  id,
+  role,
+  content,
+  avatar,
+  isLoading,
+  'aria-label': ariaLabel,
+}: CustomMessageProps) => {
   return (
-    <section 
+    <section
       className={`pf-chatbot__message pf-chatbot__message--${role}`}
       id={id}
       aria-label={ariaLabel}
     >
       {avatar && (
-        <img 
-          src={avatar} 
-          alt={`${role} avatar`} 
-          className="pf-chatbot__message-avatar" 
+        <img
+          src={avatar}
+          alt={`${role} avatar`}
+          className="pf-chatbot__message-avatar"
         />
       )}
       <div className="pf-chatbot__message-contents">
@@ -49,14 +60,17 @@ interface CustomMessageBoxProps {
 
 const CustomMessageBox = ({ children }: CustomMessageBoxProps) => {
   return (
-    <div 
-      className="pf-chatbot__messagebox" 
-      role="region" 
+    <div
+      className="pf-chatbot__messagebox"
+      role="region"
       tabIndex={0}
       aria-label="Scrollable message log"
     >
       {children}
-      <div className="pf-chatbot__messagebox-announcement" aria-live="polite"></div>
+      <div
+        className="pf-chatbot__messagebox-announcement"
+        aria-live="polite"
+      ></div>
     </div>
   );
 };
@@ -71,13 +85,13 @@ interface CustomMessageBarProps {
   alwayShowSendButton?: boolean;
 }
 
-const CustomMessageBar = ({ 
-  id, 
-  onSendMessage, 
-  'aria-label': ariaLabel, 
+const CustomMessageBar = ({
+  id,
+  onSendMessage,
+  'aria-label': ariaLabel,
   isSendButtonDisabled = false,
   hasAttachButton = true,
-  alwayShowSendButton = false
+  alwayShowSendButton = false,
 }: CustomMessageBarProps) => {
   const [inputValue, setInputValue] = useState('');
 
@@ -109,15 +123,16 @@ const CustomMessageBar = ({
           onKeyPress={handleKeyPress}
           aria-label={ariaLabel}
           rows={1}
-          style={{ 
+          style={{
             resize: 'none',
             outline: 'none',
             border: '1px solid var(--pf-t--global--border--color--default)',
             borderRadius: 'var(--pf-t--global--border--radius--pill)',
             padding: '0.75rem 1rem',
             fontSize: 'var(--pf-t--global--font--size--md)',
-            backgroundColor: 'var(--pf-t--global--background--color--primary--default)',
-            color: 'var(--pf-t--global--text--color--regular)'
+            backgroundColor:
+              'var(--pf-t--global--background--color--primary--default)',
+            color: 'var(--pf-t--global--text--color--regular)',
           }}
         />
       </div>
@@ -133,7 +148,9 @@ const CustomMessageBar = ({
         )}
         {showSendButton && (
           <button
-            className={`pf-v5-c-button pf-m-primary ${isSendButtonDisabled ? 'pf-m-disabled' : ''}`}
+            className={`pf-v5-c-button pf-m-primary ${
+              isSendButtonDisabled ? 'pf-m-disabled' : ''
+            }`}
             type="button"
             onClick={handleSend}
             disabled={isSendButtonDisabled}
@@ -144,28 +161,40 @@ const CustomMessageBar = ({
               width: '3rem',
               height: '3rem',
               border: 'none',
-              backgroundColor: 'var(--pf-t--global--background--color--action--plain--default)',
+              backgroundColor:
+                'var(--pf-t--global--background--color--action--plain--default)',
               color: 'var(--pf-t--global--color--brand--default)',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center'
+              justifyContent: 'center',
             }}
             onMouseEnter={(e) => {
               if (!isSendButtonDisabled) {
-                e.currentTarget.style.backgroundColor = 'var(--pf-t--chatbot--blue-icon--background--color--hover)';
-                e.currentTarget.style.color = 'var(--pf-t--chatbot--blue-icon--fill--hover)';
+                e.currentTarget.style.backgroundColor =
+                  'var(--pf-t--chatbot--blue-icon--background--color--hover)';
+                e.currentTarget.style.color =
+                  'var(--pf-t--chatbot--blue-icon--fill--hover)';
               }
             }}
             onMouseLeave={(e) => {
               if (!isSendButtonDisabled) {
-                e.currentTarget.style.backgroundColor = 'var(--pf-t--global--background--color--action--plain--default)';
-                e.currentTarget.style.color = 'var(--pf-t--global--color--brand--default)';
+                e.currentTarget.style.backgroundColor =
+                  'var(--pf-t--global--background--color--action--plain--default)';
+                e.currentTarget.style.color =
+                  'var(--pf-t--global--color--brand--default)';
               }
             }}
           >
-            <svg fill="currentColor" height="1em" width="1em" viewBox="0 0 512 512" aria-hidden="true" role="img">
-              <path d="M498.1 5.6c10.1 7 15.4 19.1 13.5 31.2l-64 416c-1.5 9.7-7.4 18.2-16 23s-18.9 5.4-28 1.6L284 372.7 177.2 509.9c-7.8 10.2-19.7 16.1-32.5 16.1s-24.7-5.9-32.5-16.1L64 416 5.4 250.6c-4.4-9.1-4.4-19.9 0-29s12.2-16.4 22.2-19.4L480 5.6c9.8-2.9 20.6-1.1 28.1 5z"/>
+            <svg
+              fill="currentColor"
+              height="1em"
+              width="1em"
+              viewBox="0 0 512 512"
+              aria-hidden="true"
+              role="img"
+            >
+              <path d="M498.1 5.6c10.1 7 15.4 19.1 13.5 31.2l-64 416c-1.5 9.7-7.4 18.2-16 23s-18.9 5.4-28 1.6L284 372.7 177.2 509.9c-7.8 10.2-19.7 16.1-32.5 16.1s-24.7-5.9-32.5-16.1L64 416 5.4 250.6c-4.4-9.1-4.4-19.9 0-29s12.2-16.4 22.2-19.4L480 5.6c9.8-2.9 20.6-1.1 28.1 5z" />
             </svg>
           </button>
         )}
@@ -182,9 +211,7 @@ interface CustomChatbotFooterProps {
 const CustomChatbotFooter = ({ children }: CustomChatbotFooterProps) => {
   return (
     <div className="pf-chatbot__footer">
-      <div className="pf-chatbot__footer-container">
-        {children}
-      </div>
+      <div className="pf-chatbot__footer-container">{children}</div>
     </div>
   );
 };
@@ -195,11 +222,7 @@ interface CustomChatbotContentProps {
 }
 
 const CustomChatbotContent = ({ children }: CustomChatbotContentProps) => {
-  return (
-    <div className="pf-chatbot__content">
-      {children}
-    </div>
-  );
+  return <div className="pf-chatbot__content">{children}</div>;
 };
 
 // Custom Chatbot container component
@@ -209,7 +232,16 @@ interface CustomChatbotProps {
 
 const CustomChatbot = ({ children }: CustomChatbotProps) => {
   return (
-    <div className="pf-chatbot pf-chatbot--default" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}>
+    <div
+      className="pf-chatbot pf-chatbot--default"
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+      }}
+    >
       <section
         aria-label="Chatbot"
         className="pf-chatbot-container pf-chatbot-container--default"
@@ -229,9 +261,9 @@ interface PatternFlyChatbotReplicaProps {
   className?: string;
 }
 
-export const PatternFlyChatbotReplica = ({ 
-  containerStyle = {}, 
-  className = '' 
+export const PatternFlyChatbotReplica = ({
+  containerStyle = {},
+  className = '',
 }: PatternFlyChatbotReplicaProps = {}) => {
   const messages = useMessages();
   const sendMessage = useSendMessage();
@@ -251,8 +283,8 @@ export const PatternFlyChatbotReplica = ({
   }, [messages]);
 
   return (
-    <div 
-      id="pf-replica-chatbot" 
+    <div
+      id="pf-replica-chatbot"
       aria-label="PatternFly Replica AI Assistant Chatbot"
       className={className}
       style={containerStyle}
@@ -267,8 +299,12 @@ export const PatternFlyChatbotReplica = ({
                 role={message.role}
                 content={message.answer}
                 avatar="https://placehold.co/40"
-                isLoading={message.role === 'bot' && message.answer.length === 0}
-                aria-label={`${message.role === 'user' ? 'Your message' : 'AI response'}: ${message.answer}`}
+                isLoading={
+                  message.role === 'bot' && message.answer.length === 0
+                }
+                aria-label={`${
+                  message.role === 'user' ? 'Your message' : 'AI response'
+                }: ${message.answer}`}
               />
             ))}
             <div ref={scrollToBottomRef}></div>
@@ -287,4 +323,4 @@ export const PatternFlyChatbotReplica = ({
       </CustomChatbot>
     </div>
   );
-}; 
+};

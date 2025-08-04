@@ -138,14 +138,18 @@ export class IFDApiError extends Error {
 
 export class IFDValidationError extends IFDApiError {
   constructor(public validationErrors: ValidationError[]) {
-    super(422, 'Validation Error', 'Request validation failed', validationErrors);
+    super(
+      422,
+      'Validation Error',
+      'Request validation failed',
+      validationErrors
+    );
     this.name = 'IFDValidationError';
   }
-} 
-
+}
 
 export type IFDAdditionalAttributes = {
   sources?: AnswerSource[];
   tool_call_metadata?: ToolCallMetadata | null | undefined;
   output_guard_result?: OutputGuardResult | null | undefined;
-}
+};

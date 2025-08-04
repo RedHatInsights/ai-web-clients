@@ -1,10 +1,18 @@
-import { AIClientError, AIClientValidationError } from '@redhat-cloud-services/ai-client-common';
+import {
+  AIClientError,
+  AIClientValidationError,
+} from '@redhat-cloud-services/ai-client-common';
 
 /**
  * Lightspeed API specific error class
  */
 export class LightspeedClientError extends AIClientError {
-  constructor(status: number, statusText: string, message: string, public readonly response?: Response) {
+  constructor(
+    status: number,
+    statusText: string,
+    message: string,
+    public readonly response?: Response
+  ) {
     super(status, statusText, message, response);
     this.name = 'LightspeedClientError';
   }
@@ -14,7 +22,13 @@ export class LightspeedClientError extends AIClientError {
  * Lightspeed API validation error class
  */
 export class LightspeedValidationError extends AIClientValidationError {
-  constructor(validationErrors: Array<{ loc: (string | number)[]; msg: string; type: string }>) {
+  constructor(
+    validationErrors: Array<{
+      loc: (string | number)[];
+      msg: string;
+      type: string;
+    }>
+  ) {
     super(validationErrors);
     this.name = 'LightspeedValidationError';
   }
@@ -207,15 +221,14 @@ export interface MessageChunkResponse {
   conversation_id?: string;
   messageId?: string;
   [key: string]: unknown;
-} 
-
+}
 
 export type LightSpeedCoreAdditionalProperties = {
-    referencedDocuments?: ReferencedDocument[];
-    truncated?: boolean;
-    inputTokens?: number;
-    outputTokens?: number;
-    availableQuotas?: Record<string, number>;
-    toolCalls?: unknown[];
-    toolResults?: unknown[];
-}
+  referencedDocuments?: ReferencedDocument[];
+  truncated?: boolean;
+  inputTokens?: number;
+  outputTokens?: number;
+  availableQuotas?: Record<string, number>;
+  toolCalls?: unknown[];
+  toolResults?: unknown[];
+};

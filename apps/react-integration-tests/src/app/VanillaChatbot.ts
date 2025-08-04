@@ -38,11 +38,14 @@ export class VanillaChatbot {
   private createChatbotStructure(): void {
     // Clear the root element
     this.rootElement.innerHTML = '';
-    
+
     // Create main chatbot container
     const chatbotContainer = document.createElement('div');
     chatbotContainer.id = 'vanilla-ai-chatbot';
-    chatbotContainer.setAttribute('aria-label', 'AI Assistant Chatbot (Vanilla JS)');
+    chatbotContainer.setAttribute(
+      'aria-label',
+      'AI Assistant Chatbot (Vanilla JS)'
+    );
     chatbotContainer.className = 'pf-chatbot';
     // Override the fixed positioning from PatternFly to make it flow with document
     chatbotContainer.style.cssText = `
@@ -52,15 +55,15 @@ export class VanillaChatbot {
       width: 100% !important;
       height: 100% !important;
     `;
-    
+
     // Create chatbot container
     const container = document.createElement('div');
     container.className = 'pf-chatbot-container';
-    
+
     // Create content area
     const content = document.createElement('div');
     content.className = 'pf-chatbot__content';
-    
+
     // Create message box
     const messageBox = document.createElement('div');
     messageBox.className = 'pf-chatbot__messagebox';
@@ -73,13 +76,13 @@ export class VanillaChatbot {
       gap: 1rem;
     `;
     this.messageBoxElement = messageBox;
-    
+
     // Create scroll target for auto-scrolling
     const scrollTarget = document.createElement('div');
     scrollTarget.style.height = '1px';
     this.scrollTarget = scrollTarget;
     messageBox.appendChild(scrollTarget);
-    
+
     // Create footer
     const footer = document.createElement('div');
     footer.className = 'pf-chatbot__footer';
@@ -88,7 +91,7 @@ export class VanillaChatbot {
       border-top: 1px solid var(--pf-t--global--border--color--default);
       background-color: var(--pf-t--global--background--color--secondary--default);
     `;
-    
+
     // Create input container
     const inputContainer = document.createElement('div');
     inputContainer.className = 'pf-chatbot__input';
@@ -97,14 +100,17 @@ export class VanillaChatbot {
       gap: 0.5rem;
       align-items: flex-end;
     `;
-    
+
     // Create text input
     const textInput = document.createElement('input');
     textInput.type = 'text';
     textInput.className = 'pf-v6-c-text-input-group__text-input';
     textInput.id = 'vanilla-query-input';
     textInput.placeholder = 'Type your message...';
-    textInput.setAttribute('aria-label', 'Type your message to the AI assistant');
+    textInput.setAttribute(
+      'aria-label',
+      'Type your message to the AI assistant'
+    );
     textInput.style.cssText = `
       flex: 1;
       padding: 0.75rem 1rem;
@@ -115,7 +121,7 @@ export class VanillaChatbot {
       color: var(--pf-t--global--text--color--regular);
     `;
     this.inputElement = textInput;
-    
+
     // Create send button
     const sendButton = document.createElement('button');
     sendButton.type = 'button';
@@ -134,7 +140,7 @@ export class VanillaChatbot {
       align-items: center;
       justify-content: center;
     `;
-    
+
     // Add send icon (simple arrow)
     sendButton.innerHTML = `
       <svg fill="currentColor" height="1em" width="1em" viewBox="0 0 512 512" aria-hidden="true" role="img">
@@ -142,17 +148,17 @@ export class VanillaChatbot {
       </svg>
     `;
     this.sendButton = sendButton;
-    
+
     // Assemble the structure
     inputContainer.appendChild(textInput);
     inputContainer.appendChild(sendButton);
     footer.appendChild(inputContainer);
-    
+
     content.appendChild(messageBox);
     container.appendChild(content);
     container.appendChild(footer);
     chatbotContainer.appendChild(container);
-    
+
     this.rootElement.appendChild(chatbotContainer);
   }
 
@@ -161,7 +167,7 @@ export class VanillaChatbot {
     this.sendButton.addEventListener('click', () => {
       this.handleSend();
     });
-    
+
     // Handle enter key in input
     this.inputElement.addEventListener('keydown', (event) => {
       if (event.key === 'Enter' && !event.shiftKey) {
@@ -169,16 +175,20 @@ export class VanillaChatbot {
         this.handleSend();
       }
     });
-    
+
     // Button hover effects
     this.sendButton.addEventListener('mouseenter', () => {
-      this.sendButton.style.backgroundColor = 'var(--pf-t--chatbot--blue-icon--background--color--hover)';
-      this.sendButton.style.color = 'var(--pf-t--chatbot--blue-icon--fill--hover)';
+      this.sendButton.style.backgroundColor =
+        'var(--pf-t--chatbot--blue-icon--background--color--hover)';
+      this.sendButton.style.color =
+        'var(--pf-t--chatbot--blue-icon--fill--hover)';
     });
-    
+
     this.sendButton.addEventListener('mouseleave', () => {
-      this.sendButton.style.backgroundColor = 'var(--pf-t--global--background--color--action--plain--default)';
-      this.sendButton.style.color = 'var(--pf-t--global--color--brand--default)';
+      this.sendButton.style.backgroundColor =
+        'var(--pf-t--global--background--color--action--plain--default)';
+      this.sendButton.style.color =
+        'var(--pf-t--global--color--brand--default)';
     });
   }
 
@@ -200,7 +210,7 @@ export class VanillaChatbot {
       margin-bottom: 1rem;
       ${message.role === 'user' ? 'flex-direction: row-reverse;' : ''}
     `;
-    
+
     // Create avatar
     const avatar = document.createElement('div');
     avatar.className = 'pf-chatbot__message-avatar';
@@ -217,15 +227,19 @@ export class VanillaChatbot {
       flex-shrink: 0;
     `;
     avatar.textContent = message.role === 'user' ? 'U' : 'AI';
-    
+
     // Create message content
     const messageContent = document.createElement('div');
     messageContent.className = 'pf-chatbot__message-and-actions';
     messageContent.style.cssText = `
       flex: 1;
-      ${message.role === 'user' ? 'display: flex; justify-content: flex-end;' : ''}
+      ${
+        message.role === 'user'
+          ? 'display: flex; justify-content: flex-end;'
+          : ''
+      }
     `;
-    
+
     // Create message text
     const messageText = document.createElement('div');
     messageText.className = 'pf-chatbot__message-text';
@@ -233,10 +247,11 @@ export class VanillaChatbot {
       width: fit-content;
       padding: var(--pf-t--global--spacer--sm);
       border-radius: var(--pf-t--global--border--radius--small);
-      ${message.role === 'user' 
-        ? `background-color: var(--pf-t--global--color--brand--default);
+      ${
+        message.role === 'user'
+          ? `background-color: var(--pf-t--global--color--brand--default);
            color: var(--pf-t--global--text--color--on-brand--default);`
-        : `background-color: var(--pf-t--global--background--color--tertiary--default);
+          : `background-color: var(--pf-t--global--background--color--tertiary--default);
            color: var(--pf-t--global--text--color--regular);`
       }
       max-width: 70%;
@@ -244,7 +259,7 @@ export class VanillaChatbot {
       font-size: var(--pf-t--global--font--size--md);
       line-height: 1.5;
     `;
-    
+
     // Set message content with basic HTML support
     if (message.answer.includes('\n')) {
       // Handle line breaks
@@ -252,13 +267,18 @@ export class VanillaChatbot {
     } else {
       messageText.textContent = message.answer;
     }
-    
-    messageText.setAttribute('aria-label', `${message.role === 'user' ? 'Your message' : 'AI response'}: ${message.answer}`);
-    
+
+    messageText.setAttribute(
+      'aria-label',
+      `${message.role === 'user' ? 'Your message' : 'AI response'}: ${
+        message.answer
+      }`
+    );
+
     messageContent.appendChild(messageText);
     messageContainer.appendChild(avatar);
     messageContainer.appendChild(messageContent);
-    
+
     return messageContainer;
   }
 
@@ -274,15 +294,17 @@ export class VanillaChatbot {
 
   private render(): void {
     // Clear existing messages (except scroll target)
-    const existingMessages = this.messageBoxElement.querySelectorAll('.pf-chatbot__message');
-    existingMessages.forEach(msg => msg.remove());
-    
+    const existingMessages = this.messageBoxElement.querySelectorAll(
+      '.pf-chatbot__message'
+    );
+    existingMessages.forEach((msg) => msg.remove());
+
     // Render all messages
-    this.options.messages.forEach(message => {
+    this.options.messages.forEach((message) => {
       const messageElement = this.createMessageElement(message);
       this.messageBoxElement.insertBefore(messageElement, this.scrollTarget);
     });
-    
+
     // Update send button state
     this.sendButton.disabled = this.options.inProgress;
     if (this.options.inProgress) {
@@ -292,7 +314,7 @@ export class VanillaChatbot {
       this.sendButton.style.opacity = '1';
       this.sendButton.style.cursor = 'pointer';
     }
-    
+
     // Update input state
     this.inputElement.disabled = this.options.inProgress;
     if (this.options.inProgress) {
@@ -300,7 +322,7 @@ export class VanillaChatbot {
     } else {
       this.inputElement.style.opacity = '1';
     }
-    
+
     // Auto-scroll to bottom
     setTimeout(() => this.scrollToBottom(), 100);
   }
@@ -309,4 +331,4 @@ export class VanillaChatbot {
     // Clean up event listeners and DOM
     this.rootElement.innerHTML = '';
   }
-} 
+}

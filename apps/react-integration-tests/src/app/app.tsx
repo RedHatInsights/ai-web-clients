@@ -3,8 +3,20 @@ import './app.scss';
 
 import { IFDClient } from '@redhat-cloud-services/arh-client';
 import { createClientStateManager } from '@redhat-cloud-services/ai-client-state';
-import { AIStateProvider, useInProgress, useMessages, useSendMessage } from '@redhat-cloud-services/ai-react-state';
-import { Chatbot, ChatbotContent, ChatbotFooter, Message, MessageBar, MessageBox } from '@patternfly/chatbot';
+import {
+  AIStateProvider,
+  useInProgress,
+  useMessages,
+  useSendMessage,
+} from '@redhat-cloud-services/ai-react-state';
+import {
+  Chatbot,
+  ChatbotContent,
+  ChatbotFooter,
+  Message,
+  MessageBar,
+  MessageBox,
+} from '@patternfly/chatbot';
 import VanillaChatbotWrapper from './VanillaChatbotWrapper';
 import { LightSpeedChatbot } from './LightSpeedChatbot';
 import { PatternFlyChatbotReplica } from './PatternFlyChatbotReplica';
@@ -18,7 +30,7 @@ const IntegratedChatbot = () => {
     sendMessage(`${message}`, {
       stream: true,
     });
-  }
+  };
 
   useEffect(() => {
     if (scrollToBottomRef.current) {
@@ -26,27 +38,30 @@ const IntegratedChatbot = () => {
     }
   }, [messages]);
 
-
   return (
     <div id="ai-chatbot" aria-label="AI Assistant Chatbot">
       <Chatbot>
         <ChatbotContent>
           <MessageBox>
             {messages.map((message) => (
-              <Message 
+              <Message
                 id={`message-${message.id}`}
-                role={message.role} 
-                avatar="https://placehold.co/40" 
+                role={message.role}
+                avatar="https://placehold.co/40"
                 content={message.answer}
-                isLoading={message.role === 'bot' && message.answer.length === 0}
-                aria-label={`${message.role === 'user' ? 'Your message' : 'AI response'}: ${message.answer}`}
+                isLoading={
+                  message.role === 'bot' && message.answer.length === 0
+                }
+                aria-label={`${
+                  message.role === 'user' ? 'Your message' : 'AI response'
+                }: ${message.answer}`}
               />
             ))}
             <div ref={scrollToBottomRef}></div>
           </MessageBox>
         </ChatbotContent>
         <ChatbotFooter>
-          <MessageBar 
+          <MessageBar
             id="query-input"
             onSendMessage={handleSend}
             aria-label="Type your message to the AI assistant"
@@ -57,16 +72,15 @@ const IntegratedChatbot = () => {
         </ChatbotFooter>
       </Chatbot>
     </div>
-  )
-}
-
+  );
+};
 
 export function App() {
   const stateManager = useMemo(() => {
     const client = new IFDClient({
       baseUrl: 'http://localhost:3001',
       fetchFunction: (...args) => fetch(...args),
-    })
+    });
     const stateManager = createClientStateManager(client);
     stateManager.init();
     return stateManager;
@@ -78,40 +92,74 @@ export function App() {
           <span> Hello there, </span>
           Welcome react-integration-tests 👋
         </h1>
-        
-        <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap', marginTop: '2rem' }}>
+
+        <div
+          style={{
+            display: 'flex',
+            gap: '2rem',
+            flexWrap: 'wrap',
+            marginTop: '2rem',
+          }}
+        >
           <div style={{ flex: '1', minWidth: '400px' }}>
-            <h2 style={{ marginBottom: '1rem', fontSize: '1.25rem', fontWeight: 'bold' }}>
+            <h2
+              style={{
+                marginBottom: '1rem',
+                fontSize: '1.25rem',
+                fontWeight: 'bold',
+              }}
+            >
               Vanilla JS Chatbot (Same State)
             </h2>
             <VanillaChatbotWrapper />
           </div>
           <div style={{ flex: '1', minWidth: '400px' }}>
-            <h2 style={{ marginBottom: '1rem', fontSize: '1.25rem', fontWeight: 'bold' }}>
+            <h2
+              style={{
+                marginBottom: '1rem',
+                fontSize: '1.25rem',
+                fontWeight: 'bold',
+              }}
+            >
               Vanilla JS Chatbot (LightSpeed)
             </h2>
             <LightSpeedChatbot />
           </div>
           <div style={{ flex: '1', minWidth: '400px', position: 'relative' }}>
-            <h2 style={{ marginBottom: '1rem', fontSize: '1.25rem', fontWeight: 'bold' }}>
+            <h2
+              style={{
+                marginBottom: '1rem',
+                fontSize: '1.25rem',
+                fontWeight: 'bold',
+              }}
+            >
               React PatternFly Chatbot Replica
             </h2>
-            <PatternFlyChatbotReplica 
-              containerStyle={{ 
+            <PatternFlyChatbotReplica
+              containerStyle={{
                 position: 'relative',
                 width: '100%',
                 height: '500px',
                 border: '1px solid var(--pf-t--global--border--color--default)',
                 borderRadius: '8px',
                 backgroundColor: 'white',
-                zIndex: 10
+                zIndex: 10,
               }}
               className="custom-chatbot-replica"
             />
           </div>
 
-          <div id="react-patternfly-chatbot" style={{ flex: '1', minWidth: '400px' }}>
-            <h2 style={{ marginBottom: '1rem', fontSize: '1.25rem', fontWeight: 'bold' }}>
+          <div
+            id="react-patternfly-chatbot"
+            style={{ flex: '1', minWidth: '400px' }}
+          >
+            <h2
+              style={{
+                marginBottom: '1rem',
+                fontSize: '1.25rem',
+                fontWeight: 'bold',
+              }}
+            >
               React PatternFly Chatbot
             </h2>
             <IntegratedChatbot />
@@ -122,4 +170,3 @@ export function App() {
   );
 }
 export default App;
-

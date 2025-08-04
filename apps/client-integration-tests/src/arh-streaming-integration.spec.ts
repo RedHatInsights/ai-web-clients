@@ -1,23 +1,26 @@
 /**
  * ARH Client Streaming Integration Tests
- * 
+ *
  * Tests real streaming functionality using the ARH mock server.
  * This file specifically tests streaming message handling with the
  * @redhat-cloud-services/arh-client and @redhat-cloud-services/ai-client-state packages.
- * 
+ *
  * Prerequisites: ARH mock server must be running on localhost:3001
  * Start server: npm run arh-mock-server
  */
 
 import { IFDClient } from '@redhat-cloud-services/arh-client';
-import type { 
-  IFDClientConfig, 
+import type {
+  IFDClientConfig,
   MessageChunkResponse,
-  IFDAdditionalAttributes
+  IFDAdditionalAttributes,
 } from '@redhat-cloud-services/arh-client';
-import type { AfterChunkCallback, IStreamingHandler } from '@redhat-cloud-services/ai-client-common';
+import type {
+  AfterChunkCallback,
+  IStreamingHandler,
+} from '@redhat-cloud-services/ai-client-common';
 
-import { 
+import {
   createClientStateManager,
   Events,
   UserQuery,
@@ -25,14 +28,17 @@ import {
 
 // Custom fetch function that uses the mock server
 const createMockServerFetch = (headers?: Record<string, string>) => {
-  return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+  return async (
+    input: RequestInfo | URL,
+    init?: RequestInit
+  ): Promise<Response> => {
     const url = typeof input === 'string' ? input : input.toString();
     const mergedInit = {
       ...init,
       headers: {
         ...init?.headers,
-        ...headers
-      }
+        ...headers,
+      },
     };
     return fetch(url, mergedInit);
   };
@@ -55,14 +61,17 @@ class TestStreamingHandler implements IStreamingHandler<MessageChunkResponse> {
     this.errorReceived = null;
   }
 
-  onChunk(chunk: MessageChunkResponse, afterChunk?: AfterChunkCallback<IFDAdditionalAttributes>): void {
+  onChunk(
+    chunk: MessageChunkResponse,
+    afterChunk?: AfterChunkCallback<IFDAdditionalAttributes>
+  ): void {
     afterChunk?.({
       answer: chunk.answer,
       additionalAttributes: {
         sources: chunk.sources,
         tool_call_metadata: chunk.tool_call_metadata,
         output_guard_result: chunk.output_guard_result,
-      }
+      },
     });
     this.chunks.push(chunk);
     this.finalMessage = chunk.answer;
@@ -87,12 +96,15 @@ describe('ARH Client Streaming Integration Tests', () => {
   beforeAll(async () => {
     // Verify mock server is running
     try {
-      console.log('Testing connection to:', `${mockServerBaseUrl}/api/ask/v1/health`);
+      console.log(
+        'Testing connection to:',
+        `${mockServerBaseUrl}/api/ask/v1/health`
+      );
       const response = await fetch(`${mockServerBaseUrl}/api/ask/v1/health`);
       console.log('Health check response status:', response.status);
       const healthData = await response.json();
       console.log('Health check data:', healthData);
-      
+
       if (!response.ok) {
         throw new Error(`Mock server health check failed: ${response.status}`);
       }
@@ -107,13 +119,13 @@ describe('ARH Client Streaming Integration Tests', () => {
 
   beforeEach(() => {
     streamingHandler = new TestStreamingHandler();
-    
+
     const config: IFDClientConfig = {
       baseUrl: mockServerBaseUrl,
       fetchFunction: createMockServerFetch(),
-      defaultStreamingHandler: streamingHandler
+      defaultStreamingHandler: streamingHandler,
     };
-    
+
     client = new IFDClient(config);
   });
 
@@ -123,7 +135,7 @@ describe('ARH Client Streaming Integration Tests', () => {
       expect(conversation.conversation_id).toBeDefined();
 
       await client.sendMessage(
-        conversation.conversation_id, 
+        conversation.conversation_id,
         'Test streaming message',
         { stream: true }
       );
@@ -135,22 +147,23 @@ describe('ARH Client Streaming Integration Tests', () => {
 
       // Verify chunks were received
       expect(streamingHandler.chunks.length).toBeGreaterThan(0);
-      
+
       // Verify final message is complete
       expect(streamingHandler.finalMessage).toContain('Test streaming message');
       expect(streamingHandler.finalMessage.length).toBeGreaterThan(0);
 
       // Verify final chunk properties
-      const finalChunk = streamingHandler.chunks[streamingHandler.chunks.length - 1];
+      const finalChunk =
+        streamingHandler.chunks[streamingHandler.chunks.length - 1];
       expect(finalChunk.sources).toBeDefined();
       expect(Array.isArray(finalChunk.sources)).toBe(true);
     });
 
     it('should provide incremental message content during streaming', async () => {
       const conversation = await client.createConversation();
-      
+
       await client.sendMessage(
-        conversation.conversation_id, 
+        conversation.conversation_id,
         'Explain OpenShift features',
         { stream: true }
       );
@@ -172,9 +185,9 @@ describe('ARH Client Streaming Integration Tests', () => {
 
     it('should include realistic metadata in streaming chunks', async () => {
       const conversation = await client.createConversation();
-      
+
       await client.sendMessage(
-        conversation.conversation_id, 
+        conversation.conversation_id,
         'What is Red Hat OpenShift?',
         { stream: true }
       );
@@ -189,7 +202,8 @@ describe('ARH Client Streaming Integration Tests', () => {
       }
 
       // Verify final chunk has sources
-      const finalChunk = streamingHandler.chunks[streamingHandler.chunks.length - 1];
+      const finalChunk =
+        streamingHandler.chunks[streamingHandler.chunks.length - 1];
       expect(finalChunk.sources.length).toBeGreaterThan(0);
       expect(finalChunk.sources[0]).toHaveProperty('title');
       expect(finalChunk.sources[0]).toHaveProperty('link');
@@ -204,11 +218,10 @@ describe('ARH Client Streaming Integration Tests', () => {
     });
 
     it('should handle streaming through state manager', async () => {
-
       // Create conversation on mock server
       const conversation = await client.createConversation();
       const conversationId = conversation.conversation_id;
-      
+
       // Update conversation ID to match the created one
       await stateManager.setActiveConversationId(conversationId);
 
@@ -219,9 +232,11 @@ describe('ARH Client Streaming Integration Tests', () => {
       // Verify streaming completed
       expect(streamingHandler.isStarted).toBe(true);
       expect(streamingHandler.isCompleted).toBe(true);
-      expect(streamingHandler.finalMessage).toContain('container orchestration');
+      expect(streamingHandler.finalMessage).toContain(
+        'container orchestration'
+      );
 
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await new Promise((resolve) => setTimeout(resolve, 2000));
 
       // Verify state was updated correctly
       const messages = stateManager.getActiveConversationMessages();
@@ -231,7 +246,7 @@ describe('ARH Client Streaming Integration Tests', () => {
       expect(messages[0]).toEqual({
         id: expect.any(String),
         answer: 'Tell me about container orchestration',
-        role: 'user'
+        role: 'user',
       });
 
       // Verify bot message contains streaming result
@@ -277,7 +292,7 @@ describe('ARH Client Streaming Integration Tests', () => {
       const requests = [
         'What is OpenShift?',
         'How does Kubernetes work?',
-        'Explain container networking'
+        'Explain container networking',
       ];
 
       for (const request of requests) {
@@ -286,17 +301,21 @@ describe('ARH Client Streaming Integration Tests', () => {
         client = new IFDClient({
           baseUrl: mockServerBaseUrl,
           fetchFunction: createMockServerFetch(),
-          defaultStreamingHandler: streamingHandler
+          defaultStreamingHandler: streamingHandler,
         });
 
-        await client.sendMessage(conversation.conversation_id, request, { stream: true });
+        await client.sendMessage(conversation.conversation_id, request, {
+          stream: true,
+        });
 
         expect(streamingHandler.isCompleted).toBe(true);
-        expect(streamingHandler.finalMessage.toLocaleLowerCase()).toContain(request.toLowerCase().split(' ')[2]);
+        expect(streamingHandler.finalMessage.toLocaleLowerCase()).toContain(
+          request.toLowerCase().split(' ')[2]
+        );
         expect(streamingHandler.chunks.length).toBeGreaterThan(0);
       }
-    // need to bump the timeout as it takes a while to stream the response
-    // the response is made artificially slow by the mock server
+      // need to bump the timeout as it takes a while to stream the response
+      // the response is made artificially slow by the mock server
     }, 10000);
 
     it('should maintain conversation context across streaming messages', async () => {
@@ -312,12 +331,14 @@ describe('ARH Client Streaming Integration Tests', () => {
       client = new IFDClient({
         baseUrl: mockServerBaseUrl,
         fetchFunction: createMockServerFetch(),
-        defaultStreamingHandler: streamingHandler
+        defaultStreamingHandler: streamingHandler,
       });
       stateManager = createClientStateManager(client);
       await stateManager.setActiveConversationId(conversation.conversation_id);
 
-      await stateManager.sendMessage('Tell me more about its features', { stream: true });
+      await stateManager.sendMessage('Tell me more about its features', {
+        stream: true,
+      });
 
       // Verify conversation history is maintained
       const messages = stateManager.getActiveConversationMessages();
@@ -335,30 +356,33 @@ describe('ARH Client Streaming Integration Tests', () => {
         fetchFunction: createMockServerFetch({
           'x-mock-error-after-chunks': '2', // Error after 2 chunks
           'x-mock-error-type': 'stream_error',
-          'x-mock-error-message': 'Test streaming error during processing'
+          'x-mock-error-message': 'Test streaming error during processing',
         }),
-        defaultStreamingHandler: streamingHandler
+        defaultStreamingHandler: streamingHandler,
       });
 
       const conversation = await errorClient.createConversation();
-      
+
       await errorClient.sendMessage(
-        conversation.conversation_id, 
+        conversation.conversation_id,
         'This will error during streaming',
         { stream: true }
       );
 
       // Verify that some chunks were received before the error
       expect(streamingHandler.chunks.length).toBeGreaterThan(0);
-      
+
       // Verify an error was received
       expect(streamingHandler.errorReceived).not.toBeNull();
-      expect(streamingHandler.errorReceived?.message).toContain('Test streaming error during processing');
-      
+      expect(streamingHandler.errorReceived?.message).toContain(
+        'Test streaming error during processing'
+      );
+
       // Verify the error chunk was processed
-      const lastChunk = streamingHandler.chunks[streamingHandler.chunks.length - 1];
+      const lastChunk =
+        streamingHandler.chunks[streamingHandler.chunks.length - 1];
       expect(lastChunk.answer).toBe('Test streaming error during processing');
-      
+
       // Verify stream completed properly even with error
       expect(streamingHandler.isCompleted).toBe(true);
     });
@@ -369,15 +393,15 @@ describe('ARH Client Streaming Integration Tests', () => {
         baseUrl: mockServerBaseUrl,
         fetchFunction: createMockServerFetch({
           'x-mock-error-after-chunks': '0', // Error immediately
-          'x-mock-error-message': 'Immediate streaming error'
+          'x-mock-error-message': 'Immediate streaming error',
         }),
-        defaultStreamingHandler: streamingHandler
+        defaultStreamingHandler: streamingHandler,
       });
 
       const conversation = await errorClient.createConversation();
-      
+
       await errorClient.sendMessage(
-        conversation.conversation_id, 
+        conversation.conversation_id,
         'This will error immediately',
         { stream: true }
       );
@@ -385,13 +409,16 @@ describe('ARH Client Streaming Integration Tests', () => {
       // Verify stream started but errored
       expect(streamingHandler.isStarted).toBe(true);
       expect(streamingHandler.errorReceived).not.toBeNull();
-      expect(streamingHandler.errorReceived?.message).toContain('Immediate streaming error');
-      
+      expect(streamingHandler.errorReceived?.message).toContain(
+        'Immediate streaming error'
+      );
+
       // Verify error chunk was received
       expect(streamingHandler.chunks.length).toBeGreaterThan(0);
-      const errorChunk = streamingHandler.chunks[streamingHandler.chunks.length - 1];
+      const errorChunk =
+        streamingHandler.chunks[streamingHandler.chunks.length - 1];
       expect(errorChunk.answer).toBe('Immediate streaming error');
-      
+
       expect(streamingHandler.isCompleted).toBe(true);
     });
 
@@ -400,16 +427,17 @@ describe('ARH Client Streaming Integration Tests', () => {
         baseUrl: mockServerBaseUrl,
         fetchFunction: createMockServerFetch({
           'x-mock-error-after-chunks': '1',
-          'x-mock-error-message': 'State manager error test'
+          'x-mock-error-message': 'State manager error test',
         }),
-        defaultStreamingHandler: streamingHandler
+        defaultStreamingHandler: streamingHandler,
       });
 
       const stateManager = createClientStateManager(errorClient);
       const conversation = await errorClient.createConversation();
       await stateManager.setActiveConversationId(conversation.conversation_id);
 
-      const userMessage: UserQuery = 'This will error during streaming through state manager';
+      const userMessage: UserQuery =
+        'This will error during streaming through state manager';
 
       await stateManager.sendMessage(userMessage, { stream: true });
 
@@ -420,43 +448,47 @@ describe('ARH Client Streaming Integration Tests', () => {
       // Verify state manager recorded the error message
       const messages = stateManager.getActiveConversationMessages();
       expect(messages.length).toBe(2); // User message + error message
-      
+
       // Verify user message
       expect(messages[0].answer).toBe(userMessage);
       expect(messages[0].role).toBe('user');
-      
+
       // Verify error message was stored
       expect(messages[1].role).toBe('bot');
       expect(messages[1].answer).toBe('State manager error test');
     });
 
     it('should handle custom error messages during streaming', async () => {
-      const customErrorMessage = 'Custom error message for testing error handling';
-      
+      const customErrorMessage =
+        'Custom error message for testing error handling';
+
       const errorClient = new IFDClient({
         baseUrl: mockServerBaseUrl,
         fetchFunction: createMockServerFetch({
           'x-mock-error-after-chunks': '3',
           'x-mock-error-type': 'custom_error',
-          'x-mock-error-message': customErrorMessage
+          'x-mock-error-message': customErrorMessage,
         }),
-        defaultStreamingHandler: streamingHandler
+        defaultStreamingHandler: streamingHandler,
       });
 
       const conversation = await errorClient.createConversation();
-      
+
       await errorClient.sendMessage(
-        conversation.conversation_id, 
+        conversation.conversation_id,
         'Test custom error message',
         { stream: true }
       );
 
       // Verify custom error message was processed
       expect(streamingHandler.errorReceived).not.toBeNull();
-      expect(streamingHandler.errorReceived?.message).toContain(customErrorMessage);
-      
+      expect(streamingHandler.errorReceived?.message).toContain(
+        customErrorMessage
+      );
+
       // Verify the error chunk contains the custom message
-      const lastChunk = streamingHandler.chunks[streamingHandler.chunks.length - 1];
+      const lastChunk =
+        streamingHandler.chunks[streamingHandler.chunks.length - 1];
       expect(lastChunk.answer).toBe(customErrorMessage);
     });
 
@@ -465,43 +497,43 @@ describe('ARH Client Streaming Integration Tests', () => {
         baseUrl: mockServerBaseUrl,
         fetchFunction: createMockServerFetch({
           'x-mock-error-after-chunks': '4', // Allow several chunks before error
-          'x-mock-error-message': 'Error after progression test'
+          'x-mock-error-message': 'Error after progression test',
         }),
-        defaultStreamingHandler: streamingHandler
+        defaultStreamingHandler: streamingHandler,
       });
 
       const conversation = await errorClient.createConversation();
-      
+
       await errorClient.sendMessage(
-        conversation.conversation_id, 
+        conversation.conversation_id,
         'Test progression before error',
         { stream: true }
       );
 
       // Verify we received multiple chunks before the error
       expect(streamingHandler.chunks.length).toBeGreaterThan(4); // At least 4 content chunks + 1 error chunk
-      
+
       // Separate content chunks from error chunks
-      const contentChunks = streamingHandler.chunks.filter(chunk => 
-        chunk.answer !== 'Error after progression test'
+      const contentChunks = streamingHandler.chunks.filter(
+        (chunk) => chunk.answer !== 'Error after progression test'
       );
-      const errorChunks = streamingHandler.chunks.filter(chunk => 
-        chunk.answer === 'Error after progression test'
+      const errorChunks = streamingHandler.chunks.filter(
+        (chunk) => chunk.answer === 'Error after progression test'
       );
-      
+
       // Verify we have both content chunks and error chunks
       expect(contentChunks.length).toBeGreaterThanOrEqual(4);
       expect(errorChunks.length).toBeGreaterThanOrEqual(1);
-      
+
       // Verify progressive content building in content chunks
       let hasProgression = false;
       let previousLength = 0;
       let progressiveChunks = 0;
-      
+
       // Check progression in content chunks (which should be the first several chunks)
       for (let i = 0; i < Math.min(contentChunks.length, 4); i++) {
         const chunk = contentChunks[i];
-        
+
         // Check for progression in content chunks
         if (chunk.answer.length >= previousLength) {
           progressiveChunks++;
@@ -515,9 +547,10 @@ describe('ARH Client Streaming Integration Tests', () => {
       // Verify that we had progression and most chunks were progressive
       expect(hasProgression).toBe(true);
       expect(progressiveChunks).toBeGreaterThanOrEqual(3); // At least 3 chunks should maintain progression
-      
+
       // Verify final chunk is the error
-      const lastChunk = streamingHandler.chunks[streamingHandler.chunks.length - 1];
+      const lastChunk =
+        streamingHandler.chunks[streamingHandler.chunks.length - 1];
       expect(lastChunk.answer).toBe('Error after progression test');
     });
   });
@@ -525,9 +558,9 @@ describe('ARH Client Streaming Integration Tests', () => {
   describe('Mock Server Validation', () => {
     it('should validate mock server streaming format matches ARH API spec', async () => {
       const conversation = await client.createConversation();
-      
+
       await client.sendMessage(
-        conversation.conversation_id, 
+        conversation.conversation_id,
         'Validate streaming format',
         { stream: true }
       );
@@ -552,4 +585,4 @@ describe('ARH Client Streaming Integration Tests', () => {
       }
     });
   });
-}); 
+});

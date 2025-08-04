@@ -8,16 +8,21 @@ import { IAIClient } from '@redhat-cloud-services/ai-client-common';
 
 // Mock client for testing
 const createMockClient = (): jest.Mocked<IAIClient> => ({
-  init: jest.fn().mockResolvedValue({ 
-    initialConversationId: 'test-conversation-1', 
-    conversations: [{ id: 'test-conversation-1', title: 'Test Conversation 1' }] 
+  init: jest.fn().mockResolvedValue({
+    initialConversationId: 'test-conversation-1',
+    conversations: [
+      { id: 'test-conversation-1', title: 'Test Conversation 1' },
+    ],
   }),
   sendMessage: jest.fn(),
   getDefaultStreamingHandler: jest.fn(),
   getConversationHistory: jest.fn().mockResolvedValue([]),
   healthCheck: jest.fn(),
   getServiceStatus: jest.fn(),
-  createNewConversation: jest.fn().mockResolvedValue({ id: 'new-conversation-id', title: 'New Conversation' })
+  createNewConversation: jest.fn().mockResolvedValue({
+    id: 'new-conversation-id',
+    title: 'New Conversation',
+  }),
 });
 
 describe('useSetActiveConversation', () => {
@@ -35,9 +40,7 @@ describe('useSetActiveConversation', () => {
     const TestComponent = () => {
       const setActiveConversation = useSetActiveConversation();
       return (
-        <div data-testid="function-type">
-          {typeof setActiveConversation}
-        </div>
+        <div data-testid="function-type">{typeof setActiveConversation}</div>
       );
     };
 
@@ -53,7 +56,7 @@ describe('useSetActiveConversation', () => {
 
   it('should return the same function reference from state manager', () => {
     let capturedFunction: any;
-    
+
     const TestComponent = () => {
       const setActiveConversation = useSetActiveConversation();
       capturedFunction = setActiveConversation;
@@ -89,7 +92,7 @@ describe('useSetActiveConversation', () => {
     // Second context with different state manager
     const mockClient2 = createMockClient();
     const stateManager2 = createClientStateManager(mockClient2);
-    
+
     render(
       <AIStateProvider stateManager={stateManager2}>
         <TestComponent />
@@ -120,7 +123,7 @@ describe('useSetActiveConversation', () => {
 
   it('should return function that can be called', async () => {
     let capturedFunction: any;
-    
+
     const TestComponent = () => {
       const setActiveConversation = useSetActiveConversation();
       capturedFunction = setActiveConversation;
@@ -131,12 +134,14 @@ describe('useSetActiveConversation', () => {
     await act(async () => {
       await stateManager.init();
     });
-    
+
     // Set up spy BEFORE rendering so the hook captures the spy function
     const originalSetActive = stateManager.setActiveConversationId;
-    const setActiveConversationIdSpy = jest.fn().mockImplementation(originalSetActive);
+    const setActiveConversationIdSpy = jest
+      .fn()
+      .mockImplementation(originalSetActive);
     stateManager.setActiveConversationId = setActiveConversationIdSpy;
-    
+
     render(
       <AIStateProvider stateManager={stateManager}>
         <TestComponent />
@@ -145,11 +150,13 @@ describe('useSetActiveConversation', () => {
 
     // The function should be callable
     expect(typeof capturedFunction).toBe('function');
-    
+
     await act(async () => {
       await capturedFunction('test-conversation-id');
     });
-    
-    expect(setActiveConversationIdSpy).toHaveBeenCalledWith('test-conversation-id');
+
+    expect(setActiveConversationIdSpy).toHaveBeenCalledWith(
+      'test-conversation-id'
+    );
   });
-}); 
+});

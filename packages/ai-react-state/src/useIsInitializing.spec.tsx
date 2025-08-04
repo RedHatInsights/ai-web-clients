@@ -3,27 +3,42 @@ import { render, waitFor, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { useIsInitializing } from './useIsInitializing';
 import { AIStateProvider } from './AIStateProvider';
-import { createClientStateManager, Events } from '@redhat-cloud-services/ai-client-state';
+import {
+  createClientStateManager,
+  Events,
+} from '@redhat-cloud-services/ai-client-state';
 import { IAIClient } from '@redhat-cloud-services/ai-client-common';
 
 // Mock client for testing
 const createMockClient = (): jest.Mocked<IAIClient> => ({
-  init: jest.fn().mockImplementation(() => 
-    new Promise(resolve => 
-      setTimeout(() => resolve({ 
-        initialConversationId: 'test-conversation-1', 
-        conversations: [{ id: 'test-conversation-1', title: 'Test Conversation 1' }] 
-      }), 100)
-    )
+  init: jest.fn().mockImplementation(
+    () =>
+      new Promise((resolve) =>
+        setTimeout(
+          () =>
+            resolve({
+              initialConversationId: 'test-conversation-1',
+              conversations: [
+                { id: 'test-conversation-1', title: 'Test Conversation 1' },
+              ],
+            }),
+          100
+        )
+      )
   ),
   sendMessage: jest.fn(),
   getDefaultStreamingHandler: jest.fn(),
-  getConversationHistory: jest.fn().mockImplementation(() =>
-    new Promise(resolve => setTimeout(() => resolve([]), 50))
-  ),
+  getConversationHistory: jest
+    .fn()
+    .mockImplementation(
+      () => new Promise((resolve) => setTimeout(() => resolve([]), 50))
+    ),
   healthCheck: jest.fn(),
   getServiceStatus: jest.fn(),
-  createNewConversation: jest.fn().mockResolvedValue({ id: 'new-conversation-id', title: 'New Conversation' })
+  createNewConversation: jest.fn().mockResolvedValue({
+    id: 'new-conversation-id',
+    title: 'New Conversation',
+  }),
 });
 
 describe('useIsInitializing', () => {
@@ -40,7 +55,9 @@ describe('useIsInitializing', () => {
   it('should return false initially before any initialization', () => {
     const TestComponent = () => {
       const isInitializing = useIsInitializing();
-      return <div data-testid="is-initializing">{isInitializing.toString()}</div>;
+      return (
+        <div data-testid="is-initializing">{isInitializing.toString()}</div>
+      );
     };
 
     const stateManager = createClientStateManager(mockClient);
@@ -56,7 +73,9 @@ describe('useIsInitializing', () => {
   it('should return true during initialization', async () => {
     const TestComponent = () => {
       const isInitializing = useIsInitializing();
-      return <div data-testid="is-initializing">{isInitializing.toString()}</div>;
+      return (
+        <div data-testid="is-initializing">{isInitializing.toString()}</div>
+      );
     };
 
     const stateManager = createClientStateManager(mockClient);
@@ -91,7 +110,9 @@ describe('useIsInitializing', () => {
   it('should return true during setActiveConversationId operation', async () => {
     const TestComponent = () => {
       const isInitializing = useIsInitializing();
-      return <div data-testid="is-initializing">{isInitializing.toString()}</div>;
+      return (
+        <div data-testid="is-initializing">{isInitializing.toString()}</div>
+      );
     };
 
     const stateManager = createClientStateManager(mockClient);
@@ -120,7 +141,9 @@ describe('useIsInitializing', () => {
   it('should clean up subscription on unmount', () => {
     const TestComponent = () => {
       const isInitializing = useIsInitializing();
-      return <div data-testid="is-initializing">{isInitializing.toString()}</div>;
+      return (
+        <div data-testid="is-initializing">{isInitializing.toString()}</div>
+      );
     };
 
     const stateManager = createClientStateManager(mockClient);
@@ -132,12 +155,18 @@ describe('useIsInitializing', () => {
       </AIStateProvider>
     );
 
-    expect(subscribeSpy).toHaveBeenCalledWith(Events.INITIALIZING_MESSAGES, expect.any(Function));
-    
+    expect(subscribeSpy).toHaveBeenCalledWith(
+      Events.INITIALIZING_MESSAGES,
+      expect.any(Function)
+    );
+
     unmount();
 
     // Subscription should have been set up
-    expect(subscribeSpy).toHaveBeenCalledWith(Events.INITIALIZING_MESSAGES, expect.any(Function));
+    expect(subscribeSpy).toHaveBeenCalledWith(
+      Events.INITIALIZING_MESSAGES,
+      expect.any(Function)
+    );
 
     subscribeSpy.mockRestore();
   });
@@ -145,7 +174,9 @@ describe('useIsInitializing', () => {
   it('should handle context switching properly', async () => {
     const TestComponent = () => {
       const isInitializing = useIsInitializing();
-      return <div data-testid="is-initializing">{isInitializing.toString()}</div>;
+      return (
+        <div data-testid="is-initializing">{isInitializing.toString()}</div>
+      );
     };
 
     // First context
@@ -162,7 +193,7 @@ describe('useIsInitializing', () => {
     // Second context with different client
     const mockClient2 = createMockClient();
     const stateManager2 = createClientStateManager(mockClient2);
-    
+
     const { getByTestId: getByTestId2 } = render(
       <AIStateProvider stateManager={stateManager2}>
         <TestComponent />
@@ -206,4 +237,4 @@ describe('useIsInitializing', () => {
 
     console.error = originalError;
   });
-}); 
+});

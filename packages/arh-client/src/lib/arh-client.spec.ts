@@ -1,11 +1,16 @@
-import { IFDClient, MessageChunkResponse, DefaultStreamingHandler } from './index';
-import { IFetchFunction, IStreamingHandler } from '@redhat-cloud-services/ai-client-common';
+import {
+  IFDClient,
+  MessageChunkResponse,
+  DefaultStreamingHandler,
+} from './index';
+import {
+  IFetchFunction,
+  IStreamingHandler,
+} from '@redhat-cloud-services/ai-client-common';
 import * as defaultStreamingHandler from './default-streaming-handler';
 
 // Mock fetch function for testing
 const mockFetch: IFetchFunction = jest.fn();
-
-
 
 describe('IFDClient', () => {
   let client: IFDClient;
@@ -34,7 +39,7 @@ describe('IFDClient', () => {
     });
 
     const result = await client.createConversation();
-    
+
     expect(mockFetch).toHaveBeenCalledWith(
       'https://test-api.example.com/api/ask/v1/conversation',
       expect.objectContaining({
@@ -44,7 +49,7 @@ describe('IFDClient', () => {
         }),
       })
     );
-    
+
     expect(result).toEqual(mockResponse);
   });
 
@@ -56,7 +61,9 @@ describe('IFDClient', () => {
       json: async () => ({ message: 'Resource not found' }),
     });
 
-    await expect(client.createConversation()).rejects.toThrow('API request failed: 404 Not Found');
+    await expect(client.createConversation()).rejects.toThrow(
+      'API request failed: 404 Not Found'
+    );
   });
 
   it('should construct URLs correctly', async () => {
@@ -66,7 +73,7 @@ describe('IFDClient', () => {
     });
 
     await client.getConversationHistory('test-conversation-id');
-    
+
     expect(mockFetch).toHaveBeenCalledWith(
       'https://test-api.example.com/api/ask/v1/conversation/test-conversation-id/history',
       expect.any(Object)
@@ -76,11 +83,11 @@ describe('IFDClient', () => {
   it('should handle query parameters correctly', async () => {
     (mockFetch as jest.Mock).mockResolvedValueOnce({
       ok: true,
-      json: async () => ([]),
+      json: async () => [],
     });
 
     await client.getUserHistory(25);
-    
+
     expect(mockFetch).toHaveBeenCalledWith(
       'https://test-api.example.com/api/ask/v1/user/current/history?limit=25',
       expect.any(Object)
@@ -96,7 +103,7 @@ describe('IFDClient', () => {
     await client.healthCheck({
       headers: { 'X-Custom-Header': 'test-value' },
     });
-    
+
     expect(mockFetch).toHaveBeenCalledWith(
       expect.any(String),
       expect.objectContaining({
@@ -110,7 +117,7 @@ describe('IFDClient', () => {
 
   it('should handle abort signals', async () => {
     const abortController = new AbortController();
-    
+
     (mockFetch as jest.Mock).mockResolvedValueOnce({
       ok: true,
       json: async () => ({ status: 'healthy' }),
@@ -119,7 +126,7 @@ describe('IFDClient', () => {
     await client.healthCheck({
       signal: abortController.signal,
     });
-    
+
     expect(mockFetch).toHaveBeenCalledWith(
       expect.any(String),
       expect.objectContaining({
@@ -140,7 +147,7 @@ describe('IFDClient', () => {
         received_at: '2024-01-01T00:00:00Z',
         sources: [{ title: 'Test Source', link: 'https://example.com' }],
         tool_call_metadata: { tool_call: false },
-        output_guard_result: { answer_relevance: 0.95 }
+        output_guard_result: { answer_relevance: 0.95 },
       };
 
       (mockFetch as jest.Mock).mockResolvedValueOnce({
@@ -149,7 +156,7 @@ describe('IFDClient', () => {
       });
 
       const result = await client.sendMessage(conversationId, message);
-      
+
       expect(mockFetch).toHaveBeenCalledWith(
         `https://test-api.example.com/api/ask/v1/conversation/${conversationId}/message`,
         expect.objectContaining({
@@ -169,8 +176,8 @@ describe('IFDClient', () => {
         additionalAttributes: {
           sources: mockResponse.sources,
           tool_call_metadata: mockResponse.tool_call_metadata,
-          output_guard_result: mockResponse.output_guard_result
-        }
+          output_guard_result: mockResponse.output_guard_result,
+        },
       });
     });
 
@@ -191,7 +198,8 @@ describe('IFDClient', () => {
       });
 
       // Mock processStreamWithHandler before making the call
-      jest.spyOn(defaultStreamingHandler, 'processStreamWithHandler')
+      jest
+        .spyOn(defaultStreamingHandler, 'processStreamWithHandler')
         .mockResolvedValueOnce(undefined);
 
       // Mock streaming response with a proper body
@@ -200,14 +208,18 @@ describe('IFDClient', () => {
         body: new ReadableStream({
           start(controller) {
             controller.close();
-          }
-        })
+          },
+        }),
       };
 
       (mockFetch as jest.Mock).mockResolvedValueOnce(mockResponse);
 
-      const result = await clientWithHandler.sendMessage(conversationId, message, { stream: true });
-      
+      const result = await clientWithHandler.sendMessage(
+        conversationId,
+        message,
+        { stream: true }
+      );
+
       expect(mockFetch).toHaveBeenCalledWith(
         `https://test-api.example.com/api/ask/v1/conversation/${conversationId}/message`,
         expect.objectContaining({
@@ -242,8 +254,6 @@ describe('IFDClient', () => {
       const result = clientWithHandler.getDefaultStreamingHandler();
       expect(result).toBe(mockHandler);
     });
-
-
   });
 
   describe('Conversation Management', () => {
@@ -259,7 +269,7 @@ describe('IFDClient', () => {
       });
 
       const result = await client.createNewConversation();
-      
+
       expect(result.id).toBe('123e4567-e89b-12d3-a456-426614174000');
       expect(result.title).toBe('New Conversation');
       expect(result.locked).toBe(false);
@@ -274,45 +284,60 @@ describe('IFDClient', () => {
           conversation_id: 'latest-conv',
           title: 'Latest Conversation',
           created_at: '2023-01-01T00:00:00Z',
-          is_latest: true
+          is_latest: true,
         },
         {
           conversation_id: 'old-conv-1',
           title: 'Old Conversation 1',
           created_at: '2022-12-01T00:00:00Z',
-          is_latest: false
+          is_latest: false,
         },
         {
           conversation_id: 'old-conv-2',
           title: 'Old Conversation 2',
           created_at: '2022-11-01T00:00:00Z',
-          is_latest: false
-        }
+          is_latest: false,
+        },
       ];
       const mockQuota = { limit: 10, used: 3 };
 
       // Mock all required API calls for init
       (mockFetch as jest.Mock)
-        .mockResolvedValueOnce({ ok: true, json: async () => mockHealthResponse })
-        .mockResolvedValueOnce({ ok: true, json: async () => mockStatusResponse })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => mockHealthResponse,
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => mockStatusResponse,
+        })
         .mockResolvedValueOnce({ ok: true, json: async () => mockUserSettings })
-        .mockResolvedValueOnce({ ok: true, json: async () => mockHistoryResponse })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => mockHistoryResponse,
+        })
         .mockResolvedValueOnce({ ok: true, json: async () => mockQuota });
 
       const result = await client.init();
-      
+
       expect(result.conversations).toHaveLength(3);
       expect(result.initialConversationId).toBe('latest-conv');
-      
+
       // Latest conversation should be unlocked
-      const latestConv = result.conversations.find((c: any) => c.id === 'latest-conv');
+      const latestConv = result.conversations.find(
+        (c: any) => c.id === 'latest-conv'
+      );
       expect(latestConv?.locked).toBe(false);
-      
+
       // Old conversations should be locked
-      const oldConv1 = result.conversations.find((c: any) => c.id === 'old-conv-1');
+      const oldConv1 = result.conversations.find(
+        (c: any) => c.id === 'old-conv-1'
+      );
       expect(oldConv1?.locked).toBe(true);
-      
-      const oldConv2 = result.conversations.find((c: any) => c.id === 'old-conv-2');
+
+      const oldConv2 = result.conversations.find(
+        (c: any) => c.id === 'old-conv-2'
+      );
       expect(oldConv2?.locked).toBe(true);
     });
 
@@ -326,15 +351,18 @@ describe('IFDClient', () => {
 
       await expect(client.init()).rejects.toEqual({
         message: 'API request failed: 403 Forbidden',
-        status: 403
+        status: 403,
       });
     });
 
     it('should throw IInitErrorResponse on status check failure during init', async () => {
       const mockHealthResponse = { status: 'healthy' };
-      
+
       (mockFetch as jest.Mock)
-        .mockResolvedValueOnce({ ok: true, json: async () => mockHealthResponse })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => mockHealthResponse,
+        })
         .mockResolvedValueOnce({
           ok: false,
           status: 500,
@@ -344,17 +372,23 @@ describe('IFDClient', () => {
 
       await expect(client.init()).rejects.toEqual({
         message: 'API request failed: 500 Internal Server Error',
-        status: 500
+        status: 500,
       });
     });
 
     it('should throw IInitErrorResponse on user settings failure during init', async () => {
       const mockHealthResponse = { status: 'healthy' };
       const mockStatusResponse = { api: { status: 'operational' } };
-      
+
       (mockFetch as jest.Mock)
-        .mockResolvedValueOnce({ ok: true, json: async () => mockHealthResponse })
-        .mockResolvedValueOnce({ ok: true, json: async () => mockStatusResponse })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => mockHealthResponse,
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => mockStatusResponse,
+        })
         .mockResolvedValueOnce({
           ok: false,
           status: 401,
@@ -364,7 +398,7 @@ describe('IFDClient', () => {
 
       await expect(client.init()).rejects.toEqual({
         message: 'API request failed: 401 Unauthorized',
-        status: 401
+        status: 401,
       });
     });
 
@@ -372,10 +406,16 @@ describe('IFDClient', () => {
       const mockHealthResponse = { status: 'healthy' };
       const mockStatusResponse = { api: { status: 'operational' } };
       const mockUserSettings = { id: 'user123' };
-      
+
       (mockFetch as jest.Mock)
-        .mockResolvedValueOnce({ ok: true, json: async () => mockHealthResponse })
-        .mockResolvedValueOnce({ ok: true, json: async () => mockStatusResponse })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => mockHealthResponse,
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => mockStatusResponse,
+        })
         .mockResolvedValueOnce({ ok: true, json: async () => mockUserSettings })
         .mockResolvedValueOnce({
           ok: false,
@@ -386,7 +426,7 @@ describe('IFDClient', () => {
 
       await expect(client.init()).rejects.toEqual({
         message: 'API request failed: 403 Forbidden',
-        status: 403
+        status: 403,
       });
     });
 
@@ -395,12 +435,21 @@ describe('IFDClient', () => {
       const mockStatusResponse = { api: { status: 'operational' } };
       const mockUserSettings = { id: 'user123' };
       const mockHistoryResponse: any[] = [];
-      
+
       (mockFetch as jest.Mock)
-        .mockResolvedValueOnce({ ok: true, json: async () => mockHealthResponse })
-        .mockResolvedValueOnce({ ok: true, json: async () => mockStatusResponse })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => mockHealthResponse,
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => mockStatusResponse,
+        })
         .mockResolvedValueOnce({ ok: true, json: async () => mockUserSettings })
-        .mockResolvedValueOnce({ ok: true, json: async () => mockHistoryResponse })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => mockHistoryResponse,
+        })
         .mockResolvedValueOnce({
           ok: false,
           status: 429,
@@ -410,16 +459,18 @@ describe('IFDClient', () => {
 
       await expect(client.init()).rejects.toEqual({
         message: 'API request failed: 429 Too Many Requests',
-        status: 429
+        status: 429,
       });
     });
 
     it('should throw IInitErrorResponse with generic message for non-AIClientError during init', async () => {
-      (mockFetch as jest.Mock).mockRejectedValueOnce(new Error('Network connection failed'));
+      (mockFetch as jest.Mock).mockRejectedValueOnce(
+        new Error('Network connection failed')
+      );
 
       await expect(client.init()).rejects.toEqual({
         message: 'Network connection failed',
-        status: 500
+        status: 500,
       });
     });
 
@@ -431,27 +482,39 @@ describe('IFDClient', () => {
         {
           conversation_id: 'conv-1',
           title: 'Conversation 1',
-          created_at: '2023-01-01T00:00:00Z'
+          created_at: '2023-01-01T00:00:00Z',
           // Missing is_latest property
-        }
+        },
       ];
       const mockQuota = { limit: 10, used: 1 };
       const mockNewConversation = {
         conversation_id: 'new-conv-created',
-        quota: { limit: 10, used: 2 }
+        quota: { limit: 10, used: 2 },
       };
 
       // Mock all required API calls for init - no latest conversation found, so it creates a new one
       (mockFetch as jest.Mock)
-        .mockResolvedValueOnce({ ok: true, json: async () => mockHealthResponse })
-        .mockResolvedValueOnce({ ok: true, json: async () => mockStatusResponse })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => mockHealthResponse,
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => mockStatusResponse,
+        })
         .mockResolvedValueOnce({ ok: true, json: async () => mockUserSettings })
-        .mockResolvedValueOnce({ ok: true, json: async () => mockHistoryResponse })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => mockHistoryResponse,
+        })
         .mockResolvedValueOnce({ ok: true, json: async () => mockQuota })
-        .mockResolvedValueOnce({ ok: true, json: async () => mockNewConversation });
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => mockNewConversation,
+        });
 
       const result = await client.init();
-      
+
       expect(result.conversations).toHaveLength(1);
       expect(result.initialConversationId).toBe('new-conv-created');
       expect(result.conversations[0].locked).toBe(true); // Should default to locked when is_latest is missing/undefined
@@ -481,12 +544,15 @@ describe('DefaultStreamingHandler', () => {
     const handler = new DefaultStreamingHandler();
     const conversationId = 'conv-123';
     const messageId = 'msg-456';
-    
+
     // Start streaming
     handler.onStart(conversationId, messageId);
     expect(handler.getCurrentConversationId()).toBe(conversationId);
     expect(handler.getCurrentMessageId()).toBe(messageId);
-    expect(handler.getCompleteMessage()).toStrictEqual({answer: '', sources: []});
+    expect(handler.getCompleteMessage()).toStrictEqual({
+      answer: '',
+      sources: [],
+    });
 
     // Process chunks
     const chunk1: MessageChunkResponse = {
@@ -519,7 +585,7 @@ describe('DefaultStreamingHandler', () => {
   it('should handle errors', () => {
     const error = new Error('Test error');
     handler.onError(error);
-    
+
     expect(console.error).toHaveBeenCalledWith(
       expect.stringContaining('Stream error'),
       error
@@ -528,8 +594,8 @@ describe('DefaultStreamingHandler', () => {
 
   it('should handle abort', () => {
     handler.onAbort();
-    
+
     // Note: onAbort no longer logs to console in current implementation
     expect(handler).toBeDefined();
   });
-}); 
+});

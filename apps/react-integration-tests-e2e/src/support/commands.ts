@@ -30,7 +30,7 @@ Cypress.Commands.add('withinPfChatbot', (cb) => {
   cy.get('#react-patternfly-chatbot').within(() => {
     cb();
   });
-})
+});
 
 //
 // -- This is a child command --

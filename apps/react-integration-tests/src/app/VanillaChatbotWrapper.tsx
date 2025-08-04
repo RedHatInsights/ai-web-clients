@@ -7,13 +7,13 @@ const VanillaChatbotWrapper = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const chatbotInstanceRef = useRef<VanillaChatbot | null>(null);
   const { getState } = useContext(AIStateContext);
-  
+
   // Initialize the vanilla chatbot and set up subscriptions
   useEffect(() => {
     if (!containerRef.current) return;
 
     const stateManager = getState();
-    
+
     // Handle sending messages directly through state manager
     const handleSendMessage = (message: string) => {
       stateManager.sendMessage(message, {
@@ -45,36 +45,42 @@ const VanillaChatbotWrapper = () => {
       }
     });
 
-    const unsubscribeInProgress = stateManager.subscribe(Events.IN_PROGRESS, () => {
-      if (chatbotInstanceRef.current) {
-        const messages = stateManager.getActiveConversationMessages();
-        const inProgress = stateManager.getMessageInProgress();
-        chatbotInstanceRef.current.updateOptions({
-          onSendMessage: handleSendMessage,
-          messages: messages,
-          inProgress: inProgress,
-        });
+    const unsubscribeInProgress = stateManager.subscribe(
+      Events.IN_PROGRESS,
+      () => {
+        if (chatbotInstanceRef.current) {
+          const messages = stateManager.getActiveConversationMessages();
+          const inProgress = stateManager.getMessageInProgress();
+          chatbotInstanceRef.current.updateOptions({
+            onSendMessage: handleSendMessage,
+            messages: messages,
+            inProgress: inProgress,
+          });
+        }
       }
-    });
+    );
 
-    const unsubscribeActiveConversation = stateManager.subscribe(Events.ACTIVE_CONVERSATION, () => {
-      if (chatbotInstanceRef.current) {
-        const messages = stateManager.getActiveConversationMessages();
-        const inProgress = stateManager.getMessageInProgress();
-        chatbotInstanceRef.current.updateOptions({
-          onSendMessage: handleSendMessage,
-          messages: messages,
-          inProgress: inProgress,
-        });
+    const unsubscribeActiveConversation = stateManager.subscribe(
+      Events.ACTIVE_CONVERSATION,
+      () => {
+        if (chatbotInstanceRef.current) {
+          const messages = stateManager.getActiveConversationMessages();
+          const inProgress = stateManager.getMessageInProgress();
+          chatbotInstanceRef.current.updateOptions({
+            onSendMessage: handleSendMessage,
+            messages: messages,
+            inProgress: inProgress,
+          });
+        }
       }
-    });
-    
+    );
+
     return () => {
       // Clean up subscriptions
       unsubscribeMessages();
       unsubscribeInProgress();
       unsubscribeActiveConversation();
-      
+
       // Clean up chatbot instance
       if (chatbotInstanceRef.current) {
         chatbotInstanceRef.current.destroy();
@@ -84,17 +90,17 @@ const VanillaChatbotWrapper = () => {
   }, []); // Only run once on mount
 
   return (
-    <div 
+    <div
       ref={containerRef}
       id="vanilla-chatbot-container"
-      style={{ 
+      style={{
         height: '600px',
         // border: '2px solid var(--pf-t--global--border--color--default)',
         borderRadius: 'var(--pf-t--global--border--radius--medium)',
-        overflow: 'hidden'
+        overflow: 'hidden',
       }}
     />
   );
 };
 
-export default VanillaChatbotWrapper; 
+export default VanillaChatbotWrapper;

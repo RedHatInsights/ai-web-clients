@@ -9,14 +9,18 @@ describe('ClientStateManager', () => {
     mockClient = {
       init: jest.fn().mockResolvedValue({
         initialConversationId: 'test-conversation-id',
-        conversations: []
+        conversations: [],
       }),
       sendMessage: jest.fn(),
       healthCheck: jest.fn(),
       getDefaultStreamingHandler: jest.fn(),
       getConversationHistory: jest.fn().mockResolvedValue([]),
-      createNewConversation: jest.fn().mockResolvedValue({ id: 'new-conv', title: 'New Conversation', locked: false }),
-      getServiceStatus: jest.fn()
+      createNewConversation: jest.fn().mockResolvedValue({
+        id: 'new-conv',
+        title: 'New Conversation',
+        locked: false,
+      }),
+      getServiceStatus: jest.fn(),
     } as jest.Mocked<IAIClient>;
 
     stateManager = createClientStateManager(mockClient);
@@ -32,7 +36,7 @@ describe('ClientStateManager', () => {
 
     it('should set active conversation ID', async () => {
       await stateManager.setActiveConversationId('conv-123');
-      
+
       const state = stateManager.getState();
       expect(state.activeConversationId).toBe('conv-123');
       expect(state.conversations['conv-123']).toBeDefined();
@@ -41,7 +45,7 @@ describe('ClientStateManager', () => {
 
     it('should get active conversation messages', async () => {
       await stateManager.setActiveConversationId('conv-123');
-      
+
       const messages = stateManager.getActiveConversationMessages();
       expect(messages).toEqual([]);
     });
@@ -62,7 +66,7 @@ describe('ClientStateManager', () => {
       mockClient.sendMessage.mockResolvedValue({
         messageId: 'bot-msg-1',
         answer: 'Bot response',
-        conversationId: 'conv-456'
+        conversationId: 'conv-456',
       });
     });
 
@@ -71,18 +75,24 @@ describe('ClientStateManager', () => {
 
       const response = await stateManager.sendMessage(userMessage);
 
-      expect(mockClient.sendMessage).toHaveBeenCalledWith('conv-456', 'Hello', undefined);
+      expect(mockClient.sendMessage).toHaveBeenCalledWith(
+        'conv-456',
+        'Hello',
+        undefined
+      );
       expect(response).toBeDefined();
       expect(response.messageId).toBe('bot-msg-1');
 
       // Check state was updated
       const messages = stateManager.getActiveConversationMessages();
       expect(messages).toHaveLength(2);
-      expect(messages[0]).toEqual(expect.objectContaining({
-        id: expect.any(String),
-        answer: 'Hello',
-        role: 'user'
-      }));
+      expect(messages[0]).toEqual(
+        expect.objectContaining({
+          id: expect.any(String),
+          answer: 'Hello',
+          role: 'user',
+        })
+      );
       expect(messages[1].role).toBe('bot');
       expect(messages[1].answer).toBe('Bot response');
     });
@@ -94,7 +104,9 @@ describe('ClientStateManager', () => {
 
       await expect(
         stateManagerWithoutConv.sendMessage(userMessage)
-      ).rejects.toThrow('No active conversation set. Call setActiveConversationId() first.');
+      ).rejects.toThrow(
+        'No active conversation set. Call setActiveConversationId() first.'
+      );
     });
 
     it('should throw error when message is already in progress', async () => {
@@ -109,9 +121,9 @@ describe('ClientStateManager', () => {
       const promise1 = stateManager.sendMessage(userMessage1);
 
       // Try to send second message immediately - should throw error
-      await expect(
-        stateManager.sendMessage(userMessage2)
-      ).rejects.toThrow('A message is already being processed. Wait for it to complete before sending another message.');
+      await expect(stateManager.sendMessage(userMessage2)).rejects.toThrow(
+        'A message is already being processed. Wait for it to complete before sending another message.'
+      );
 
       // Clean up the hanging promise
       promise1.catch(() => {}); // Prevent unhandled rejection warning
@@ -122,9 +134,9 @@ describe('ClientStateManager', () => {
 
       mockClient.sendMessage.mockRejectedValue(new Error('Network error'));
 
-      await expect(
-        stateManager.sendMessage(userMessage)
-      ).rejects.toThrow('Network error');
+      await expect(stateManager.sendMessage(userMessage)).rejects.toThrow(
+        'Network error'
+      );
 
       // Progress flag should be reset
       expect(stateManager.getMessageInProgress()).toBe(false);
@@ -133,7 +145,7 @@ describe('ClientStateManager', () => {
       mockClient.sendMessage.mockResolvedValue({
         messageId: 'bot-msg-success',
         answer: 'Success after error',
-        conversationId: 'conv-456'
+        conversationId: 'conv-456',
       });
 
       const successMessage: UserQuery = 'This should work';
@@ -146,32 +158,44 @@ describe('ClientStateManager', () => {
       const mockHandler = {
         onChunk: jest.fn(),
         onStart: jest.fn(),
-        onComplete: jest.fn()
+        onComplete: jest.fn(),
       };
 
-      (mockClient.getDefaultStreamingHandler as jest.Mock).mockReturnValue(mockHandler);
+      (mockClient.getDefaultStreamingHandler as jest.Mock).mockReturnValue(
+        mockHandler
+      );
       mockClient.sendMessage.mockResolvedValue({
         messageId: 'streaming-msg',
         answer: 'Streaming response',
-        conversationId: 'conv-456'
+        conversationId: 'conv-456',
       });
 
       const userMessage: UserQuery = 'Stream this';
 
-      const response = await stateManager.sendMessage(userMessage, { stream: true });
+      const response = await stateManager.sendMessage(userMessage, {
+        stream: true,
+      });
 
-      expect(mockClient.sendMessage).toHaveBeenCalledWith('conv-456', 'Stream this', { stream: true, afterChunk: expect.any(Function) });
+      expect(mockClient.sendMessage).toHaveBeenCalledWith(
+        'conv-456',
+        'Stream this',
+        { stream: true, afterChunk: expect.any(Function) }
+      );
       expect(response).toBeDefined();
     });
 
     it('should throw error when streaming without handler', async () => {
-      (mockClient.getDefaultStreamingHandler as jest.Mock).mockReturnValue(undefined);
+      (mockClient.getDefaultStreamingHandler as jest.Mock).mockReturnValue(
+        undefined
+      );
 
       const userMessage: UserQuery = 'This should fail';
 
       await expect(
         stateManager.sendMessage(userMessage, { stream: true })
-      ).rejects.toThrow('Streaming requested but no default streaming handler available in client');
+      ).rejects.toThrow(
+        'Streaming requested but no default streaming handler available in client'
+      );
 
       // Progress flag should be reset
       expect(stateManager.getMessageInProgress()).toBe(false);
@@ -180,16 +204,16 @@ describe('ClientStateManager', () => {
 
   describe('Conversation Locking', () => {
     beforeEach(() => {
-      mockClient.createNewConversation.mockResolvedValue({ 
-        id: 'new-conv', 
+      mockClient.createNewConversation.mockResolvedValue({
+        id: 'new-conv',
         title: 'New Conversation',
-        locked: false 
+        locked: false,
       });
     });
 
     it('should create unlocked conversations by default', async () => {
       const conversation = await stateManager.createNewConversation();
-      
+
       expect(conversation.locked).toBe(false);
       expect(mockClient.createNewConversation).toHaveBeenCalled();
     });
@@ -206,28 +230,30 @@ describe('ClientStateManager', () => {
       stateManager.subscribe(Events.IN_PROGRESS, progressCallback);
 
       const userMessage: UserQuery = 'This should be blocked';
-      
+
       await stateManager.sendMessage(userMessage);
 
       // Verify client sendMessage was NOT called
       expect(mockClient.sendMessage).not.toHaveBeenCalled();
-      
+
       // Verify locked message was added
       const messages = stateManager.getActiveConversationMessages();
       expect(messages).toHaveLength(2);
-      
+
       // User message should still be added
       expect(messages[0].answer).toBe('This should be blocked');
       expect(messages[0].role).toBe('user');
-      
+
       // Locked error message should be added
-      expect(messages[1].answer).toBe('This conversation is locked and cannot accept new messages.');
+      expect(messages[1].answer).toBe(
+        'This conversation is locked and cannot accept new messages.'
+      );
       expect(messages[1].role).toBe('bot');
-      
+
       // Events should be emitted
       expect(messageCallback).toHaveBeenCalledTimes(2); // User message + locked message
       expect(progressCallback).toHaveBeenCalledTimes(2); // Start + end
-      
+
       // Progress should be reset
       expect(stateManager.getMessageInProgress()).toBe(false);
     });
@@ -241,18 +267,22 @@ describe('ClientStateManager', () => {
       mockClient.sendMessage.mockResolvedValue({
         messageId: 'bot-msg-1',
         answer: 'Bot response',
-        conversationId: 'unlocked-conv'
+        conversationId: 'unlocked-conv',
       });
 
       const userMessage: UserQuery = 'This should work';
-      
+
       const response = await stateManager.sendMessage(userMessage);
 
       // Verify client sendMessage WAS called
-      expect(mockClient.sendMessage).toHaveBeenCalledWith('unlocked-conv', 'This should work', undefined);
+      expect(mockClient.sendMessage).toHaveBeenCalledWith(
+        'unlocked-conv',
+        'This should work',
+        undefined
+      );
       expect(response).toBeDefined();
       expect(response.messageId).toBe('bot-msg-1');
-      
+
       // Verify messages were added normally
       const messages = stateManager.getActiveConversationMessages();
       expect(messages).toHaveLength(2);
@@ -272,31 +302,35 @@ describe('ClientStateManager', () => {
         onComplete: jest.fn(),
         onError: jest.fn(),
       };
-      (mockClient.getDefaultStreamingHandler as jest.Mock).mockReturnValue(mockHandler);
+      (mockClient.getDefaultStreamingHandler as jest.Mock).mockReturnValue(
+        mockHandler
+      );
 
       const userMessage: UserQuery = 'Stream this to locked conversation';
-      
+
       await stateManager.sendMessage(userMessage, { stream: true });
 
       // Verify streaming was NOT initiated
       expect(mockClient.sendMessage).not.toHaveBeenCalled();
-      
+
       // Verify locked message was added
       const messages = stateManager.getActiveConversationMessages();
       expect(messages).toHaveLength(2);
-      expect(messages[1].answer).toBe('This conversation is locked and cannot accept new messages.');
+      expect(messages[1].answer).toBe(
+        'This conversation is locked and cannot accept new messages.'
+      );
       expect(messages[1].role).toBe('bot');
     });
 
     it('should initialize conversations with locked status from client', async () => {
       const mockConversations = [
         { id: 'conv1', title: 'Conversation 1', locked: false },
-        { id: 'conv2', title: 'Conversation 2', locked: true }
+        { id: 'conv2', title: 'Conversation 2', locked: true },
       ];
 
       mockClient.init.mockResolvedValue({
         initialConversationId: 'conv1',
-        conversations: mockConversations
+        conversations: mockConversations,
       });
 
       await stateManager.init();
@@ -313,7 +347,7 @@ describe('ClientStateManager', () => {
 
       mockClient.init.mockResolvedValue({
         initialConversationId: 'conv1',
-        conversations: mockConversations
+        conversations: mockConversations,
       });
 
       await stateManager.init();
@@ -341,7 +375,7 @@ describe('ClientStateManager', () => {
       mockClient.sendMessage.mockResolvedValue({
         messageId: 'msg-progress',
         answer: 'Progress test',
-        conversationId: 'conv-progress'
+        conversationId: 'conv-progress',
       });
 
       const userMessage: UserQuery = 'Test progress events';
@@ -356,7 +390,10 @@ describe('ClientStateManager', () => {
       const callback1 = jest.fn();
       const callback2 = jest.fn();
 
-      const unsubscribe1 = stateManager.subscribe(Events.ACTIVE_CONVERSATION, callback1);
+      const unsubscribe1 = stateManager.subscribe(
+        Events.ACTIVE_CONVERSATION,
+        callback1
+      );
       stateManager.subscribe(Events.ACTIVE_CONVERSATION, callback2);
 
       await stateManager.setActiveConversationId('conv-unsub-test');
@@ -379,7 +416,9 @@ describe('ClientStateManager', () => {
       });
       const goodCallback = jest.fn();
 
-      const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const consoleSpy = jest
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
 
       stateManager.subscribe(Events.ACTIVE_CONVERSATION, errorCallback);
       stateManager.subscribe(Events.ACTIVE_CONVERSATION, goodCallback);
@@ -388,7 +427,10 @@ describe('ClientStateManager', () => {
 
       expect(errorCallback).toHaveBeenCalledTimes(1);
       expect(goodCallback).toHaveBeenCalledTimes(1);
-      expect(consoleSpy).toHaveBeenCalledWith('Error in event callback:', expect.any(Error));
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Error in event callback:',
+        expect.any(Error)
+      );
 
       consoleSpy.mockRestore();
     });
@@ -403,12 +445,12 @@ describe('ClientStateManager', () => {
         .mockResolvedValueOnce({
           messageId: 'msg-1',
           answer: 'First response',
-          conversationId: 'conv-multi'
+          conversationId: 'conv-multi',
         })
         .mockResolvedValueOnce({
           messageId: 'msg-2',
           answer: 'Second response',
-          conversationId: 'conv-multi'
+          conversationId: 'conv-multi',
         });
 
       // Send first message
@@ -424,22 +466,22 @@ describe('ClientStateManager', () => {
       expect(messages[0]).toEqual({
         id: expect.any(String),
         answer: 'First question',
-        role: 'user'
+        role: 'user',
       });
       expect(messages[1]).toEqual({
         id: expect.any(String),
         answer: 'First response',
-        role: 'bot'
+        role: 'bot',
       });
       expect(messages[2]).toEqual({
         id: expect.any(String),
         answer: 'Second question',
-        role: 'user'
+        role: 'user',
       });
       expect(messages[3]).toEqual({
         id: expect.any(String),
         answer: 'Second response',
-        role: 'bot'
+        role: 'bot',
       });
     });
   });
@@ -450,8 +492,8 @@ describe('ClientStateManager', () => {
         initialConversationId: 'initial-conv-id',
         conversations: [
           { id: 'initial-conv-id', title: 'Initial Conversation' },
-          { id: 'conv-2', title: 'Second Conversation' }
-        ]
+          { id: 'conv-2', title: 'Second Conversation' },
+        ],
       });
       mockClient.getConversationHistory = jest.fn().mockResolvedValue([
         {
@@ -459,14 +501,14 @@ describe('ClientStateManager', () => {
           input: 'Hello',
           answer: 'Hi there!',
           role: 'bot',
-          additionalAttributes: { sources: [] }
-        }
+          additionalAttributes: { sources: [] },
+        },
       ]);
     });
 
     it('should initialize state with client data', async () => {
       await stateManager.init();
-      
+
       const state = stateManager.getState();
       expect(state.isInitialized).toBe(true);
       expect(state.isInitializing).toBe(false);
@@ -478,57 +520,61 @@ describe('ClientStateManager', () => {
 
     it('should load conversation history for initial conversation', async () => {
       await stateManager.init();
-      
+
       const state = stateManager.getState();
       const initialConversation = state.conversations['initial-conv-id'];
       expect(initialConversation.messages).toHaveLength(2); // user + bot message
       expect(initialConversation.messages[0]).toMatchObject({
         id: 'msg-1',
         answer: 'Hello',
-        role: 'user'
+        role: 'user',
       });
       expect(initialConversation.messages[1]).toMatchObject({
         id: 'msg-1',
         answer: 'Hi there!',
         role: 'bot',
-        additionalAttributes: { sources: [] }
+        additionalAttributes: { sources: [] },
       });
     });
 
     it('should call client.init() method', async () => {
       await stateManager.init();
-      
+
       expect(mockClient.init).toHaveBeenCalledTimes(1);
-      expect(mockClient.getConversationHistory).toHaveBeenCalledWith('initial-conv-id');
+      expect(mockClient.getConversationHistory).toHaveBeenCalledWith(
+        'initial-conv-id'
+      );
     });
 
     it('should not initialize twice', async () => {
       await stateManager.init();
       await stateManager.init();
-      
+
       expect(mockClient.init).toHaveBeenCalledTimes(1);
     });
 
     it('should not initialize while already initializing', async () => {
       const initPromise1 = stateManager.init();
       const initPromise2 = stateManager.init();
-      
+
       await Promise.all([initPromise1, initPromise2]);
-      
+
       expect(mockClient.init).toHaveBeenCalledTimes(1);
     });
 
     it('should handle initialization errors', async () => {
       const initError = new Error('Initialization failed');
       mockClient.init = jest.fn().mockRejectedValue(initError);
-      
-      await expect(stateManager.init()).rejects.toThrow('Initialization failed');
-      
+
+      await expect(stateManager.init()).rejects.toThrow(
+        'Initialization failed'
+      );
+
       const state = stateManager.getState();
       // After error handling update, isInitialized should be true so user can see error message
       expect(state.isInitialized).toBe(true);
       expect(state.isInitializing).toBe(false);
-      
+
       // Verify error message was added to conversation
       const messages = stateManager.getActiveConversationMessages();
       expect(messages.length).toBe(1);
@@ -539,31 +585,32 @@ describe('ClientStateManager', () => {
 
     it('should set initializing state during init', async () => {
       let initializingDuringInit = false;
-      
+
       // Mock a delayed init
-      mockClient.init = jest.fn().mockImplementation(() => 
-        new Promise(resolve => {
-          setTimeout(() => {
-            // Check if initializing is true during the init process
-            initializingDuringInit = stateManager.isInitializing();
-            resolve({
-              initialConversationId: 'initial-conv-id',
-              conversations: []
-            });
-          }, 10);
-        })
+      mockClient.init = jest.fn().mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            setTimeout(() => {
+              // Check if initializing is true during the init process
+              initializingDuringInit = stateManager.isInitializing();
+              resolve({
+                initialConversationId: 'initial-conv-id',
+                conversations: [],
+              });
+            }, 10);
+          })
       );
-      
+
       const initPromise = stateManager.init();
-      
+
       // Should be initializing immediately after starting
       expect(stateManager.isInitializing()).toBe(true);
-      
+
       await initPromise;
-      
+
       // Should have been initializing during the process
       expect(initializingDuringInit).toBe(true);
-      
+
       // Should not be initializing after completion
       expect(stateManager.isInitializing()).toBe(false);
       expect(stateManager.isInitialized()).toBe(true);
@@ -574,24 +621,24 @@ describe('ClientStateManager', () => {
     beforeEach(() => {
       mockClient.createNewConversation = jest.fn().mockResolvedValue({
         id: 'new-conv-id',
-        title: 'New Conversation'
+        title: 'New Conversation',
       });
       mockClient.getConversationHistory = jest.fn().mockResolvedValue([]);
     });
 
     it('should create new conversation via client', async () => {
       const conversation = await stateManager.createNewConversation();
-      
+
       expect(mockClient.createNewConversation).toHaveBeenCalledTimes(1);
       expect(conversation).toEqual({
         id: 'new-conv-id',
-        title: 'New Conversation'
+        title: 'New Conversation',
       });
     });
 
     it('should add new conversation to state', async () => {
       await stateManager.createNewConversation();
-      
+
       const state = stateManager.getState();
       expect(state.conversations['new-conv-id']).toBeDefined();
       expect(state.conversations['new-conv-id'].title).toBe('New conversation');
@@ -600,22 +647,28 @@ describe('ClientStateManager', () => {
 
     it('should set new conversation as active', async () => {
       await stateManager.createNewConversation();
-      
+
       const state = stateManager.getState();
       expect(state.activeConversationId).toBe('new-conv-id');
     });
 
     it('should handle createNewConversation errors', async () => {
       const createError = new Error('Failed to create conversation');
-      mockClient.createNewConversation = jest.fn().mockRejectedValue(createError);
-      
-      await expect(stateManager.createNewConversation()).rejects.toThrow('Failed to create conversation');
+      mockClient.createNewConversation = jest
+        .fn()
+        .mockRejectedValue(createError);
+
+      await expect(stateManager.createNewConversation()).rejects.toThrow(
+        'Failed to create conversation'
+      );
     });
 
     it('should fetch conversation history for new conversation', async () => {
       await stateManager.createNewConversation();
-      
-      expect(mockClient.getConversationHistory).toHaveBeenCalledWith('new-conv-id');
+
+      expect(mockClient.getConversationHistory).toHaveBeenCalledWith(
+        'new-conv-id'
+      );
     });
   });
 
@@ -627,16 +680,18 @@ describe('ClientStateManager', () => {
           input: 'Test input',
           answer: 'Test response',
           role: 'bot',
-          additionalAttributes: { metadata: 'test' }
-        }
+          additionalAttributes: { metadata: 'test' },
+        },
       ]);
     });
 
     it('should fetch conversation history when setting active conversation', async () => {
       await stateManager.setActiveConversationId('test-conv-id');
-      
-      expect(mockClient.getConversationHistory).toHaveBeenCalledWith('test-conv-id');
-      
+
+      expect(mockClient.getConversationHistory).toHaveBeenCalledWith(
+        'test-conv-id'
+      );
+
       const state = stateManager.getState();
       const conversation = state.conversations['test-conv-id'];
       expect(conversation.messages).toHaveLength(2); // user + bot message
@@ -644,31 +699,33 @@ describe('ClientStateManager', () => {
 
     it('should convert history messages to correct format', async () => {
       await stateManager.setActiveConversationId('test-conv-id');
-      
+
       const state = stateManager.getState();
       const conversation = state.conversations['test-conv-id'];
-      
+
       expect(conversation.messages[0]).toMatchObject({
         id: 'msg-1',
         answer: 'Test input',
-        role: 'user'
+        role: 'user',
       });
-      
+
       expect(conversation.messages[1]).toMatchObject({
         id: 'msg-1',
         answer: 'Test response',
         role: 'bot',
-        additionalAttributes: { metadata: 'test' }
+        additionalAttributes: { metadata: 'test' },
       });
     });
 
     it('should handle history fetch errors gracefully', async () => {
       const historyError = new Error('Failed to fetch history');
-      mockClient.getConversationHistory = jest.fn().mockRejectedValue(historyError);
-      
+      mockClient.getConversationHistory = jest
+        .fn()
+        .mockRejectedValue(historyError);
+
       // Should not throw, but log error internally
       await stateManager.setActiveConversationId('test-conv-id');
-      
+
       const state = stateManager.getState();
       expect(state.activeConversationId).toBe('test-conv-id');
       expect(state.conversations['test-conv-id']).toBeDefined();
@@ -676,32 +733,34 @@ describe('ClientStateManager', () => {
 
     it('should set initializing state during history fetch', async () => {
       let initializingDuringFetch = false;
-      
-      mockClient.getConversationHistory = jest.fn().mockImplementation(() =>
-        new Promise(resolve => {
-          setTimeout(() => {
-            initializingDuringFetch = stateManager.isInitializing();
-            resolve([]);
-          }, 10);
-        })
+
+      mockClient.getConversationHistory = jest.fn().mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            setTimeout(() => {
+              initializingDuringFetch = stateManager.isInitializing();
+              resolve([]);
+            }, 10);
+          })
       );
-      
-      const setActivePromise = stateManager.setActiveConversationId('test-conv-id');
-      
+
+      const setActivePromise =
+        stateManager.setActiveConversationId('test-conv-id');
+
       // Should be initializing during the fetch
       expect(stateManager.isInitializing()).toBe(true);
-      
+
       await setActivePromise;
-      
+
       expect(initializingDuringFetch).toBe(true);
       expect(stateManager.isInitializing()).toBe(false);
     });
 
     it('should handle null history response', async () => {
       mockClient.getConversationHistory = jest.fn().mockResolvedValue(null);
-      
+
       await stateManager.setActiveConversationId('test-conv-id');
-      
+
       const state = stateManager.getState();
       const conversation = state.conversations['test-conv-id'];
       expect(conversation.messages).toEqual([]);
@@ -720,14 +779,14 @@ describe('ClientStateManager', () => {
     it('should return true for isInitialized after successful init', async () => {
       mockClient.init = jest.fn().mockResolvedValue({
         initialConversationId: 'test-id',
-        conversations: []
+        conversations: [],
       });
       mockClient.getConversationHistory = jest.fn().mockResolvedValue([]);
-      
+
       await stateManager.init();
-      
+
       expect(stateManager.isInitialized()).toBe(true);
       expect(stateManager.isInitializing()).toBe(false);
     });
   });
-}); 
+});

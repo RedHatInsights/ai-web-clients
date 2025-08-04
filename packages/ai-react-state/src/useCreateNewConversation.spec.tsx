@@ -8,16 +8,21 @@ import { IAIClient } from '@redhat-cloud-services/ai-client-common';
 
 // Mock client for testing
 const createMockClient = (): jest.Mocked<IAIClient> => ({
-  init: jest.fn().mockResolvedValue({ 
-    initialConversationId: 'test-conversation-1', 
-    conversations: [{ id: 'test-conversation-1', title: 'Test Conversation 1' }] 
+  init: jest.fn().mockResolvedValue({
+    initialConversationId: 'test-conversation-1',
+    conversations: [
+      { id: 'test-conversation-1', title: 'Test Conversation 1' },
+    ],
   }),
   sendMessage: jest.fn(),
   getDefaultStreamingHandler: jest.fn(),
   getConversationHistory: jest.fn().mockResolvedValue([]),
   healthCheck: jest.fn(),
   getServiceStatus: jest.fn(),
-  createNewConversation: jest.fn().mockResolvedValue({ id: 'new-conversation-id', title: 'New Conversation' })
+  createNewConversation: jest.fn().mockResolvedValue({
+    id: 'new-conversation-id',
+    title: 'New Conversation',
+  }),
 });
 
 describe('useCreateNewConversation', () => {
@@ -35,9 +40,7 @@ describe('useCreateNewConversation', () => {
     const TestComponent = () => {
       const createNewConversation = useCreateNewConversation();
       return (
-        <div data-testid="function-type">
-          {typeof createNewConversation}
-        </div>
+        <div data-testid="function-type">{typeof createNewConversation}</div>
       );
     };
 
@@ -53,7 +56,7 @@ describe('useCreateNewConversation', () => {
 
   it('should return the same function reference from state manager', () => {
     let capturedFunction: any;
-    
+
     const TestComponent = () => {
       const createNewConversation = useCreateNewConversation();
       capturedFunction = createNewConversation;
@@ -89,7 +92,7 @@ describe('useCreateNewConversation', () => {
     // Second context with different state manager
     const mockClient2 = createMockClient();
     const stateManager2 = createClientStateManager(mockClient2);
-    
+
     render(
       <AIStateProvider stateManager={stateManager2}>
         <TestComponent />
@@ -119,4 +122,4 @@ describe('useCreateNewConversation', () => {
 
     console.error = originalError;
   });
-}); 
+});

@@ -13,12 +13,9 @@ const client = new LightspeedClient({
 
 const stateManager = createClientStateManager(client);
 
-
 const IntegratedChatbot = () => {
-  return (
-    <VanillaChatbotWrapper />
-  )
-}
+  return <VanillaChatbotWrapper />;
+};
 
 export const LightSpeedChatbot = () => {
   useEffect(() => {
@@ -28,5 +25,5 @@ export const LightSpeedChatbot = () => {
     <AIStateProvider stateManager={stateManager}>
       <IntegratedChatbot />
     </AIStateProvider>
-  )
-}
+  );
+};
