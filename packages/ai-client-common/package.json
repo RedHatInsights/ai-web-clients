@@ -1,6 +1,6 @@
 {
   "name": "@redhat-cloud-services/ai-client-common",
-  "version": "0.6.1",
+  "version": "0.7.0",
   "type": "commonjs",
   "main": "./src/index.js",
   "types": "./src/index.d.ts",
