@@ -14,10 +14,35 @@
 - Professional test descriptions (no emojis)
 
 ### **Package Testing Requirements**
-- Unit tests for all public APIs
-- Integration tests for complex workflows
-- Error scenario coverage
+- Unit tests for all public APIs within individual packages
+- Integration tests for cross-package workflows and data flow
+- Error scenario coverage at both unit and integration levels
 - Streaming/async functionality testing
+
+### **Unit vs Integration Testing Guidelines**
+
+#### **Unit Tests (Package-Level)**
+Use unit tests within individual packages (`packages/*/src/**/*.spec.ts`) for:
+- Testing individual class methods and functions in isolation
+- **ALWAYS use mocked fetch/APIs** - No external servers required
+- Testing package-specific error handling
+- Validating individual component behavior
+
+Example: Testing ARH client's `sendMessage` method with mocked fetch
+
+#### **Integration Tests (Cross-Package)**
+Use integration tests in `apps/client-integration-tests` for:
+- **Data Flow Testing**: Verify data flows correctly between packages (e.g., additional attributes from ARH client → state manager)
+- **Cross-Package Interactions**: Test how packages work together (client + state manager)
+- **End-to-End Workflows**: Complete user scenarios involving multiple packages
+- **Type Compatibility**: Ensure interfaces work correctly across package boundaries
+
+**CRITICAL**: Integration tests should **PREFER mock servers over mocked APIs** when available:
+- **Real streaming tests**: Use ARH mock server (`npm run arh-mock-server`) for realistic streaming behavior
+- **Complex workflows**: Mock servers provide more realistic responses and error scenarios
+- **Fallback to mocked APIs**: Only when mock servers are not available or for simple unit test style integration tests
+
+Example: Testing that ARH client's `additionalAttributes` are properly preserved through the state manager
 
 ### **Integration Testing Approach**
 - **Integration Test App**: `apps/client-integration-tests` validates package interoperability
@@ -95,6 +120,51 @@ const { getByTestId: getByTestId2 } = render(<TestComponent />, { wrapper: wrapp
 - Tests should be focused on application logic, not infrastructure
 - Killing servers mid-test can affect other running tests
 - Server management belongs in setup scripts, not test code
+
+### **Mocked API Integration Tests**
+
+#### **When Using Mocked APIs in Integration Tests**
+When integration tests must use mocked APIs (instead of mock servers):
+
+- **Mock conversation history calls**: Always mock the `getConversationHistory` endpoint when using `setActiveConversationId`
+- **Mock all required endpoints**: Ensure all API calls triggered by the integration flow are mocked
+- **Use realistic response structures**: Mock responses should match the actual API schema
+
+```typescript
+// Example: Mock conversation history for setActiveConversationId
+mockFetch.mockResolvedValueOnce({
+  ok: true,
+  status: 200,
+  json: async () => [], // Empty history for new conversation
+  headers: new Headers({ 'content-type': 'application/json' }),
+} as Response);
+
+await stateManager.setActiveConversationId(conversationId);
+```
+
+#### **Common Integration Test Mock Patterns**
+```typescript
+// Mock sequence for conversation setup + message sending
+mockFetch
+  .mockResolvedValueOnce({
+    // First call: conversation history
+    ok: true,
+    status: 200,
+    json: async () => [],
+  } as Response)
+  .mockResolvedValueOnce({
+    // Second call: send message response
+    ok: true,
+    status: 200,
+    json: async () => ({
+      message_id: 'msg-1',
+      answer: 'Response text',
+      conversation_id: 'conv-1',
+      received_at: new Date().toISOString(),
+      sources: [],
+    }),
+  } as Response);
+```
 
 ### **Mock Server Testing Patterns**
 

@@ -296,7 +296,7 @@ export interface IConversationMessage<
  */
 export type IConversationHistoryResponse<
   T extends Record<string, unknown> = Record<string, unknown>
-> = IConversationMessage<T>[] | null;
+> = Omit<IConversationMessage<T>, 'role'>[] | null;
 
 export interface IConversation {
   id: string;

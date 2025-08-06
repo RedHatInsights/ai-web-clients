@@ -69,7 +69,7 @@ describe('IFDClient', () => {
   it('should construct URLs correctly', async () => {
     (mockFetch as jest.Mock).mockResolvedValueOnce({
       ok: true,
-      json: async () => ({ messages: [] }),
+      json: async () => [],
     });
 
     await client.getConversationHistory('test-conversation-id');
@@ -78,6 +78,108 @@ describe('IFDClient', () => {
       'https://test-api.example.com/api/ask/v1/conversation/test-conversation-id/history',
       expect.any(Object)
     );
+  });
+
+  it('should transform conversation history and populate additionalAttributes correctly', async () => {
+    const mockHistoryData = [
+      {
+        message_id: 'msg-1',
+        output: 'Hello, how can I help you?',
+        input: 'Hello',
+        received_at: '2024-01-01T00:00:00Z',
+        sources: [{ title: 'Source 1', link: 'https://example.com/1' }],
+        tool_call_metadata: { tool_call: true, tool_name: 'search' },
+        output_guard_result: { answer_relevance: 0.95 },
+      },
+      {
+        message_id: 'msg-2',
+        output: 'You are welcome!',
+        input: 'Thank you',
+        received_at: '2024-01-01T00:01:00Z',
+        sources: [],
+        tool_call_metadata: null,
+        output_guard_result: null,
+      },
+    ];
+
+    (mockFetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: async () => mockHistoryData,
+    });
+
+    const result = await client.getConversationHistory('test-conversation-id');
+
+    expect(result).toEqual([
+      {
+        message_id: 'msg-1',
+        answer: 'Hello, how can I help you?',
+        input: 'Hello',
+        conversationId: 'test-conversation-id',
+        createdAt: '2024-01-01T00:00:00Z',
+        additionalAttributes: {
+          sources: [{ title: 'Source 1', link: 'https://example.com/1' }],
+          tool_call_metadata: { tool_call: true, tool_name: 'search' },
+          output_guard_result: { answer_relevance: 0.95 },
+        },
+      },
+      {
+        message_id: 'msg-2',
+        answer: 'You are welcome!',
+        input: 'Thank you',
+        conversationId: 'test-conversation-id',
+        createdAt: '2024-01-01T00:01:00Z',
+        additionalAttributes: {
+          sources: [],
+          tool_call_metadata: null,
+          output_guard_result: null,
+        },
+      },
+    ]);
+  });
+
+  it('should handle null conversation history response', async () => {
+    (mockFetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: async () => null,
+    });
+
+    const result = await client.getConversationHistory('test-conversation-id');
+
+    expect(result).toBeNull();
+  });
+
+  it('should handle conversation history with missing optional fields', async () => {
+    const mockHistoryData = [
+      {
+        message_id: 'msg-1',
+        output: 'Hello',
+        input: 'Hi',
+        received_at: '2024-01-01T00:00:00Z',
+        // Missing sources, tool_call_metadata, output_guard_result
+      },
+    ];
+
+    (mockFetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: async () => mockHistoryData,
+    });
+
+    const result = await client.getConversationHistory('test-conversation-id');
+
+    expect(result).toEqual([
+      {
+        message_id: 'msg-1',
+        answer: 'Hello',
+        input: 'Hi',
+        conversationId: 'test-conversation-id',
+        createdAt: '2024-01-01T00:00:00Z',
+        additionalAttributes: {
+          sources: [],
+          tool_call_metadata: null,
+          output_guard_result: null,
+        },
+      },
+    ]);
   });
 
   it('should handle query parameters correctly', async () => {

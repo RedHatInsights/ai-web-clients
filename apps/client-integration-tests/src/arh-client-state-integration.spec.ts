@@ -197,6 +197,14 @@ describe('ARH Client Integration Tests', () => {
       it('should set active conversation and manage state', async () => {
         const conversationId = 'conv-state-123';
 
+        // Mock conversation history endpoint (returns empty array for new conversation)
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => [], // Empty history for new conversation
+          headers: new Headers({ 'content-type': 'application/json' }),
+        } as Response);
+
         await stateManager.setActiveConversationId(conversationId);
 
         // Manually create conversation state (this is how the state manager works)
@@ -204,6 +212,8 @@ describe('ARH Client Integration Tests', () => {
         state.conversations[conversationId] = {
           id: conversationId,
           messages: [],
+          title: 'Test Conversation',
+          locked: false,
         };
 
         expect(state.activeConversationId).toBe(conversationId);
@@ -223,12 +233,20 @@ describe('ARH Client Integration Tests', () => {
           sources: [],
         };
 
-        mockFetch.mockResolvedValue({
-          ok: true,
-          status: 200,
-          json: async () => expectedResponse,
-          headers: new Headers({ 'content-type': 'application/json' }),
-        } as Response);
+        // Mock conversation history endpoint (returns empty array for new conversation)
+        mockFetch
+          .mockResolvedValueOnce({
+            ok: true,
+            status: 200,
+            json: async () => [], // Empty history for new conversation
+            headers: new Headers({ 'content-type': 'application/json' }),
+          } as Response)
+          .mockResolvedValueOnce({
+            ok: true,
+            status: 200,
+            json: async () => expectedResponse,
+            headers: new Headers({ 'content-type': 'application/json' }),
+          } as Response);
 
         // Manually create conversation state (this is how the state manager works)
         const state = stateManager.getState();
@@ -291,6 +309,11 @@ describe('ARH Client Integration Tests', () => {
           id: expect.any(String),
           answer: 'Hello from ARH API!',
           role: 'bot',
+          additionalAttributes: {
+            sources: [],
+            tool_call_metadata: undefined,
+            output_guard_result: undefined,
+          },
         });
       });
 
@@ -510,6 +533,15 @@ describe('ARH Client Integration Tests', () => {
     describe('Multi-Message Conversation Flow', () => {
       it('should handle multiple messages in sequence', async () => {
         const conversationId = 'conv-multi';
+
+        // Mock conversation history endpoint (returns empty array for new conversation)
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => [], // Empty history for new conversation
+          headers: new Headers({ 'content-type': 'application/json' }),
+        } as Response);
+
         await stateManager.setActiveConversationId(conversationId);
 
         // Mock responses for multiple calls
@@ -556,6 +588,11 @@ describe('ARH Client Integration Tests', () => {
           id: expect.any(String),
           answer: 'First response',
           role: 'bot',
+          additionalAttributes: {
+            sources: [],
+            tool_call_metadata: undefined,
+            output_guard_result: undefined,
+          },
         });
         expect(messages[2]).toEqual({
           id: expect.any(String),
@@ -566,6 +603,176 @@ describe('ARH Client Integration Tests', () => {
           id: expect.any(String),
           answer: 'Second response',
           role: 'bot',
+          additionalAttributes: {
+            sources: [],
+            tool_call_metadata: undefined,
+            output_guard_result: undefined,
+          },
+        });
+      });
+    });
+
+    describe('Additional Attributes Integration', () => {
+      it('should properly populate and preserve ARH additional attributes through state manager', async () => {
+        const conversationId = 'conv-attributes';
+        await stateManager.setActiveConversationId(conversationId);
+
+        // Mock ARH client response with full additional attributes
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            message_id: 'msg-with-attrs',
+            answer: 'Here is information about OpenShift deployment...',
+            conversation_id: conversationId,
+            received_at: new Date().toISOString(),
+            sources: [
+              {
+                title: 'Red Hat OpenShift Documentation',
+                link: 'https://docs.openshift.com/container-platform/4.15/',
+                score: 0.95,
+                snippet: 'Official OpenShift Container Platform documentation',
+              },
+              {
+                title: 'OpenShift Deployment Guide',
+                link: 'https://docs.openshift.com/container-platform/4.15/applications/',
+                score: 0.87,
+                snippet: 'Guide for deploying applications on OpenShift',
+              },
+            ],
+            tool_call_metadata: {
+              tool_call: true,
+              tool_name: 'search_documentation',
+              parameters: { query: 'OpenShift deployment best practices' },
+            },
+            output_guard_result: {
+              answer_relevance: 0.92,
+              safety_score: 0.98,
+              content_filter_passed: true,
+            },
+          }),
+        } as Response);
+
+        // Send message that should get additional attributes
+        const response = await stateManager.sendMessage(
+          'How do I deploy an app on OpenShift?'
+        );
+
+        expect(response).toBeDefined();
+        expect(response.messageId).toBe('msg-with-attrs');
+
+        // Verify additional attributes are present in the response
+        expect(response.additionalAttributes).toEqual({
+          sources: [
+            {
+              title: 'Red Hat OpenShift Documentation',
+              link: 'https://docs.openshift.com/container-platform/4.15/',
+              score: 0.95,
+              snippet: 'Official OpenShift Container Platform documentation',
+            },
+            {
+              title: 'OpenShift Deployment Guide',
+              link: 'https://docs.openshift.com/container-platform/4.15/applications/',
+              score: 0.87,
+              snippet: 'Guide for deploying applications on OpenShift',
+            },
+          ],
+          tool_call_metadata: {
+            tool_call: true,
+            tool_name: 'search_documentation',
+            parameters: { query: 'OpenShift deployment best practices' },
+          },
+          output_guard_result: {
+            answer_relevance: 0.92,
+            safety_score: 0.98,
+            content_filter_passed: true,
+          },
+        });
+
+        // Verify additional attributes are preserved in state manager
+        const messages = stateManager.getActiveConversationMessages();
+        expect(messages).toHaveLength(2);
+
+        // User message should not have additional attributes
+        expect(messages[0].additionalAttributes).toBeUndefined();
+
+        // Bot message should preserve all additional attributes
+        const botMessage = messages[1];
+        expect(botMessage.additionalAttributes).toEqual({
+          sources: [
+            {
+              title: 'Red Hat OpenShift Documentation',
+              link: 'https://docs.openshift.com/container-platform/4.15/',
+              score: 0.95,
+              snippet: 'Official OpenShift Container Platform documentation',
+            },
+            {
+              title: 'OpenShift Deployment Guide',
+              link: 'https://docs.openshift.com/container-platform/4.15/applications/',
+              score: 0.87,
+              snippet: 'Guide for deploying applications on OpenShift',
+            },
+          ],
+          tool_call_metadata: {
+            tool_call: true,
+            tool_name: 'search_documentation',
+            parameters: { query: 'OpenShift deployment best practices' },
+          },
+          output_guard_result: {
+            answer_relevance: 0.92,
+            safety_score: 0.98,
+            content_filter_passed: true,
+          },
+        });
+      });
+
+      it('should handle messages with minimal additional attributes', async () => {
+        const conversationId = 'conv-minimal-attrs';
+        await stateManager.setActiveConversationId(conversationId);
+
+        // Mock ARH client response with minimal additional attributes
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            message_id: 'msg-minimal',
+            answer: 'This is a simple response without sources or tool calls.',
+            conversation_id: conversationId,
+            received_at: new Date().toISOString(),
+            sources: [],
+            tool_call_metadata: null,
+            output_guard_result: {
+              answer_relevance: 0.85,
+              safety_score: 1.0,
+              content_filter_passed: true,
+            },
+          }),
+        } as Response);
+
+        const response = await stateManager.sendMessage('Simple question?');
+
+        // Verify minimal additional attributes are handled correctly
+        expect(response.additionalAttributes).toEqual({
+          sources: [],
+          tool_call_metadata: null,
+          output_guard_result: {
+            answer_relevance: 0.85,
+            safety_score: 1.0,
+            content_filter_passed: true,
+          },
+        });
+
+        // Verify state manager preserves minimal attributes
+        const messages = stateManager.getActiveConversationMessages();
+        const botMessage = messages[1];
+        expect(botMessage.additionalAttributes).toEqual({
+          sources: [],
+          tool_call_metadata: null,
+          output_guard_result: {
+            answer_relevance: 0.85,
+            safety_score: 1.0,
+            content_filter_passed: true,
+          },
         });
       });
     });

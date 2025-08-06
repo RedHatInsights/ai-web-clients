@@ -416,9 +416,14 @@ export function createClientStateManager<T extends Record<string, unknown>>(
                 const typedResponse = response as {
                   answer: string;
                   messageId: string;
+                  additionalAttributes?: T;
                 };
                 botMessage.answer = typedResponse.answer;
                 botMessage.id = typedResponse.messageId || botMessage.id;
+                if (typedResponse.additionalAttributes) {
+                  botMessage.additionalAttributes =
+                    typedResponse.additionalAttributes;
+                }
               } else if (typeof response === 'string') {
                 botMessage.answer = response as string;
               }

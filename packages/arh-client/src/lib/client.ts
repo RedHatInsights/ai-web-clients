@@ -24,6 +24,7 @@ import {
   UserHistoryResponse,
   QuotaStatusResponse,
   IFDAdditionalAttributes,
+  ConversationHistoryMessage,
 } from './types';
 import {
   DefaultStreamingHandler,
@@ -313,12 +314,30 @@ export class IFDClient implements IAIClient<IFDAdditionalAttributes> {
     conversationId: string,
     options?: IRequestOptions
   ): Promise<IConversationHistoryResponse<IFDAdditionalAttributes>> {
-    return this.makeRequest<
-      IConversationHistoryResponse<IFDAdditionalAttributes>
+    const conversationMessages = await this.makeRequest<
+      ConversationHistoryMessage[]
     >(`/api/ask/v1/conversation/${conversationId}/history`, {
       method: 'GET',
       ...options,
     });
+    if (!conversationMessages || !Array.isArray(conversationMessages)) {
+      return null;
+    }
+
+    const response: IConversationHistoryResponse<IFDAdditionalAttributes> =
+      conversationMessages.map((msg) => ({
+        answer: msg.output,
+        input: msg.input,
+        message_id: msg.message_id,
+        conversationId: conversationId,
+        createdAt: msg.received_at,
+        additionalAttributes: {
+          sources: msg.sources ?? [],
+          tool_call_metadata: msg.tool_call_metadata || null,
+          output_guard_result: msg.output_guard_result || null,
+        },
+      }));
+    return response;
   }
 
   /**
