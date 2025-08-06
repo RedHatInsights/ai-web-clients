@@ -8,3 +8,4 @@ export * from './useConversations';
 export * from './useCreateNewConversation';
 export * from './useSetActiveConversation';
 export * from './useIsInitializing';
+export * from './useClient';

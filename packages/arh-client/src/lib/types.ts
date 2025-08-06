@@ -60,8 +60,8 @@ export interface MessageChunkResponse {
 
 export interface MessageFeedbackRequest {
   rating: Rating;
-  input: string;
-  answer: string;
+  predefined_response?: string;
+  freeform?: string;
 }
 
 export interface MessageFeedbackResponse {

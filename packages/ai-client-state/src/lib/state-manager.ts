@@ -55,7 +55,8 @@ interface EventSubscription {
 }
 
 export type StateManager<
-  T extends Record<string, unknown> = Record<string, unknown>
+  T extends Record<string, unknown> = Record<string, unknown>,
+  C extends IAIClient<T> = IAIClient<T>
 > = {
   init: () => Promise<void>;
   isInitialized: () => boolean;
@@ -69,11 +70,13 @@ export type StateManager<
   subscribe: (event: Events, callback: () => void) => () => void;
   getConversations: () => Conversation<T>[];
   createNewConversation: () => Promise<IConversation>;
+  getClient: () => C;
 };
 
-export function createClientStateManager<T extends Record<string, unknown>>(
-  client: IAIClient<T>
-): StateManager<T> {
+export function createClientStateManager<
+  T extends Record<string, unknown>,
+  C extends IAIClient<T>
+>(client: C): StateManager<T, C> {
   const state: ClientState<T> = {
     conversations: {},
     activeConversationId: null,
@@ -493,6 +496,10 @@ export function createClientStateManager<T extends Record<string, unknown>>(
     return state.activeConversationId;
   }
 
+  function getClient(): C {
+    return client;
+  }
+
   return {
     init,
     isInitialized,
@@ -506,5 +513,6 @@ export function createClientStateManager<T extends Record<string, unknown>>(
     subscribe,
     getConversations,
     createNewConversation,
+    getClient,
   };
 }
