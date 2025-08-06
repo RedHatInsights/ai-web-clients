@@ -84,7 +84,7 @@ describe('IFDClient', () => {
     const mockHistoryData = [
       {
         message_id: 'msg-1',
-        output: 'Hello, how can I help you?',
+        answer: 'Hello, how can I help you?',
         input: 'Hello',
         received_at: '2024-01-01T00:00:00Z',
         sources: [{ title: 'Source 1', link: 'https://example.com/1' }],
@@ -93,7 +93,7 @@ describe('IFDClient', () => {
       },
       {
         message_id: 'msg-2',
-        output: 'You are welcome!',
+        answer: 'You are welcome!',
         input: 'Thank you',
         received_at: '2024-01-01T00:01:00Z',
         sources: [],
@@ -152,7 +152,7 @@ describe('IFDClient', () => {
     const mockHistoryData = [
       {
         message_id: 'msg-1',
-        output: 'Hello',
+        answer: 'Hello',
         input: 'Hi',
         received_at: '2024-01-01T00:00:00Z',
         // Missing sources, tool_call_metadata, output_guard_result

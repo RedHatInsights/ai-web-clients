@@ -326,7 +326,7 @@ export class IFDClient implements IAIClient<IFDAdditionalAttributes> {
 
     const response: IConversationHistoryResponse<IFDAdditionalAttributes> =
       conversationMessages.map((msg) => ({
-        answer: msg.output,
+        answer: msg.answer,
         input: msg.input,
         message_id: msg.message_id,
         conversationId: conversationId,

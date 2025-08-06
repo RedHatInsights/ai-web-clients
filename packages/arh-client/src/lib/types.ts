@@ -12,7 +12,7 @@ export interface AnswerSource {
 export interface ConversationHistoryMessage {
   message_id: string;
   input: string;
-  output: string;
+  answer: string;
   received_at: string;
   sources: AnswerSource[];
   tool_call_metadata?: ToolCallMetadata | null;
