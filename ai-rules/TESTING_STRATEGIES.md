@@ -191,6 +191,69 @@ const errorClient = new IFDClient({
 - Use health check endpoints to verify server availability
 - Each test should be independent and not require server restarts
 
+#### **Real Mock Server Integration Tests**
+For integration tests that use actual mock servers instead of mocked fetch responses:
+
+```typescript
+describe('Real Mock Server Integration Tests', () => {
+  let client: AnsibleLightspeedClient;
+  const mockServerUrl = 'http://localhost:3003';
+
+  beforeEach(() => {
+    client = new AnsibleLightspeedClient({
+      baseUrl: mockServerUrl,
+      // No mockFetch - use real fetch to hit mock server
+    });
+  });
+
+  beforeAll(async () => {
+    // Health check to ensure mock server is running
+    try {
+      const response = await fetch(`${mockServerUrl}/v1/info`);
+      if (!response.ok) {
+        throw new Error('Mock server not responding');
+      }
+    } catch (error) {
+      throw new Error(
+        `Mock server not running at ${mockServerUrl}. Start it with: node mock-server.js`
+      );
+    }
+  });
+
+  it('should receive real streaming response from mock server', async () => {
+    const events: StreamingEvent[] = [];
+    const queryRequest: QueryRequest = {
+      query: 'How do I use Ansible modules?',
+    };
+
+    const stream = await client.streamingQuery(queryRequest);
+    
+    await processStreamWithHandler(stream, {
+      onEvent: (event) => events.push(event),
+      onError: (error) => fail(`Stream error: ${error.message}`),
+    });
+
+    // Verify realistic server response structure
+    expect(events.length).toBeGreaterThan(0);
+    
+    const startEvents = events.filter((e) => e.event === 'start');
+    const tokenEvents = events.filter((e) => e.event === 'token');
+    const endEvents = events.filter((e) => e.event === 'end');
+    
+    expect(startEvents).toHaveLength(1);
+    expect(tokenEvents.length).toBeGreaterThan(0);
+    expect(endEvents).toHaveLength(1);
+  });
+});
+```
+
+**Key Differences from Mocked Tests:**
+- No `mockFetch` or `jest.fn()` setup
+- Real HTTP calls to actual mock server
+- Health check in `beforeAll` to ensure server availability
+- Clear error messages when server is not running
+- Tests real streaming behavior, not mocked responses
+
 ### **Unit Testing Patterns**
 
 #### **Client Testing**
@@ -331,6 +394,47 @@ it('should handle streaming responses', async () => {
   expect(mockHandler.onComplete).toHaveBeenCalled();
 });
 ```
+
+#### **TypeScript Union Type Handling in Streaming Tests**
+When working with streaming events that use union types, TypeScript cannot infer specific event types after filtering. Use type assertions with proper imports:
+
+```typescript
+// Import specific event types
+import type {
+  StreamingEvent,
+  TokenEvent,
+  TurnCompleteEvent,
+} from '@redhat-cloud-services/ansible-lightspeed-client';
+
+it('should handle token events with proper typing', async () => {
+  const tokenEvents: StreamingEvent[] = [];
+  let fullResponse = '';
+
+  const onEvent: StreamingEventHandler = (event) => {
+    if (event.event === 'token') {
+      // Type assertion needed for union types
+      const tokenEvent = event as TokenEvent;
+      tokenEvents.push(tokenEvent);
+      fullResponse += tokenEvent.data.token;
+    } else if (event.event === 'turn_complete') {
+      const turnCompleteEvent = event as TurnCompleteEvent;
+      fullResponse = turnCompleteEvent.data.token;
+    }
+  };
+
+  // Later in test...
+  tokenEvents.forEach((event, index) => {
+    const tokenEvent = event as TokenEvent;
+    expect(tokenEvent.data).toHaveProperty('token');
+    expect(typeof tokenEvent.data.token).toBe('string');
+  });
+});
+```
+
+**Why this is needed:**
+- TypeScript union types require explicit type assertions to access type-specific properties
+- Filtering by event type doesn't automatically narrow the type
+- Type assertions are safe when used after type guards (event.event === 'token')
 
 ### **Test Commands and Organization**
 
