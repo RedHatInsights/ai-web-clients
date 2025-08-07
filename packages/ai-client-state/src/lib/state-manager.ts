@@ -368,7 +368,7 @@ export function createClientStateManager<
 
       if (options?.stream) {
         // Get the client's default streaming handler
-        const originalHandler = client.getDefaultStreamingHandler?.();
+        const originalHandler = client.getDefaultStreamingHandler();
         if (originalHandler) {
           const enhancedOptions: ISendMessageOptions<T> = {
             ...options,

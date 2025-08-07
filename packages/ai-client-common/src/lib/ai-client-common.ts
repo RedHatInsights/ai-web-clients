@@ -19,7 +19,7 @@ export interface IBaseClientConfig<TChunk = unknown> {
    * Custom fetch implementation for making HTTP requests
    * Must include authentication headers (Bearer token) if needed
    */
-  fetchFunction: IFetchFunction;
+  fetchFunction?: IFetchFunction;
 
   /**
    * Default streaming handler for the client
@@ -95,10 +95,11 @@ export interface IAIClient<
   ): Promise<TChunk | IMessageResponse<AP> | void>;
 
   /**
-   * Get the default streaming handler for this client (if any)
+   * Get the default streaming handler for this client
+   * All AI clients must implement this method to provide consistent streaming behavior
    * @returns The default streaming handler or undefined if not configured
    */
-  getDefaultStreamingHandler?<TChunk = unknown>():
+  getDefaultStreamingHandler<TChunk = unknown>():
     | IStreamingHandler<TChunk>
     | undefined;
 

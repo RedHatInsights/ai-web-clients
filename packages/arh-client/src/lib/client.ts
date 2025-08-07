@@ -44,7 +44,8 @@ export class IFDClient implements IAIClient<IFDAdditionalAttributes> {
 
   constructor(config: IFDClientConfig) {
     this.baseUrl = config.baseUrl;
-    this.fetchFunction = config.fetchFunction;
+    this.fetchFunction =
+      config.fetchFunction || ((input, init) => fetch(input, init));
     this.defaultStreamingHandler =
       config.defaultStreamingHandler || new DefaultStreamingHandler();
   }

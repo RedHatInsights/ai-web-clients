@@ -46,7 +46,8 @@ export class LightspeedClient
 
   constructor(config: LightspeedClientConfig) {
     this.baseUrl = config.baseUrl.replace(/\/$/, ''); // Remove trailing slash
-    this.fetchFunction = config.fetchFunction;
+    this.fetchFunction =
+      config.fetchFunction || ((input, init) => fetch(input, init));
     this.defaultStreamingHandler =
       config.defaultStreamingHandler || new DefaultStreamingHandler();
   }
