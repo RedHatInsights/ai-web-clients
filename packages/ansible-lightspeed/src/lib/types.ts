@@ -9,42 +9,43 @@ export type AnsibleLightspeedMessageAttributes = {
    * Provider used for the response (if available)
    */
   provider?: string;
-  
+
   /**
    * Model used for the response (if available)
    */
   model?: string;
-  
+
   /**
    * Input token count for the query
    */
   input_tokens?: number;
-  
+
   /**
    * Output token count for the response
    */
   output_tokens?: number;
-  
+
   /**
    * Referenced documents for the response
    */
   referenced_documents?: ReferencedDocument[];
-  
+
   /**
    * Whether the response was truncated
    */
   truncated?: unknown;
-  
+
   /**
    * Available quotas after this request
    */
   available_quotas?: Record<string, unknown>;
-}
+};
 
 /**
  * Configuration options for the Ansible Lightspeed client
  */
-export interface AnsibleLightspeedConfig extends IBaseClientConfig<StreamingEvent> {
+export interface AnsibleLightspeedConfig
+  extends IBaseClientConfig<StreamingEvent> {
   /**
    * Base URL for the Ansible Lightspeed API
    */
@@ -54,7 +55,10 @@ export interface AnsibleLightspeedConfig extends IBaseClientConfig<StreamingEven
    * Custom fetch function for making HTTP requests
    * Use arrow function to avoid context issues: (input, init) => fetch(input, init)
    */
-  fetchFunction: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+  fetchFunction: (
+    input: RequestInfo | URL,
+    init?: RequestInit
+  ) => Promise<Response>;
 }
 
 /**
@@ -91,7 +95,13 @@ export interface QueryResponse {
 /**
  * Feedback categories for AI responses
  */
-export type FeedbackCategory = 'incorrect' | 'not_relevant' | 'incomplete' | 'outdated_information' | 'unsafe' | 'other';
+export type FeedbackCategory =
+  | 'incorrect'
+  | 'not_relevant'
+  | 'incomplete'
+  | 'outdated_information'
+  | 'unsafe'
+  | 'other';
 
 /**
  * Request model for feedback endpoint

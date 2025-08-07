@@ -31,7 +31,11 @@ describe('Ansible Lightspeed Streaming Integration Tests', () => {
     return stateManager.sendMessage(message, { stream: false });
   };
 
-  const verifyUserMessage = (messages: any[], index: number, expectedContent: string) => {
+  const verifyUserMessage = (
+    messages: any[],
+    index: number,
+    expectedContent: string
+  ) => {
     expect(messages[index].role).toBe('user');
     expect(messages[index].answer).toBe(expectedContent);
   };
@@ -41,7 +45,10 @@ describe('Ansible Lightspeed Streaming Integration Tests', () => {
     expect(messages[index].answer).toBeTruthy();
   };
 
-  const verifyBasicConversation = (expectedUserMessage: string, expectedMinMessages = 2) => {
+  const verifyBasicConversation = (
+    expectedUserMessage: string,
+    expectedMinMessages = 2
+  ) => {
     const messages = stateManager.getActiveConversationMessages();
     expect(messages.length).toBeGreaterThanOrEqual(expectedMinMessages);
     verifyUserMessage(messages, messages.length - 2, expectedUserMessage);
@@ -101,7 +108,8 @@ describe('Ansible Lightspeed Streaming Integration Tests', () => {
 
       await sendStreamingMessage(message);
 
-      const currentConversationId = await stateManager.getActiveConversationId();
+      const currentConversationId =
+        await stateManager.getActiveConversationId();
       expect(currentConversationId).toBe(conversationId);
 
       expect(getActiveMessages().length).toBeGreaterThanOrEqual(2);
@@ -118,7 +126,7 @@ describe('Ansible Lightspeed Streaming Integration Tests', () => {
       const messages = getActiveMessages();
       expect(messages.length).toBeGreaterThanOrEqual(initialMessageCount + 4);
       expect(messages.length).toEqual(4);
-      
+
       verifyUserMessage(messages, 0, 'First message about files');
       verifyBotMessage(messages, 1);
       verifyUserMessage(messages, 2, 'Second message about users');
@@ -145,7 +153,7 @@ describe('Ansible Lightspeed Streaming Integration Tests', () => {
       expect(result.answer).toBeTruthy();
       expect(result.messageId).toBeDefined();
       expect(result.additionalAttributes).toBeDefined();
-      
+
       const messages = getActiveMessages();
       expect(messages.length).toEqual(2);
       verifyUserMessage(messages, 0, message);
@@ -155,7 +163,7 @@ describe('Ansible Lightspeed Streaming Integration Tests', () => {
     it('should maintain conversation state during streaming', async () => {
       const initialMessageCount = getActiveMessages().length;
       expect(initialMessageCount).toBeGreaterThanOrEqual(0);
-      
+
       await sendStreamingMessage('First message');
       const afterFirstMessage = getActiveMessages().length;
       expect(afterFirstMessage).toBeGreaterThan(initialMessageCount);
@@ -179,7 +187,7 @@ describe('Ansible Lightspeed Streaming Integration Tests', () => {
 
       const messages = getActiveMessages();
       expect(messages.length).toEqual(2);
-      
+
       verifyUserMessage(messages, 0, message);
       expect(messages[0].id).toBeDefined();
     });
