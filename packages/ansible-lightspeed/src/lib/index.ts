@@ -3,7 +3,6 @@ export { AnsibleLightspeedClient, AnsibleLightspeedError } from './client';
 
 // Types and interfaces
 export * from './types';
-export * from './interfaces';
 export * from './streaming-types';
 
 // Default streaming handler

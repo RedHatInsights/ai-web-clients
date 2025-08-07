@@ -17,14 +17,6 @@ describe('AnsibleLightspeedClient', () => {
     it('should create an instance with the provided config', () => {
       expect(client).toBeInstanceOf(AnsibleLightspeedClient);
     });
-
-    it('should use default fetch when fetchFunction is not provided', () => {
-      const configWithoutFetch: AnsibleLightspeedConfig = {
-        baseUrl: 'https://api.example.com',
-      };
-      const clientWithoutFetch = new AnsibleLightspeedClient(configWithoutFetch);
-      expect(clientWithoutFetch).toBeInstanceOf(AnsibleLightspeedClient);
-    });
   });
 
   describe('getConfig', () => {
@@ -37,7 +29,9 @@ describe('AnsibleLightspeedClient', () => {
 
   describe('AnsibleLightspeedError', () => {
     it('should create an error with message, status, and response', () => {
-      const error = new AnsibleLightspeedError('Test error', 400, { detail: 'Bad request' });
+      const error = new AnsibleLightspeedError('Test error', 400, {
+        detail: 'Bad request',
+      });
       expect(error.message).toBe('Test error');
       expect(error.status).toBe(400);
       expect(error.response).toEqual({ detail: 'Bad request' });

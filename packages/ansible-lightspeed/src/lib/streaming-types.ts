@@ -35,11 +35,16 @@ export interface TurnCompleteEventData {
   token: string;
 }
 
+export type ReferencedDocument = {
+  doc_title: string;
+  doc_url: string;
+};
+
 /**
  * End event data
  */
 export interface EndEventData {
-  referenced_documents: unknown[];
+  referenced_documents: ReferencedDocument[];
   truncated: unknown;
   input_tokens: number;
   output_tokens: number;
@@ -69,10 +74,31 @@ export interface EndEvent {
   data: EndEventData;
 }
 
+export type MessageEvent = {
+  event: 'message';
+  data: TokenEventData & EndEventData;
+};
+
 /**
  * Union type for all streaming events
  */
-export type StreamingEvent = StartEvent | TokenEvent | TurnCompleteEvent | EndEvent;
+export type StreamingEvent =
+  | StartEvent
+  | TokenEvent
+  | TurnCompleteEvent
+  | EndEvent
+  | MessageEvent;
+
+/**
+ * Type guard for TokenEvent
+ */
+export function isTokenEvent(event: StreamingEvent): event is TokenEvent {
+  return event.event === 'token';
+}
+
+export function isEndEvent(event: StreamingEvent): event is EndEvent {
+  return event.event === 'end';
+}
 
 /**
  * Handler function for processing streaming events

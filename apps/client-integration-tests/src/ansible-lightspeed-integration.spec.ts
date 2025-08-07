@@ -539,7 +539,15 @@ describe('Ansible Lightspeed Client Integration Tests', () => {
           answer:
             'To create an Ansible playbook, you need to define tasks in YAML format...',
           role: 'bot',
-          additionalAttributes: undefined,
+          additionalAttributes: {
+            available_quotas: undefined,
+            input_tokens: undefined,
+            model: undefined,
+            output_tokens: undefined,
+            provider: undefined,
+            referenced_documents: undefined,
+            truncated: undefined,
+          },
         });
       });
 
@@ -740,7 +748,15 @@ describe('Ansible Lightspeed Client Integration Tests', () => {
           id: expect.any(String),
           answer: 'Use ansible.builtin.copy module',
           role: 'bot',
-          additionalAttributes: undefined,
+          additionalAttributes: {
+            available_quotas: undefined,
+            input_tokens: undefined,
+            model: undefined,
+            output_tokens: undefined,
+            provider: undefined,
+            referenced_documents: undefined,
+            truncated: undefined,
+          },
         });
         expect(messages[2]).toEqual({
           id: expect.any(String),
@@ -751,7 +767,15 @@ describe('Ansible Lightspeed Client Integration Tests', () => {
           id: expect.any(String),
           answer: 'Use ansible.builtin.template module',
           role: 'bot',
-          additionalAttributes: undefined,
+          additionalAttributes: {
+            available_quotas: undefined,
+            input_tokens: undefined,
+            model: undefined,
+            output_tokens: undefined,
+            provider: undefined,
+            referenced_documents: undefined,
+            truncated: undefined,
+          },
         });
       });
     });

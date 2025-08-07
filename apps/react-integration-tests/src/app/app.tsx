@@ -7,12 +7,14 @@ import { ARHPatternFlyChatbot } from './ARHPatternFlyChatbot';
 import { ARHPatternFlyReplica } from './ARHPatternFlyReplica';
 import { LightSpeedChatbot } from './LightSpeedChatbot';
 import { ClientSwitcher, ClientInfo } from './ClientSwitcher';
+import AnsibleLightspeedChatbot from './AnsibleLightspeedChatbot';
 
 type ClientType =
   | 'arh-vanilla'
   | 'arh-patternfly'
   | 'arh-replica'
-  | 'lightspeed';
+  | 'lightspeed'
+  | 'ansible-lightspeed';
 
 export function App() {
   const [activeClient, setActiveClient] = useState<ClientType>('arh-vanilla');
@@ -38,6 +40,11 @@ export function App() {
       name: 'Lightspeed',
       description: 'Vanilla JS wrapper using Lightspeed client',
     },
+    {
+      id: 'ansible-lightspeed',
+      name: 'Ansible Lightspeed',
+      description: 'Ansible Lightspeed chatbot using Ansible Lightspeed client',
+    },
   ];
 
   const activeClientComponent = useMemo(() => {
@@ -50,6 +57,8 @@ export function App() {
         return <ARHPatternFlyReplica />;
       case 'lightspeed':
         return <LightSpeedChatbot />;
+      case 'ansible-lightspeed':
+        return <AnsibleLightspeedChatbot />;
       default:
         return <ARHVanillaChatbot />;
     }
