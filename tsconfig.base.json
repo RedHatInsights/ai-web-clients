@@ -28,7 +28,10 @@
       "@redhat-cloud-services/arh-client": ["packages/arh-client/src/index.ts"],
       "@redhat-cloud-services/lightspeed-client": [
         "packages/lightspeed-client/src/index.ts",   
-      ]
+      ],
+      "@redhat-cloud-services/ansible-lightspeed-client": [
+        "packages/ansible-lightspeed/src/index.ts"
+      ],
     }
   },
   "exclude": ["node_modules", "tmp"]
