@@ -9,11 +9,15 @@ export default defineConfig(() => ({
   cacheDir: '../../node_modules/.vite/apps/react-integration-tests',
   server: {
     port: 4200,
-    host: '127.0.0.1',
-  },
-  preview: {
-    port: 4200,
-    host: '127.0.0.1',
+    proxy: {
+      '/v1': 'http://localhost:8321',
+      '/ansible-lightspeed': {
+        target: 'http://localhost:8321',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/ansible-lightspeed/, '/api'),
+      },
+    },
   },
   plugins: [react(), nxViteTsPaths(), nxCopyAssetsPlugin(['*.md'])],
   // Uncomment this if you are using workers.

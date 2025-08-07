@@ -1,0 +1,83 @@
+/* Client Switcher Styles */
+.client-switcher {
+  margin-top: 2rem;
+  margin-bottom: 2rem;
+}
+
+.client-switcher__title {
+  margin-bottom: 1rem;
+  font-size: 1.25rem;
+  font-weight: bold;
+}
+
+.client-switcher__tabs {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+/* Client Tab Styles */
+.client-tab {
+  padding: 0.75rem 1.5rem;
+  border: 2px solid #d2d2d2;
+  border-radius: 8px;
+  background-color: #ffffff;
+  color: #151515;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  box-shadow: none;
+}
+
+.client-tab:hover {
+  border-color: #0066cc;
+  background-color: #f0f7ff;
+}
+
+.client-tab--active {
+  border-color: #0066cc;
+  background-color: #0066cc;
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 2px 4px rgba(0, 102, 204, 0.2);
+}
+
+.client-tab--active:hover {
+  border-color: #0066cc;
+  background-color: #0066cc;
+}
+
+.client-tab__name {
+  display: block;
+}
+
+.client-tab__description {
+  font-size: 0.75rem;
+  opacity: 0.8;
+  margin-top: 0.25rem;
+}
+
+/* Client Container Styles */
+.client-container {
+  margin-top: 2rem;
+}
+
+.client-container__content {
+  border: 1px solid var(--pf-t--global--border--color--default);
+  border-radius: var(--pf-t--global--border--radius--medium);
+  padding: 1.5rem;
+  background-color: var(--pf-t--global--background--color--primary--default);
+  min-height: 600px;
+}
+
+/* App Layout Styles */
+.app-root {
+  padding: 1rem;
+}
+
+.app-heading {
+  margin-bottom: 1rem;
+  font-size: 1.75rem;
+  font-weight: bold;
+}
