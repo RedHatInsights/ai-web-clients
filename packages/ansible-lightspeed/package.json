@@ -1,11 +1,11 @@
 {
   "name": "@redhat-cloud-services/ansible-lightspeed",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "commonjs",
   "main": "./src/index.js",
   "types": "./src/index.d.ts",
   "dependencies": {
-    "@redhat-cloud-services/ai-client-common": "0.7.0"
+    "@redhat-cloud-services/ai-client-common": "0.8.0"
   },
   "publishConfig": {
     "access": "public"
