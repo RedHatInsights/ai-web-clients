@@ -36,9 +36,12 @@ const conversation = await client.createConversation();
 const response = await client.sendMessage(conversation.conversation_id, 'What is Red Hat OpenShift?');
 console.log('Response:', response.answer);
 
-// Send a streaming message (requires client with default streaming handler)
+// Send a streaming message (requires afterChunk callback)
 await client.sendMessage(conversation.conversation_id, 'Tell me more about OpenShift features', {
-  stream: true
+  stream: true,
+  afterChunk: (response) => {
+    console.log('Streaming response:', response.answer);
+  }
 });
 ```
 
@@ -58,13 +61,14 @@ import { IFDClient } from '@redhat-cloud-services/arh-client';
 
 const client = new IFDClient({
   baseUrl: 'https://your-ifd-api.com',
-  fetchFunction: (input, init) => fetch(input, init)
+  fetchFunction: (input, init) => fetch(input, init),
+  initOptions: {
+    initializeNewConversation: false  // Optional: See ai-client-common docs
+  }
 });
 ```
 
 ### Authenticated Configuration
-
-**Note**: `createAuthenticatedFetch` exists in examples but is not exported from the public API. Use arrow functions for authentication:
 
 ```typescript
 import { IFDClient } from '@redhat-cloud-services/arh-client';
@@ -178,11 +182,13 @@ const client = new IFDClient({
   defaultStreamingHandler: new DefaultStreamingHandler()
 });
 
+// Streaming requires an afterChunk callback
 await client.sendMessage(conversation.conversation_id, 'Tell me about OpenShift features', {
-  stream: true
+  stream: true,
+  afterChunk: (response) => {
+    console.log('Received chunk:', response.answer);
+  }
 });
-
-// The streaming handler processes chunks automatically
 ```
 
 ### User Management
@@ -240,9 +246,15 @@ import { DefaultStreamingHandler } from '@redhat-cloud-services/arh-client';
 
 const streamHandler = new DefaultStreamingHandler();
 
-await client.sendMessage(conversationId, 'Your question', { stream: true });
-
-// Streaming is handled automatically by the configured handler
+// Streaming requires an afterChunk callback
+await client.sendMessage(conversationId, 'Your question', { 
+  stream: true,
+  afterChunk: (response) => {
+    // Process the streaming response
+    console.log('Answer:', response.answer);
+    console.log('Sources:', response.additionalAttributes?.sources);
+  }
+});
 ```
 
 ### Custom Streaming Handler
@@ -293,7 +305,7 @@ class CustomStreamingHandler implements IStreamingHandler<MessageChunkResponse> 
 import { IFDApiError, IFDValidationError } from '@redhat-cloud-services/arh-client';
 
 try {
-  const response = await client.sendMessage(conversationId, { input: 'test' });
+  const response = await client.sendMessage(conversationId, 'test');
 } catch (error) {
   if (error instanceof IFDValidationError) {
     console.log('Validation errors:', error.validationErrors);
@@ -354,7 +366,12 @@ export function useIFDStreaming(client: IFDClient) {
     };
 
     try {
-      await client.sendMessage(conversationId, input, { stream: true });
+      await client.sendMessage(conversationId, input, { 
+        stream: true,
+        afterChunk: (response) => {
+          setMessage(response.answer);
+        }
+      });
     } catch (err) {
       setError(err as Error);
       setIsStreaming(false);
@@ -373,7 +390,12 @@ export function useIFDStreaming(client: IFDClient) {
 // Conversations
 await client.createConversation();
 await client.sendMessage(conversationId, 'your message');
-await client.sendMessage(conversationId, 'streaming message', { stream: true });
+await client.sendMessage(conversationId, 'streaming message', { 
+  stream: true,
+  afterChunk: (response) => {
+    console.log('Streaming:', response.answer);
+  }
+});
 await client.getConversationHistory(conversationId);
 
 // Feedback
@@ -405,6 +427,9 @@ interface IFDClientConfig {
   
   // Optional: Default streaming handler for stream: true requests
   defaultStreamingHandler?: IStreamingHandler<MessageChunkResponse>;
+  
+  // Optional: Initialization options (see ai-client-common docs)
+  initOptions?: ClientInitOptions;
 }
 ```
 
@@ -428,15 +453,53 @@ All API types are exported for use in your application:
 
 ```typescript
 import { 
-  MessageRequest,
+  // Core response types
   MessageChunkResponse,
+  NewConversationResponse,
   ConversationHistoryResponse,
   UserResponse,
   QuotaStatusResponse,
-  DefaultStreamingHandler,
+  UserHistoryResponse,
+  MessageFeedbackResponse,
+  HealthCheck,
+  StatusChecks,
+  
+  // Request types
+  MessageRequest,
+  MessageFeedbackRequest,
+  UserRequest,
+  
+  // Data types
+  AnswerSource,
+  ToolCallMetadata,
+  OutputGuardResult,
+  ValidationError,
+  ConversationHistoryMessage,
+  UserHistoryItem,
+  ConversationQuotaStatus,
+  MessageQuotaStatus,
+  IFDAdditionalAttributes,
+  
+  // Streaming types
   StreamingMessageChunk,
+  ProcessedMessage,
+  TransformedSource,
+  MessageExtraContentMetadata,
+  
+  // Error types
   IFDApiError,
-  IFDValidationError
+  IFDValidationError,
+  
+  // Handlers and utilities
+  DefaultStreamingHandler,
+  processStreamWithHandler,
+  isEmpty,
+  isString,
+  isObject,
+  
+  // Configuration
+  IFDClientConfig,
+  RequestOptions
 } from '@redhat-cloud-services/arh-client';
 ```
 

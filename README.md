@@ -22,6 +22,13 @@ OpenShift Lightspeed API TypeScript client with comprehensive feature support.
 - **Status**: Production ready  
 - **Usage**: `npm install @redhat-cloud-services/lightspeed-client`
 
+#### [@redhat-cloud-services/ansible-lightspeed](packages/ansible-lightspeed/)
+Ansible Lightspeed API TypeScript client with dependency injection support.
+
+- **Features**: Complete Ansible Lightspeed API, streaming, conversation management, health checks
+- **Status**: Production ready
+- **Usage**: `npm install @redhat-cloud-services/ansible-lightspeed`
+
 ### 🧠 State Management
 
 #### [@redhat-cloud-services/ai-client-common](packages/ai-client-common/)
@@ -80,12 +87,16 @@ const client = new IFDClient({
   fetchFunction: (input, init) => fetch(input, init)
 });
 
-const conversation = await client.createConversation();
-const response = await client.sendMessage(conversation.conversation_id, 'Hello AI!');
+const result = await client.init();
+const conversationId = result.initialConversationId;
+const response = await client.sendMessage(conversationId, 'Hello AI!');
 
-// Streaming usage
-await client.sendMessage(conversation.conversation_id, 'Tell me about containers', {
-  stream: true
+// Streaming usage (requires afterChunk callback)
+await client.sendMessage(conversationId, 'Tell me about containers', {
+  stream: true,
+  afterChunk: (response) => {
+    console.log('Streaming response:', response.answer);
+  }
 });
 ```
 
@@ -113,7 +124,7 @@ await stateManager.setActiveConversationId('conversation-123');
 const newConversation = await stateManager.createNewConversation();
 ```
 
-### 4. Advanced Conversation Management
+### 3. Advanced Conversation Management
 
 ```typescript
 import { createClientStateManager, Events } from '@redhat-cloud-services/ai-client-state';
@@ -145,7 +156,7 @@ const unsubscribe = stateManager.subscribe(Events.MESSAGE, () => {
 });
 ```
 
-### 3. React Integration with Conversation Management
+### 4. React Integration with Conversation Management
 
 ```tsx
 import React from 'react';
@@ -214,7 +225,7 @@ function ChatApp() {
 }
 ```
 
-### 4. Full React Examples
+### 5. Full React Examples
 
 #### Option A: Initialize Outside React Scope (Recommended)
 
@@ -320,29 +331,15 @@ function ChatInterface() {
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                     Your Application                    │
-├─────────────────────────────────────────────────────────┤
-│  @redhat-cloud-services/ai-react-state                  │
-│  • useMessages, useSendMessage, useConversations        │
-│  • useActiveConversation, useCreateNewConversation      │
-├─────────────────────────────────────────────────────────┤
-│  @redhat-cloud-services/ai-client-state                 │
-│  • Multi-conversation management                        │
-│  • Event-driven state updates                           │
-│  • Message streaming integration                        │
-├─────────────────────────────────────────────────────────┤
-│          AI Client Implementation                       │
-│  ┌─────────────────────┐  ┌─────────────────────────┐   │
-│  │   arh-client        │  │   lightspeed-client     │   │
-│  │   (IFD API)         │  │   (Lightspeed API)      │   │
-│  └─────────────────────┘  └─────────────────────────┘   │
-├─────────────────────────────────────────────────────────┤
-│  @redhat-cloud-services/ai-client-common (Interfaces)   │
-│  • IAIClient interface, Error classes, Types            │
-└─────────────────────────────────────────────────────────┘
-```
+| Layer | Package | Purpose |
+|-------|---------|---------|
+| **Application** | Your React/JS App | Frontend application using AI capabilities |
+| **React Hooks** | `ai-react-state` | React hooks: `useMessages`, `useSendMessage`, `useConversations`, `useActiveConversation` |
+| **State Management** | `ai-client-state` | Multi-conversation management, event-driven updates, streaming integration |
+| **AI Clients** | `arh-client` | Intelligent Front Door (IFD) API client |
+| | `lightspeed-client` | OpenShift Lightspeed API client |
+| | `ansible-lightspeed` | Ansible Lightspeed API client |
+| **Foundation** | `ai-client-common` | `IAIClient` interface, error classes, shared types |
 
 ## Key Benefits
 
@@ -360,7 +357,8 @@ function ChatInterface() {
 ```
 ai-client-common (foundation)
 ├── arh-client
-├── lightspeed-client  
+├── lightspeed-client
+├── ansible-lightspeed
 ├── ai-client-state
 │   └── ai-react-state
 └── [your-custom-client]

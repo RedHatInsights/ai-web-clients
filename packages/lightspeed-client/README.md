@@ -27,19 +27,26 @@ import { LightspeedClient } from '@redhat-cloud-services/lightspeed-client';
 // Initialize the client
 const client = new LightspeedClient({
   baseUrl: 'https://your-lightspeed-api.com',
-  fetchFunction: (input, init) => fetch(input, init) // Use arrow function to preserve context
+  fetchFunction: (input, init) => fetch(input, init), // Use arrow function to preserve context
+  initOptions: {
+    initializeNewConversation: false  // Optional: See ai-client-common docs
+  }
 });
 
-// Start a conversation
-const conversationId = await client.init();
+// Initialize the client
+const result = await client.init();
+const conversationId = result.initialConversationId;
 
 // Send a message
 const response = await client.sendMessage(conversationId, 'How do I deploy a pod in OpenShift?');
 console.log(response.answer);
 
-// Stream a response
+// Stream a response (requires afterChunk callback)
 await client.sendMessage(conversationId, 'Tell me about OpenShift networking', {
-  stream: true
+  stream: true,
+  afterChunk: (response) => {
+    console.log('Streaming response:', response.answer);
+  }
 });
 ```
 
@@ -59,6 +66,7 @@ interface LightspeedClientConfig {
   baseUrl: string;
   fetchFunction: IFetchFunction;
   defaultStreamingHandler?: IStreamingHandler<MessageChunkResponse>;
+  initOptions?: ClientInitOptions; // See ai-client-common docs for details
 }
 ```
 
@@ -74,20 +82,27 @@ interface LightspeedClientConfig {
 The LightspeedClient implements the same `IAIClient` interface as other AI clients in this workspace:
 
 ```typescript
-// Initialize conversation
-const conversationId = await client.init();
+// Initialize client
+const result = await client.init();
+const conversationId = result.initialConversationId;
 
 // Send non-streaming message
 const response = await client.sendMessage(conversationId, 'How do I deploy a pod in OpenShift?');
 
-// Send streaming message (requires default streaming handler configured)
-await client.sendMessage(conversationId, 'Tell me about OpenShift networking', { stream: true });
+// Send streaming message (requires afterChunk callback)
+await client.sendMessage(conversationId, 'Tell me about OpenShift networking', { 
+  stream: true,
+  afterChunk: (response) => {
+    console.log('Answer:', response.answer);
+  }
+});
 
 // Get conversation history
 const history = await client.getConversationHistory(conversationId);
 
-// Health check
-await client.healthCheck();
+// Health checks
+await client.healthCheck(); // Combines readiness and liveness checks
+await client.getServiceStatus();
 ```
 
 ## Conversation Management
@@ -130,15 +145,98 @@ try {
 } catch (error) {
   if (error instanceof LightspeedValidationError) {
     console.error('Validation errors:', error.validationErrors);
+    error.validationErrors.forEach(validationError => {
+      console.log(`Field: ${validationError.loc.join('.')}`);
+      console.log(`Message: ${validationError.msg}`);
+      console.log(`Type: ${validationError.type}`);
+    });
   } else if (error instanceof LightspeedClientError) {
     console.error(`API Error ${error.status}: ${error.message}`);
+    console.error('Response:', error.response);
   }
 }
 ```
 
-## Documentation
+## Available Methods
 
-See [USAGE.md](./USAGE.md) for detailed usage examples and API documentation.
+```typescript
+// Core client methods
+await client.init();
+await client.sendMessage(conversationId, message, options);
+await client.getConversationHistory(conversationId);
+await client.createNewConversation();
+
+// Health checks
+await client.healthCheck(); // Combines readiness and liveness checks
+await client.getServiceStatus();
+
+// Feedback and authorization
+await client.storeFeedback(feedback);
+await client.checkAuthorization(userId);
+
+// Metrics
+await client.getMetrics();
+```
+
+## TypeScript Types
+
+All API types are exported for use in your application:
+
+```typescript
+import {
+  // Core types
+  LLMRequest,
+  LLMResponse,
+  MessageChunkResponse,
+  FeedbackRequest,
+  FeedbackResponse,
+  StatusResponse,
+  AuthorizationResponse,
+  ReadinessResponse,
+  LivenessResponse,
+  HealthCheck,
+  
+  // Data types
+  Attachment,
+  LightSpeedCoreAdditionalProperties,
+  
+  // Error types
+  LightspeedClientError,
+  LightspeedValidationError,
+  
+  // Handlers
+  DefaultStreamingHandler,
+  processStreamWithHandler,
+  
+  // Configuration
+  LightspeedClientConfig,
+  RequestOptions
+} from '@redhat-cloud-services/lightspeed-client';
+```
+
+## Compatible Packages
+
+Works seamlessly with:
+
+- **[@redhat-cloud-services/ai-client-state](../ai-client-state)** - State management for AI conversations
+- **[@redhat-cloud-services/ai-react-state](../ai-react-state)** - React hooks and context provider
+- **[@redhat-cloud-services/ai-client-common](../ai-client-common)** - Common interfaces and utilities
+
+## Building
+
+Run `nx build lightspeed-client` to build the library.
+
+## Running unit tests
+
+Run `nx test lightspeed-client` to execute the unit tests via [Jest](https://jestjs.io).
+
+## Development
+
+This package follows the workspace standards:
+- Dependency injection for all external dependencies
+- Comprehensive error handling with custom error classes
+- TypeScript strict mode with no `any` types
+- Zero runtime dependencies for optimal performance
 
 ## License
 

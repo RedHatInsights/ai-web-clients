@@ -176,12 +176,43 @@ The state manager supports conversation locking to prevent users from sending me
 - **Client integration** allows AI clients to determine lock status based on their data
 - **Event system** properly handles locked conversation scenarios
 
+## Lazy Conversation Initialization
+
+The state manager supports lazy conversation initialization, controlled by the AI client's `initOptions.initializeNewConversation` setting. This feature is documented in the [@redhat-cloud-services/ai-client-common](../ai-client-common#lazy-conversation-initialization) package.
+
+### State Manager Behavior
+
+**When initializeNewConversation: true (default):**
+```typescript
+const stateManager = createClientStateManager(client);
+await stateManager.init(); // Creates/loads conversations immediately
+// Ready to send messages to the active conversation
+```
+
+**When initializeNewConversation: false:**
+```typescript
+// Client configured with lazy initialization
+const client = new AIClient({
+  baseUrl: 'https://api.example.com',
+  fetchFunction: customFetch,
+  initOptions: { initializeNewConversation: false }
+});
+
+const stateManager = createClientStateManager(client);
+await stateManager.init(); // No conversations created
+
+// Conversation automatically created on first message
+await stateManager.sendMessage('Hello'); // Creates conversation internally
+```
+
+The state manager automatically handles conversation creation when needed, ensuring users can always send messages regardless of the initialization setting.
+
 ## API Reference
 
 ### StateManager Interface
 
 ```typescript
-export interface StateManager<T extends Record<string, unknown> = Record<string, unknown>> {
+export type StateManager<T extends Record<string, unknown> = Record<string, unknown>> = {
   // Initialization
   init(): Promise<void>;
   isInitialized(): boolean;
@@ -189,6 +220,7 @@ export interface StateManager<T extends Record<string, unknown> = Record<string,
   
   // Conversation Management
   setActiveConversationId(conversationId: string): Promise<void>;
+  getActiveConversationId(): string | null;
   getActiveConversationMessages(): Message<T>[];
   getConversations(): Conversation<T>[];
   createNewConversation(): Promise<IConversation>;
@@ -202,6 +234,9 @@ export interface StateManager<T extends Record<string, unknown> = Record<string,
   
   // Event System
   subscribe(event: Events, callback: () => void): () => void;
+  
+  // Client Access
+  getClient(): IAIClient<T>;
 }
 
 export type UserQuery = string;

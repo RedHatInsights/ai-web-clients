@@ -26,23 +26,35 @@ npm install @redhat-cloud-services/ai-client-common
 All AI clients in this workspace implement the `IAIClient` interface:
 
 ```typescript
-import { IAIClient } from '@redhat-cloud-services/ai-client-common';
+import { IAIClient, ClientInitLimitation, IInitErrorResponse } from '@redhat-cloud-services/ai-client-common';
 
-interface IAIClient<AP extends Record<string, unknown> = Record<string, unknown>> {
+interface IAIClient<AP extends Record<string, unknown> = Record<string, unknown>, TChunk = unknown> {
+  constructor(config: IBaseClientConfig<TChunk>);
+  
   init(): Promise<{
     initialConversationId: string;
     conversations: IConversation[];
+    limitation?: ClientInitLimitation;
+    error?: IInitErrorResponse;
   }>;
+  
   sendMessage<TChunk = unknown, T extends Record<string, unknown> = Record<string, unknown>>(
     conversationId: string, 
     message: string, 
     options?: ISendMessageOptions<T>
   ): Promise<TChunk | IMessageResponse<AP> | void>;
-  getDefaultStreamingHandler?<TChunk = unknown>(): IStreamingHandler<TChunk> | undefined;
+  
+  getDefaultStreamingHandler<TChunk = unknown>(): IStreamingHandler<TChunk> | undefined;
+  
   getConversationHistory(conversationId: string, options?: IRequestOptions): Promise<IConversationHistoryResponse<AP>>;
+  
   healthCheck(options?: IRequestOptions): Promise<unknown>;
+  
   getServiceStatus?(options?: IRequestOptions): Promise<unknown>;
+  
   createNewConversation(): Promise<IConversation>;
+  
+  getInitOptions(): ClientInitOptions;
 }
 ```
 
@@ -77,9 +89,63 @@ import { IBaseClientConfig } from '@redhat-cloud-services/ai-client-common';
 
 const config: IBaseClientConfig = {
   baseUrl: 'https://your-ai-service.com',
-  fetchFunction: customFetch,
-  defaultStreamingHandler: new CustomStreamingHandler()
+  fetchFunction: customFetch, // Optional - defaults to native fetch
+  defaultStreamingHandler: new CustomStreamingHandler(), // Optional
+  initOptions: {
+    initializeNewConversation: false  // Optional: See "Lazy Conversation Initialization"
+  }
 };
+```
+
+#### Lazy Conversation Initialization
+
+The `ClientInitOptions` interface provides control over when conversations are created during client initialization.
+
+```typescript
+import { ClientInitOptions } from '@redhat-cloud-services/ai-client-common';
+
+interface ClientInitOptions {
+  /**
+   * Controls whether to automatically create a conversation during client initialization
+   * @default true
+   */
+  initializeNewConversation?: boolean;
+}
+```
+
+**Default Behavior (initializeNewConversation: true):**
+- Client automatically creates/finds a conversation during `init()`
+- Provides immediate conversation for users to start chatting
+- Suitable for most chat interfaces
+
+**Lazy Initialization (initializeNewConversation: false):**
+- Client initializes without creating conversations  
+- Conversations created only when needed (e.g., first message sent)
+- Useful for performance optimization and conditional conversation creation
+
+All AI clients implementing `IAIClient` provide this configuration via the `getInitOptions()` method.
+
+### Client Initialization Responses
+
+The `init()` method returns additional information about client limitations and errors:
+
+```typescript
+import { ClientInitLimitation, IInitErrorResponse } from '@redhat-cloud-services/ai-client-common';
+
+// Client limitations (e.g., quota exceeded)
+type ClientInitLimitation = {
+  reason: string;
+  detail?: string;
+};
+
+// Initialization errors
+interface IInitErrorResponse {
+  message: string;
+  status: number;
+}
+
+// Utility function to check if an object is an IInitErrorResponse
+function isInitErrorResponse(obj: unknown): obj is IInitErrorResponse;
 ```
 
 ### Streaming Support
@@ -220,7 +286,8 @@ interface IConversation {
 This package provides the foundation for:
 
 - **[@redhat-cloud-services/arh-client](../arh-client)** - Intelligent Front Door (IFD) API client
-- **[@redhat-cloud-services/lightspeed-client](../lightspeed-client)** - OpenShift Lightspeed API client  
+- **[@redhat-cloud-services/lightspeed-client](../lightspeed-client)** - OpenShift Lightspeed API client
+- **[@redhat-cloud-services/ansible-lightspeed](../ansible-lightspeed)** - Ansible Lightspeed API client
 - **[@redhat-cloud-services/ai-client-state](../ai-client-state)** - State management for AI conversations
 - **[@redhat-cloud-services/ai-react-state](../ai-react-state)** - React hooks and context for AI state
 

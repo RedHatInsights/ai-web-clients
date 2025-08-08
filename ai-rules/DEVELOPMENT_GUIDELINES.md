@@ -156,6 +156,25 @@ cd packages/project && npm test  # Bypasses NX configuration
    - No hypothetical or "could work" examples
    - Update documentation immediately when public APIs change
 
+6. **Source Code Audit Patterns** (CRITICAL)
+   - **ALWAYS verify exports** - Check that documented imports match actual exports in index.ts files
+   - **Verify method signatures** - Ensure documented method calls match actual implementations
+   - **Check return types** - Document actual return structures, not assumed ones
+   - **Source code is source of truth** - When documentation conflicts with implementation, update docs to match code
+
+7. **AI Client Documentation Patterns** (CRITICAL)
+   - **Streaming requirements** - All streaming examples MUST include `afterChunk` callback requirement
+   - **Init method structure** - Document that `client.init()` returns `{ initialConversationId, conversations }`, not just a string
+   - **fetchFunction patterns** - Always show arrow function usage: `fetchFunction: (input, init) => fetch(input, init)`
+   - **Health check methods** - Verify actual method names per client (e.g., `healthCheck()` vs `livenessCheck()`)
+   - **Configuration interfaces** - Document actual interface shapes, including optional properties like `initOptions`
+
+8. **Type Export Documentation** (CRITICAL)
+   - **Verify all TypeScript imports** - Ensure every type in documentation examples is actually exported
+   - **Group exports logically** - Separate core types, data types, error types, handlers, and configuration in examples
+   - **Check implementation types** - Don't document types that exist in source but aren't exported
+   - **Update interface examples** - When interfaces change, update ALL documentation examples that reference them
+
 ### **Quality Gates**
 
 1. **Pre-commit Hooks** (via Husky)

@@ -254,6 +254,171 @@ describe('Real Mock Server Integration Tests', () => {
 - Clear error messages when server is not running
 - Tests real streaming behavior, not mocked responses
 
+### **Mock Server vs Mocked Fetch: Best Practices**
+
+**TL;DR**: Use mock servers for integration tests, mocked fetch only for isolated unit tests.
+
+#### **When to Prefer Mock Servers Over Mocked Fetch**
+
+Based on practical experience, mock servers should be strongly preferred over mocked fetch functions for integration tests:
+
+**✅ Prefer Mock Servers When:**
+- Testing integration flows that involve multiple API calls
+- Testing state manager + client interactions
+- Testing conversation flows (create → setActive → sendMessage)
+- Testing streaming functionality
+- When the test requires realistic HTTP behavior
+
+**❌ Avoid Mocked Fetch When:**
+- Multiple sequential API calls are required
+- Complex conversation setup is involved
+- Network timing and behavior matter for the test
+- Tests become unreliable due to mock sequencing issues
+
+#### **Common Mocked Fetch Problems**
+
+```typescript
+// ❌ PROBLEMATIC: Complex mock sequences are fragile
+mockFetch
+  .mockResolvedValueOnce(historyResponse)  // Call 1: getConversationHistory
+  .mockResolvedValueOnce(sendResponse);    // Call 2: sendMessage
+  
+// If any internal call changes order, the entire test breaks
+await stateManager.setActiveConversationId(conversationId);
+await stateManager.sendMessage(userMessage);
+```
+
+```typescript
+// ✅ BETTER: Use mock server for reliable integration tests
+const mockServerBaseUrl = 'http://localhost:3001';
+const realClient = new IFDClient({ baseUrl: mockServerBaseUrl });
+const realStateManager = createClientStateManager(realClient);
+
+// Create conversation first (required by mock server)
+const conversation = await realClient.createConversation();
+await realStateManager.setActiveConversationId(conversation.conversation_id);
+
+// Test actual functionality with real HTTP calls
+const response = await realStateManager.sendMessage('Test message');
+```
+
+#### **Required Pattern for Mock Server Integration Tests**
+
+**CRITICAL**: Always create conversations first when using mock servers:
+
+```typescript
+// ✅ CORRECT: Create conversation before setting active
+const conversation = await realClient.createConversation();
+await realStateManager.setActiveConversationId(conversation.conversation_id);
+
+// ❌ WRONG: Setting arbitrary conversation IDs fails
+await realStateManager.setActiveConversationId('conv-arbitrary-123'); // 404 error
+```
+
+#### **Error Injection with Mock Servers**
+
+Use request headers in the `sendMessage` options parameter for targeted error injection:
+
+```typescript
+// ✅ Targeted error injection using sendMessage options
+await expect(
+  realStateManager.sendMessage('Error message', {
+    headers: {
+      'x-mock-server-error': 'true',     // Triggers 500 response
+      'x-mock-error-message': 'Custom error text'
+    },
+  })
+).rejects.toThrow();
+
+// ✅ Streaming error injection
+await expect(
+  realStateManager.sendMessage('Stream error', {
+    headers: {
+      'x-mock-error-after-chunks': '0',  // Immediate error
+      'x-mock-error-message': 'Streaming error'
+    },
+  })
+).rejects.toThrow();
+```
+
+#### **Migration Strategy: Mocked Fetch → Mock Server**
+
+When converting existing mocked fetch tests to mock server tests:
+
+1. **Replace client setup**:
+   ```typescript
+   // Before
+   const mockFetch = jest.fn();
+   const client = new IFDClient({ baseUrl: 'https://api.test.com', fetchFunction: mockFetch });
+   
+   // After  
+   const realClient = new IFDClient({ baseUrl: 'http://localhost:3001' });
+   ```
+
+2. **Add conversation creation**:
+   ```typescript
+   // Add this before setActiveConversationId
+   const conversation = await realClient.createConversation();
+   await realStateManager.setActiveConversationId(conversation.conversation_id);
+   ```
+
+3. **Update assertions to be flexible**:
+   ```typescript
+   // Before: Exact mock values
+   expect(response.messageId).toBe('msg-123');
+   
+   // After: Flexible real values
+   expect(response.messageId).toBeDefined();
+   expect(response.answer).toBeDefined();
+   ```
+
+4. **Remove all mockFetch setup and cleanup**
+
+#### **When to Keep Mocked Fetch (Unit Tests)**
+
+Mocked fetch is still appropriate for true unit tests:
+
+```typescript
+// ✅ GOOD: Unit test with mocked fetch for isolated testing
+describe('IFDClient Unit Tests', () => {
+  let mockFetch: jest.MockedFunction<typeof fetch>;
+  let client: IFDClient;
+
+  beforeEach(() => {
+    mockFetch = jest.fn();
+    client = new IFDClient({
+      baseUrl: 'https://api.test.com',
+      fetchFunction: mockFetch
+    });
+  });
+
+  it('should handle HTTP 500 errors correctly', async () => {
+    mockFetch.mockResolvedValue({
+      ok: false,
+      status: 500,
+      statusText: 'Internal Server Error',
+      text: async () => 'Server error'
+    } as Response);
+
+    await expect(client.sendMessage('conv-123', 'Hello'))
+      .rejects.toThrow('API request failed: 500 Internal Server Error');
+  });
+});
+```
+
+**Use mocked fetch for:**
+- Testing specific error conditions and edge cases
+- Testing client method behavior in isolation
+- Testing error handling logic
+- When you need precise control over response timing and values
+- Unit tests that focus on a single class/method
+
+**Use mock servers for:**
+- Integration tests involving multiple components
+- Testing realistic request/response flows
+- Testing conversation management across multiple API calls
+- When testing state management + client interactions
+
 ### **Unit Testing Patterns**
 
 #### **Client Testing**
