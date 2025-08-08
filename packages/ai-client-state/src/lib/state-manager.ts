@@ -137,6 +137,7 @@ export function createClientStateManager<
     state.isInitializing = true;
     notify(Events.IN_PROGRESS);
     notify(Events.INITIALIZING_MESSAGES);
+    const initOptions = client.getInitOptions();
 
     try {
       // Call the client's init method to get the initial conversation ID
@@ -156,40 +157,40 @@ export function createClientStateManager<
       });
       notify(Events.CONVERSATIONS);
 
-      // Set the initial conversation as the active conversation
-      state.activeConversationId = initialConversationId;
+      if (initOptions.initializeNewConversation) {
+        // Set the initial conversation as the active conversation
+        state.activeConversationId = initialConversationId;
+        // Create the initial conversation if it doesn't exist
+        if (!state.conversations[initialConversationId]) {
+          initializeConversationState(initialConversationId);
+        }
+        let messages: Message<T>[] = [];
+        if (initialConversationId) {
+          const history = await client.getConversationHistory(
+            initialConversationId
+          );
+          messages = (Array.isArray(history) ? history : []).reduce(
+            (acc, historyMessage) => {
+              const humanMessage: Message<T> = {
+                id: historyMessage.message_id,
+                answer: historyMessage.input,
+                role: 'user',
+              };
+              const botMessage: Message<T> = {
+                id: historyMessage.message_id,
+                answer: historyMessage.answer,
+                role: 'bot',
+                additionalAttributes: historyMessage.additionalAttributes,
+              };
+              acc.push(humanMessage, botMessage);
+              return acc;
+            },
+            [] as Message<T>[]
+          );
+        }
 
-      // Create the initial conversation if it doesn't exist
-      if (!state.conversations[initialConversationId]) {
-        initializeConversationState(initialConversationId);
+        state.conversations[initialConversationId].messages = messages;
       }
-
-      let messages: Message<T>[] = [];
-      if (initialConversationId) {
-        const history = await client.getConversationHistory(
-          initialConversationId
-        );
-        messages = (Array.isArray(history) ? history : []).reduce(
-          (acc, historyMessage) => {
-            const humanMessage: Message<T> = {
-              id: historyMessage.message_id,
-              answer: historyMessage.input,
-              role: 'user',
-            };
-            const botMessage: Message<T> = {
-              id: historyMessage.message_id,
-              answer: historyMessage.answer,
-              role: 'bot',
-              additionalAttributes: historyMessage.additionalAttributes,
-            };
-            acc.push(humanMessage, botMessage);
-            return acc;
-          },
-          [] as Message<T>[]
-        );
-      }
-
-      state.conversations[initialConversationId].messages = messages;
 
       state.isInitialized = true;
       state.isInitializing = false;
@@ -315,6 +316,22 @@ export function createClientStateManager<
     // Set message in progress
     state.messageInProgress = true;
     notify(Events.IN_PROGRESS);
+
+    if (client.getInitOptions().initializeNewConversation === false) {
+      // If the client is not configured to auto-create conversations,
+      // we need to ensure the active conversation exists
+      if (!state.activeConversationId) {
+        try {
+          await createNewConversation();
+        } catch (error) {
+          // unable to create a new conversation, reset in-progress state
+          state.messageInProgress = false;
+          notify(Events.IN_PROGRESS);
+          // TODO create error state and event
+          console.error('Failed to create new conversation:', error);
+        }
+      }
+    }
 
     try {
       // Ensure we have an active conversation
@@ -460,7 +477,7 @@ export function createClientStateManager<
     notify(Events.INITIALIZING_MESSAGES);
     const newConversation = await client.createNewConversation();
     initializeConversationState(newConversation.id);
-    setActiveConversationId(newConversation.id);
+    await setActiveConversationId(newConversation.id);
     notifyAll();
 
     return newConversation;

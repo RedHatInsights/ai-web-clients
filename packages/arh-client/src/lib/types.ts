@@ -152,4 +152,5 @@ export type IFDAdditionalAttributes = {
   sources?: AnswerSource[];
   tool_call_metadata?: ToolCallMetadata | null | undefined;
   output_guard_result?: OutputGuardResult | null | undefined;
+  quota?: MessageQuotaStatus;
 };

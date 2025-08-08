@@ -21,6 +21,9 @@ describe('ClientStateManager', () => {
         locked: false,
       }),
       getServiceStatus: jest.fn(),
+      getInitOptions: jest.fn().mockReturnValue({
+        initializeNewConversation: true,
+      }),
     } as jest.Mocked<IAIClient>;
 
     stateManager = createClientStateManager(mockClient);
@@ -787,6 +790,113 @@ describe('ClientStateManager', () => {
 
       expect(stateManager.isInitialized()).toBe(true);
       expect(stateManager.isInitializing()).toBe(false);
+    });
+  });
+
+  describe('initializeNewConversation=false behavior', () => {
+    beforeEach(() => {
+      mockClient.getInitOptions = jest.fn().mockReturnValue({
+        initializeNewConversation: false,
+      });
+    });
+
+    it('should not initialize conversations during init when initializeNewConversation=false', async () => {
+      mockClient.init = jest.fn().mockResolvedValue({
+        initialConversationId: '',
+        conversations: [],
+      });
+
+      await stateManager.init();
+
+      const state = stateManager.getState();
+      expect(state.activeConversationId).toBeNull();
+      expect(Object.keys(state.conversations)).toHaveLength(0);
+      expect(mockClient.getConversationHistory).not.toHaveBeenCalled();
+    });
+
+    it('should create new conversation on first sendMessage when no active conversation', async () => {
+      mockClient.init = jest.fn().mockResolvedValue({
+        initialConversationId: '',
+        conversations: [],
+      });
+      mockClient.sendMessage = jest.fn().mockResolvedValue({
+        messageId: 'msg-1',
+        answer: 'Hello response',
+        conversationId: 'new-conv-auto',
+      });
+
+      await stateManager.init();
+
+      const userMessage = 'Hello';
+      const response = await stateManager.sendMessage(userMessage);
+
+      expect(mockClient.createNewConversation).toHaveBeenCalledTimes(1);
+      expect(response.messageId).toBe('msg-1');
+
+      const state = stateManager.getState();
+      expect(state.activeConversationId).toBe('new-conv');
+      expect(state.conversations['new-conv'].messages).toHaveLength(2);
+    });
+
+    it('should handle errors when failing to create conversation on sendMessage', async () => {
+      mockClient.init = jest.fn().mockResolvedValue({
+        initialConversationId: '',
+        conversations: [],
+      });
+      mockClient.createNewConversation = jest
+        .fn()
+        .mockRejectedValue(new Error('Failed to create conversation'));
+
+      await stateManager.init();
+
+      await expect(stateManager.sendMessage('Hello')).rejects.toThrow();
+
+      const state = stateManager.getState();
+      expect(state.messageInProgress).toBe(false);
+      expect(state.activeConversationId).toBeNull();
+    });
+
+    it('should not auto-create conversation if active conversation already exists', async () => {
+      mockClient.init = jest.fn().mockResolvedValue({
+        initialConversationId: '',
+        conversations: [],
+      });
+      mockClient.sendMessage = jest.fn().mockResolvedValue({
+        messageId: 'msg-1',
+        answer: 'Hello response',
+        conversationId: 'existing-conv',
+      });
+
+      await stateManager.init();
+      await stateManager.setActiveConversationId('existing-conv');
+
+      const userMessage = 'Hello';
+      await stateManager.sendMessage(userMessage);
+
+      expect(mockClient.createNewConversation).not.toHaveBeenCalled();
+      expect(mockClient.sendMessage).toHaveBeenCalledWith(
+        'existing-conv',
+        'Hello',
+        undefined
+      );
+    });
+
+    it('should still respect manual conversation creation', async () => {
+      mockClient.init = jest.fn().mockResolvedValue({
+        initialConversationId: '',
+        conversations: [],
+      });
+
+      await stateManager.init();
+
+      const newConversation = await stateManager.createNewConversation();
+
+      expect(newConversation.id).toBe('new-conv');
+      expect(mockClient.createNewConversation).toHaveBeenCalledTimes(1);
+
+      const state = stateManager.getState();
+      expect(state.activeConversationId).toBe('new-conv');
+      expect(state.conversations['new-conv']).toBeDefined();
     });
   });
 });

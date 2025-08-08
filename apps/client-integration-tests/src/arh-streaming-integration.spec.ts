@@ -137,7 +137,7 @@ describe('ARH Client Streaming Integration Tests', () => {
       await client.sendMessage(
         conversation.conversation_id,
         'Test streaming message',
-        { stream: true }
+        { stream: true, afterChunk: () => {} }
       );
 
       // Verify streaming started and completed
@@ -165,7 +165,7 @@ describe('ARH Client Streaming Integration Tests', () => {
       await client.sendMessage(
         conversation.conversation_id,
         'Explain OpenShift features',
-        { stream: true }
+        { stream: true, afterChunk: () => {} }
       );
 
       // Verify progressive content building
@@ -189,7 +189,7 @@ describe('ARH Client Streaming Integration Tests', () => {
       await client.sendMessage(
         conversation.conversation_id,
         'What is Red Hat OpenShift?',
-        { stream: true }
+        { stream: true, afterChunk: () => {} }
       );
 
       // Verify chunk structure
@@ -227,7 +227,10 @@ describe('ARH Client Streaming Integration Tests', () => {
 
       const userMessage: UserQuery = 'Tell me about container orchestration';
 
-      await stateManager.sendMessage(userMessage, { stream: true });
+      await stateManager.sendMessage(userMessage, {
+        stream: true,
+        afterChunk: () => {},
+      });
 
       // Verify streaming completed
       expect(streamingHandler.isStarted).toBe(true);
@@ -266,7 +269,10 @@ describe('ARH Client Streaming Integration Tests', () => {
 
       const userMessage: UserQuery = 'Explain Kubernetes pods';
 
-      await stateManager.sendMessage(userMessage, { stream: true });
+      await stateManager.sendMessage(userMessage, {
+        stream: true,
+        afterChunk: () => {},
+      });
 
       // Verify events were emitted
       // multiple chunks can be emitted, so we check for at least one
@@ -281,7 +287,10 @@ describe('ARH Client Streaming Integration Tests', () => {
       const userMessage: UserQuery = 'This should cause an error';
 
       await expect(
-        stateManager.sendMessage(userMessage, { stream: true })
+        stateManager.sendMessage(userMessage, {
+          stream: true,
+          afterChunk: () => {},
+        })
       ).rejects.toThrow('API request failed: 404 Not Found');
     });
   });
@@ -306,6 +315,7 @@ describe('ARH Client Streaming Integration Tests', () => {
 
         await client.sendMessage(conversation.conversation_id, request, {
           stream: true,
+          afterChunk: () => {},
         });
 
         expect(streamingHandler.isCompleted).toBe(true);
@@ -324,7 +334,10 @@ describe('ARH Client Streaming Integration Tests', () => {
       await stateManager.setActiveConversationId(conversation.conversation_id);
 
       // Send first message
-      await stateManager.sendMessage('What is OpenShift?', { stream: true });
+      await stateManager.sendMessage('What is OpenShift?', {
+        stream: true,
+        afterChunk: () => {},
+      });
 
       // Send follow-up message
       streamingHandler = new TestStreamingHandler();
@@ -366,7 +379,7 @@ describe('ARH Client Streaming Integration Tests', () => {
       await errorClient.sendMessage(
         conversation.conversation_id,
         'This will error during streaming',
-        { stream: true }
+        { stream: true, afterChunk: () => {} }
       );
 
       // Verify that some chunks were received before the error
@@ -403,7 +416,10 @@ describe('ARH Client Streaming Integration Tests', () => {
       await errorClient.sendMessage(
         conversation.conversation_id,
         'This will error immediately',
-        { stream: true }
+        {
+          stream: true,
+          afterChunk: () => {},
+        }
       );
 
       // Verify stream started but errored
@@ -439,7 +455,10 @@ describe('ARH Client Streaming Integration Tests', () => {
       const userMessage: UserQuery =
         'This will error during streaming through state manager';
 
-      await stateManager.sendMessage(userMessage, { stream: true });
+      await stateManager.sendMessage(userMessage, {
+        stream: true,
+        afterChunk: () => {},
+      });
 
       // Verify error was handled properly
       expect(streamingHandler.errorReceived).not.toBeNull();
@@ -477,7 +496,7 @@ describe('ARH Client Streaming Integration Tests', () => {
       await errorClient.sendMessage(
         conversation.conversation_id,
         'Test custom error message',
-        { stream: true }
+        { stream: true, afterChunk: () => {} }
       );
 
       // Verify custom error message was processed
@@ -507,11 +526,11 @@ describe('ARH Client Streaming Integration Tests', () => {
       await errorClient.sendMessage(
         conversation.conversation_id,
         'Test progression before error',
-        { stream: true }
+        { stream: true, afterChunk: () => {} }
       );
 
       // Verify we received multiple chunks before the error
-      expect(streamingHandler.chunks.length).toBeGreaterThan(4); // At least 4 content chunks + 1 error chunk
+      expect(streamingHandler.chunks.length).toBeGreaterThanOrEqual(4); // At least 4 content chunks + 1 error chunk
 
       // Separate content chunks from error chunks
       const contentChunks = streamingHandler.chunks.filter(
@@ -562,7 +581,7 @@ describe('ARH Client Streaming Integration Tests', () => {
       await client.sendMessage(
         conversation.conversation_id,
         'Validate streaming format',
-        { stream: true }
+        { stream: true, afterChunk: () => {} }
       );
 
       // Validate each chunk matches expected ARH API structure

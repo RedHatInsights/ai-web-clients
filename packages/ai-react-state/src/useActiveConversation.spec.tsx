@@ -38,6 +38,9 @@ describe('useActiveConversation', () => {
         title: 'New Conversation',
         locked: false,
       }),
+      getInitOptions: jest.fn().mockReturnValue({
+        initializeNewConversation: true,
+      }),
     };
 
     stateManager = createClientStateManager(mockClient);

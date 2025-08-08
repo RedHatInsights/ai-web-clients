@@ -6,6 +6,13 @@ export interface IFetchFunction {
   (input: RequestInfo | URL, init?: RequestInit): Promise<Response>;
 }
 
+export interface ClientInitOptions {
+  /**
+   * @default true
+   */
+  initializeNewConversation?: boolean;
+}
+
 /**
  * Base configuration interface for all AI clients
  */
@@ -27,6 +34,8 @@ export interface IBaseClientConfig<TChunk = unknown> {
    * Individual requests can override this by providing their own streamingHandler
    */
   defaultStreamingHandler?: IStreamingHandler<TChunk>;
+
+  initOptions?: ClientInitOptions;
 }
 
 /**
@@ -60,13 +69,20 @@ export function isInitErrorResponse(obj: unknown): obj is IInitErrorResponse {
   );
 }
 
+export type ClientInitLimitation = {
+  reason: string;
+  detail?: string;
+};
+
 /**
  * Common interface that all AI clients must implement
  * Provides a standardized way to interact with different AI services
  */
-export interface IAIClient<
-  AP extends Record<string, unknown> = Record<string, unknown>
+declare class IAIClient<
+  AP extends Record<string, unknown> = Record<string, unknown>,
+  TChunk = unknown
 > {
+  constructor(config: IBaseClientConfig<TChunk>);
   /**
    * Initialize the client and return the initial conversation ID
    * This method is called once when the client is first used by a state manager
@@ -75,6 +91,7 @@ export interface IAIClient<
   init(): Promise<{
     initialConversationId: string;
     conversations: IConversation[];
+    limitation?: ClientInitLimitation;
     error?: IInitErrorResponse;
   }>;
 
@@ -133,7 +150,15 @@ export interface IAIClient<
    * @returns Promise that resolves to the newly created conversation
    */
   createNewConversation(): Promise<IConversation>;
+
+  /**
+   * Get the initial options used to configure the client
+   * @returns The initial options used to configure the client
+   */
+  getInitOptions(): ClientInitOptions;
 }
+
+export { IAIClient };
 
 /**
  * Base error class for all AI client errors

@@ -42,6 +42,9 @@ describe('useClient', () => {
         title: 'New Conversation',
         locked: false,
       }),
+      getInitOptions: jest.fn().mockReturnValue({
+        initializeNewConversation: true,
+      }),
       customMethod: jest.fn().mockReturnValue('custom result'),
     };
 

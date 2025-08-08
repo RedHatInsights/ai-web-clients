@@ -35,6 +35,9 @@ describe('useSendMessage', () => {
         onComplete: jest.fn(),
         onError: jest.fn(),
       }),
+      getInitOptions: jest.fn().mockReturnValue({
+        initializeNewConversation: true,
+      }),
     };
 
     stateManager = createClientStateManager(mockClient);
@@ -220,6 +223,9 @@ describe('useSendStreamMessage', () => {
         onChunk: jest.fn(),
         onComplete: jest.fn(),
         onError: jest.fn(),
+      }),
+      getInitOptions: jest.fn().mockReturnValue({
+        initializeNewConversation: true,
       }),
     };
 

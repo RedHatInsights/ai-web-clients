@@ -285,6 +285,10 @@ describe('ai-client-common', () => {
           void options; // Mark parameter as used for linting
           return { status: 'running' };
         }
+
+        getInitOptions() {
+          return { initializeNewConversation: true };
+        }
       }
 
       const client = new TestClient();
@@ -343,6 +347,10 @@ describe('ai-client-common', () => {
 
         async healthCheck(): Promise<unknown> {
           return { status: 'healthy' };
+        }
+
+        getInitOptions() {
+          return { initializeNewConversation: true };
         }
       }
 
@@ -430,6 +438,10 @@ describe('ai-client-common', () => {
 
         async healthCheck(): Promise<unknown> {
           return { status: 'healthy' };
+        }
+
+        getInitOptions() {
+          return { initializeNewConversation: true };
         }
       }
 

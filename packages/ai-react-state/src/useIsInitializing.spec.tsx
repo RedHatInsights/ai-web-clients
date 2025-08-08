@@ -39,6 +39,9 @@ const createMockClient = (): jest.Mocked<IAIClient> => ({
     id: 'new-conversation-id',
     title: 'New Conversation',
   }),
+  getInitOptions: jest.fn().mockReturnValue({
+    initializeNewConversation: true,
+  }),
 });
 
 describe('useIsInitializing', () => {

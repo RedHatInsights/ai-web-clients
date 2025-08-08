@@ -8,6 +8,7 @@ import {
   IRequestOptions,
   IConversationHistoryResponse,
   IConversation,
+  ClientInitOptions,
 } from '@redhat-cloud-services/ai-client-common';
 import {
   LLMRequest,
@@ -38,11 +39,13 @@ import {
  * Implements the exact OpenAPI specification for Lightspeed v1.0.1
  */
 export class LightspeedClient
-  implements IAIClient<LightSpeedCoreAdditionalProperties>
+  implements
+    IAIClient<LightSpeedCoreAdditionalProperties, MessageChunkResponse>
 {
   private readonly baseUrl: string;
   private readonly fetchFunction: IFetchFunction;
   private readonly defaultStreamingHandler?: IStreamingHandler<MessageChunkResponse>;
+  private readonly initOptions: ClientInitOptions;
 
   constructor(config: LightspeedClientConfig) {
     this.baseUrl = config.baseUrl.replace(/\/$/, ''); // Remove trailing slash
@@ -50,6 +53,10 @@ export class LightspeedClient
       config.fetchFunction || ((input, init) => fetch(input, init));
     this.defaultStreamingHandler =
       config.defaultStreamingHandler || new DefaultStreamingHandler();
+    this.initOptions = {
+      initializeNewConversation:
+        config.initOptions?.initializeNewConversation ?? true,
+    };
   }
 
   // ====================
@@ -186,6 +193,10 @@ export class LightspeedClient
     return this.defaultStreamingHandler as
       | IStreamingHandler<TChunk>
       | undefined;
+  }
+
+  getInitOptions() {
+    return this.initOptions;
   }
 
   /**

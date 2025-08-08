@@ -7,6 +7,7 @@ import {
   IFDApiError,
   AnswerSource,
   IFDAdditionalAttributes,
+  MessageQuotaStatus,
 } from './types';
 import {
   StreamingMessageChunk,
@@ -73,6 +74,7 @@ async function processStreamResponse({
   onComplete,
   onError,
   afterChunk,
+  getQuota,
 }: {
   response: Response;
   conversationId: string;
@@ -80,7 +82,8 @@ async function processStreamResponse({
   onStart?: (conversationId: string, messageId: string) => void;
   onComplete?: (finalChunk: MessageChunkResponse) => void;
   onError?: (error: Error) => void;
-  afterChunk?: AfterChunkCallback<IFDAdditionalAttributes>;
+  afterChunk: AfterChunkCallback<IFDAdditionalAttributes>;
+  getQuota: (conversationId: string) => Promise<MessageQuotaStatus>;
 }): Promise<void> {
   const reader = response.body?.getReader();
   if (!reader) {
@@ -213,6 +216,21 @@ async function processStreamResponse({
             });
             if (parsed.end_of_stream) {
               onComplete?.(chunkResponse);
+              try {
+                const quota = await getQuota(conversationId);
+                afterChunk({
+                  answer: accumulatedAnswer,
+                  additionalAttributes: {
+                    sources: parsed.sources || [],
+                    tool_call_metadata: parsed.tool_call_metadata || null,
+                    output_guard_result: parsed.output_guard_result || null,
+                    quota,
+                  },
+                });
+              } catch (error) {
+                // silently ignore quota errors
+                console.error('Failed to fetch quota:', error);
+              }
               done = true;
             }
           } catch (error) {
@@ -288,7 +306,8 @@ export async function processStreamWithHandler(
   response: Response,
   handler: IStreamingHandler<MessageChunkResponse>,
   conversationId: string,
-  afterChunk?: AfterChunkCallback<IFDAdditionalAttributes>
+  afterChunk: AfterChunkCallback<IFDAdditionalAttributes>,
+  getQuota: (conversationId: string) => Promise<MessageQuotaStatus>
 ): Promise<void> {
   await processStreamResponse({
     conversationId,
@@ -299,5 +318,6 @@ export async function processStreamWithHandler(
     onComplete: (finalChunk) => handler.onComplete?.(finalChunk),
     onError: (error) => handler.onError?.(error),
     afterChunk,
+    getQuota,
   });
 }

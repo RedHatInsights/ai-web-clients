@@ -11,6 +11,8 @@ import {
   IConversationHistoryResponse,
   IConversation,
   IInitErrorResponse,
+  ClientInitOptions,
+  ClientInitLimitation,
 } from '@redhat-cloud-services/ai-client-common';
 import {
   NewConversationResponse,
@@ -25,6 +27,7 @@ import {
   QuotaStatusResponse,
   IFDAdditionalAttributes,
   ConversationHistoryMessage,
+  MessageQuotaStatus,
 } from './types';
 import {
   DefaultStreamingHandler,
@@ -37,10 +40,13 @@ import {
  * A flexible TypeScript client for the IFD API with dependency injection support
  * for custom fetch implementations and streaming handlers.
  */
-export class IFDClient implements IAIClient<IFDAdditionalAttributes> {
+export class IFDClient
+  implements IAIClient<IFDAdditionalAttributes, MessageChunkResponse>
+{
   private readonly baseUrl: string;
   private readonly fetchFunction: IFetchFunction;
   private readonly defaultStreamingHandler?: IStreamingHandler<MessageChunkResponse>;
+  private readonly initOptions: ClientInitOptions;
 
   constructor(config: IFDClientConfig) {
     this.baseUrl = config.baseUrl;
@@ -48,6 +54,10 @@ export class IFDClient implements IAIClient<IFDAdditionalAttributes> {
       config.fetchFunction || ((input, init) => fetch(input, init));
     this.defaultStreamingHandler =
       config.defaultStreamingHandler || new DefaultStreamingHandler();
+    this.initOptions = {
+      initializeNewConversation:
+        config.initOptions?.initializeNewConversation ?? true,
+    };
   }
 
   /**
@@ -167,6 +177,7 @@ export class IFDClient implements IAIClient<IFDAdditionalAttributes> {
   async init(): Promise<{
     initialConversationId: string;
     conversations: IConversation[];
+    limitation?: ClientInitLimitation;
   }> {
     try {
       // ARH init procedure
@@ -174,7 +185,27 @@ export class IFDClient implements IAIClient<IFDAdditionalAttributes> {
       await this.getServiceStatus();
       await this.getUserSettings();
       const history = await this.getUserHistory();
-      await this.getConversationQuota();
+      const quota = await this.getConversationQuota();
+      let quotaBreached = false;
+      if (quota && quota.quota) {
+        quotaBreached =
+          quota.enabled && quota.quota?.limit <= quota.quota?.used;
+      }
+
+      const clientLimitation: ClientInitLimitation | undefined = quotaBreached
+        ? {
+            reason: 'quota-breached',
+            detail: 'Conversation quota has been reached',
+          }
+        : undefined;
+
+      if (this.initOptions.initializeNewConversation === false) {
+        return {
+          initialConversationId: '',
+          conversations: [],
+          limitation: clientLimitation,
+        };
+      }
       const defaultConversation = history.find(
         (conversation) => conversation.is_latest
       );
@@ -238,6 +269,15 @@ export class IFDClient implements IAIClient<IFDAdditionalAttributes> {
 
     if (options?.stream) {
       // Handle streaming mode
+      if (!options.afterChunk) {
+        throw new AIClientValidationError([
+          {
+            loc: ['options', 'afterChunk'],
+            msg: 'Streaming mode requires an afterChunk handler',
+            type: 'value_error',
+          },
+        ]);
+      }
       const handler = this.defaultStreamingHandler;
       if (!handler) {
         throw new AIClientValidationError([
@@ -275,7 +315,8 @@ export class IFDClient implements IAIClient<IFDAdditionalAttributes> {
           response,
           handler,
           conversationId,
-          options.afterChunk
+          options.afterChunk,
+          this.getMessageQuota.bind(this)
         );
       } catch (error) {
         handler.onError?.(error as Error);
@@ -292,6 +333,7 @@ export class IFDClient implements IAIClient<IFDAdditionalAttributes> {
         }
       );
 
+      const quota = await this.getMessageQuota(conversationId);
       const messageResponse: IMessageResponse<IFDAdditionalAttributes> = {
         answer: response.answer,
         messageId: response.message_id,
@@ -301,6 +343,7 @@ export class IFDClient implements IAIClient<IFDAdditionalAttributes> {
           sources: response.sources,
           tool_call_metadata: response.tool_call_metadata,
           output_guard_result: response.output_guard_result,
+          quota,
         },
       };
 
@@ -447,13 +490,17 @@ export class IFDClient implements IAIClient<IFDAdditionalAttributes> {
   async getMessageQuota(
     conversationId: string,
     options?: RequestOptions
-  ): Promise<QuotaStatusResponse> {
-    return this.makeRequest<QuotaStatusResponse>(
+  ): Promise<MessageQuotaStatus> {
+    return this.makeRequest<MessageQuotaStatus>(
       `/api/ask/v1/quota/${conversationId}/messages`,
       {
         method: 'GET',
         ...options,
       }
     );
+  }
+
+  getInitOptions() {
+    return this.initOptions;
   }
 }
