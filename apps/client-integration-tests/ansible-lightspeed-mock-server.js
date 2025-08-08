@@ -4,7 +4,7 @@
  * Ansible Lightspeed Mock Server
  *
  * This mock server implements the Ansible Lightspeed API specification for testing the
- * @redhat-cloud-services/ansible-lightspeed-client package and its integration with
+ * @redhat-cloud-services/ansible-lightspeed package and its integration with
  * the state management system.
  *
  * Based on Ansible Lightspeed OpenAPI spec version 0.1.3

@@ -1,5 +1,5 @@
 {
-  "name": "ansible-lightspeed-client",
+  "name": "ansible-lightspeed",
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "sourceRoot": "packages/ansible-lightspeed/src",
   "projectType": "library",

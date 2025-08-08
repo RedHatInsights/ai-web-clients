@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { AnsibleLightspeedClient } from '@redhat-cloud-services/ansible-lightspeed-client';
+import { AnsibleLightspeedClient } from '@redhat-cloud-services/ansible-lightspeed';
 import { createClientStateManager } from '@redhat-cloud-services/ai-client-state';
 import { AIStateProvider } from '@redhat-cloud-services/ai-react-state';
 import GenericPFChatbot from './GenericPFChatbot';

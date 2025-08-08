@@ -404,7 +404,7 @@ import type {
   StreamingEvent,
   TokenEvent,
   TurnCompleteEvent,
-} from '@redhat-cloud-services/ansible-lightspeed-client';
+} from '@redhat-cloud-services/ansible-lightspeed';
 
 it('should handle token events with proper typing', async () => {
   const tokenEvents: StreamingEvent[] = [];

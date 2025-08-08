@@ -1,9 +1,9 @@
-import { AnsibleLightspeedClient } from '@redhat-cloud-services/ansible-lightspeed-client';
+import { AnsibleLightspeedClient } from '@redhat-cloud-services/ansible-lightspeed';
 import type {
   AnsibleLightspeedConfig,
   QueryRequest,
-} from '@redhat-cloud-services/ansible-lightspeed-client';
-import { processStreamWithHandler } from '@redhat-cloud-services/ansible-lightspeed-client';
+} from '@redhat-cloud-services/ansible-lightspeed';
+import { processStreamWithHandler } from '@redhat-cloud-services/ansible-lightspeed';
 
 // Import state manager components
 import {
@@ -19,7 +19,7 @@ import {
  * Ansible Lightspeed Client Integration Tests
  *
  * These tests verify the integration between:
- * - @redhat-cloud-services/ansible-lightspeed-client (Ansible Lightspeed API client)
+ * - @redhat-cloud-services/ansible-lightspeed (Ansible Lightspeed API client)
  * - @redhat-cloud-services/ai-client-state (State management)
  *
  * Note: For full streaming tests, use the Ansible Lightspeed mock server:

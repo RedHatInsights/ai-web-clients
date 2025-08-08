@@ -29,7 +29,7 @@
       "@redhat-cloud-services/lightspeed-client": [
         "packages/lightspeed-client/src/index.ts",   
       ],
-      "@redhat-cloud-services/ansible-lightspeed-client": [
+      "@redhat-cloud-services/ansible-lightspeed": [
         "packages/ansible-lightspeed/src/index.ts"
       ],
     }

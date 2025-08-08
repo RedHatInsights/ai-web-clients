@@ -1,5 +1,5 @@
 export default {
-  displayName: 'ansible-lightspeed-client',
+  displayName: 'ansible-lightspeed',
   preset: '../../jest.preset.js',
   testEnvironment: 'node',
   transform: {

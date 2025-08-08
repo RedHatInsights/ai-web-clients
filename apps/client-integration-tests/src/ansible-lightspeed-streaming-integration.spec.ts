@@ -1,8 +1,8 @@
-import { AnsibleLightspeedClient } from '@redhat-cloud-services/ansible-lightspeed-client';
+import { AnsibleLightspeedClient } from '@redhat-cloud-services/ansible-lightspeed';
 import type {
   AnsibleLightspeedConfig,
   AnsibleLightspeedMessageAttributes,
-} from '@redhat-cloud-services/ansible-lightspeed-client';
+} from '@redhat-cloud-services/ansible-lightspeed';
 import {
   createClientStateManager,
   StateManager,
