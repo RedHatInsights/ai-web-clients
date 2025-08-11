@@ -528,6 +528,7 @@ describe('Ansible Lightspeed Client Integration Tests', () => {
 
         // User message
         expect(messages[0]).toEqual({
+          date: expect.any(Date),
           id: expect.any(String),
           answer: 'How do I create an Ansible playbook?',
           role: 'user',
@@ -535,6 +536,7 @@ describe('Ansible Lightspeed Client Integration Tests', () => {
 
         // Bot message
         expect(messages[1]).toEqual({
+          date: expect.any(Date),
           id: expect.any(String),
           answer:
             'To create an Ansible playbook, you need to define tasks in YAML format...',
@@ -740,11 +742,13 @@ describe('Ansible Lightspeed Client Integration Tests', () => {
         expect(messages).toHaveLength(4); // 2 user + 2 bot messages
 
         expect(messages[0]).toEqual({
+          date: expect.any(Date),
           id: expect.any(String),
           answer: 'How do I copy files?',
           role: 'user',
         });
         expect(messages[1]).toEqual({
+          date: expect.any(Date),
           id: expect.any(String),
           answer: 'Use ansible.builtin.copy module',
           role: 'bot',
@@ -759,11 +763,13 @@ describe('Ansible Lightspeed Client Integration Tests', () => {
           },
         });
         expect(messages[2]).toEqual({
+          date: expect.any(Date),
           id: expect.any(String),
           answer: 'How do I use templates?',
           role: 'user',
         });
         expect(messages[3]).toEqual({
+          date: expect.any(Date),
           id: expect.any(String),
           answer: 'Use ansible.builtin.template module',
           role: 'bot',

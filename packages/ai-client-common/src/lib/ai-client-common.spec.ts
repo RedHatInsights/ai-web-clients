@@ -185,7 +185,7 @@ describe('ai-client-common', () => {
         messageId: 'msg-123',
         answer: 'Hello world',
         conversationId: 'conv-456',
-        createdAt: '2024-01-01T10:00:00Z',
+        date: new Date('2024-01-01T10:00:00Z'),
         additionalAttributes: {
           model: 'gpt-4',
           tokens: 50,
@@ -195,7 +195,7 @@ describe('ai-client-common', () => {
       expect(typeof messageResponse.messageId).toBe('string');
       expect(typeof messageResponse.answer).toBe('string');
       expect(typeof messageResponse.conversationId).toBe('string');
-      expect(typeof messageResponse.createdAt).toBe('string');
+      expect(messageResponse.date instanceof Date).toBe(true);
       expect(typeof messageResponse.additionalAttributes).toBe('object');
     });
 

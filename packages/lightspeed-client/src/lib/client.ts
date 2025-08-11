@@ -153,7 +153,7 @@ export class LightspeedClient
           messageId: this.generateMessageId(),
           // LC returns response.response as 'answer' in the latest spec
           answer: response.response,
-          createdAt: new Date().toISOString(),
+          date: new Date(),
           conversationId: response.conversation_id,
           additionalAttributes: {
             referencedDocuments: response.referenced_documents,

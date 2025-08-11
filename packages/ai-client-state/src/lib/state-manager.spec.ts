@@ -471,21 +471,25 @@ describe('ClientStateManager', () => {
 
       expect(messages[0]).toEqual({
         id: expect.any(String),
+        date: expect.any(Date),
         answer: 'First question',
         role: 'user',
       });
       expect(messages[1]).toEqual({
         id: expect.any(String),
+        date: expect.any(Date),
         answer: 'First response',
         role: 'bot',
       });
       expect(messages[2]).toEqual({
         id: expect.any(String),
+        date: expect.any(Date),
         answer: 'Second question',
         role: 'user',
       });
       expect(messages[3]).toEqual({
         id: expect.any(String),
+        date: expect.any(Date),
         answer: 'Second response',
         role: 'bot',
       });

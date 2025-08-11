@@ -247,6 +247,7 @@ describe('ARH Client Streaming Integration Tests', () => {
 
       // Verify user message
       expect(messages[0]).toEqual({
+        date: expect.any(Date),
         id: expect.any(String),
         answer: 'Tell me about container orchestration',
         role: 'user',

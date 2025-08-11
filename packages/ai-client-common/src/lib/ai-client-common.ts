@@ -275,7 +275,7 @@ export interface IMessageResponse<
   /**
    * Timestamp when the message was created
    */
-  createdAt?: string;
+  date?: Date;
   /**
    * Additional attributes specific to the AI client
    */
@@ -315,6 +315,7 @@ export interface IConversationMessage<
   role: 'user' | 'bot';
   input: string; // For user messages, this is the input text
   additionalAttributes?: T;
+  date: Date;
 }
 
 /**

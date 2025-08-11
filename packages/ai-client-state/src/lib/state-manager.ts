@@ -22,6 +22,7 @@ export interface Message<
   answer: string;
   role: 'user' | 'bot';
   additionalAttributes?: T;
+  date: Date;
 }
 
 export type UserQuery = string;
@@ -185,11 +186,13 @@ export function createClientStateManager<
                 id: historyMessage.message_id,
                 answer: historyMessage.input,
                 role: 'user',
+                date: historyMessage.date,
               };
               const botMessage: Message<T> = {
                 id: historyMessage.message_id,
                 answer: historyMessage.answer,
                 role: 'bot',
+                date: historyMessage.date,
                 additionalAttributes: historyMessage.additionalAttributes,
               };
               acc.push(humanMessage, botMessage);
@@ -209,6 +212,7 @@ export function createClientStateManager<
       state.isInitialized = true;
       state.isInitializing = false;
       const errorMessage: Message<T> = {
+        date: new Date(),
         id: crypto.randomUUID(),
         answer: '',
         role: 'bot',
@@ -256,11 +260,13 @@ export function createClientStateManager<
       const messages = (Array.isArray(history) ? history : []).reduce(
         (acc, historyMessage) => {
           const humanMessage: Message<T> = {
+            date: historyMessage.date,
             id: historyMessage.message_id,
             answer: historyMessage.input,
             role: 'user',
           };
           const botMessage: Message<T> = {
+            date: historyMessage.date,
             id: historyMessage.message_id,
             answer: historyMessage.answer,
             role: 'bot',
@@ -365,6 +371,7 @@ export function createClientStateManager<
 
       // Add user message to state immediately
       conversation.messages.push({
+        date: new Date(),
         id: crypto.randomUUID(),
         answer: query,
         role: 'user',
@@ -374,6 +381,7 @@ export function createClientStateManager<
       if (conversation.locked) {
         console.error('Cannot send message in a locked conversation');
         const lockedMessage: Message<T> = {
+          date: new Date(),
           id: crypto.randomUUID(),
           answer: 'This conversation is locked and cannot accept new messages.',
           role: 'bot',
@@ -387,6 +395,7 @@ export function createClientStateManager<
 
       // Create bot message placeholder for streaming updates
       const botMessage: Message<T> = {
+        date: new Date(),
         id: crypto.randomUUID(),
         answer: '',
         role: 'bot',

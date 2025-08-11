@@ -353,7 +353,7 @@ export class AnsibleLightspeedClient
         messageId: this.generateMessageId(),
         answer: response.response,
         conversationId: response.conversation_id || conversationId,
-        createdAt: new Date().toISOString(),
+        date: new Date(),
         additionalAttributes,
       };
     }

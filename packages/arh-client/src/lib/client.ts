@@ -326,11 +326,17 @@ export class IFDClient
       );
 
       const quota = await this.getMessageQuota(conversationId);
+      let messageDate: Date;
+      try {
+        messageDate = new Date(response.received_at);
+      } catch (error) {
+        messageDate = new Date();
+      }
       const messageResponse: IMessageResponse<IFDAdditionalAttributes> = {
         answer: response.answer,
         messageId: response.message_id,
         conversationId: response.conversation_id,
-        createdAt: response.received_at,
+        date: messageDate,
         additionalAttributes: {
           sources: response.sources,
           tool_call_metadata: response.tool_call_metadata,
@@ -361,18 +367,26 @@ export class IFDClient
     }
 
     const response: IConversationHistoryResponse<IFDAdditionalAttributes> =
-      conversationMessages.map((msg) => ({
-        answer: msg.answer,
-        input: msg.input,
-        message_id: msg.message_id,
-        conversationId: conversationId,
-        createdAt: msg.received_at,
-        additionalAttributes: {
-          sources: msg.sources ?? [],
-          tool_call_metadata: msg.tool_call_metadata || null,
-          output_guard_result: msg.output_guard_result || null,
-        },
-      }));
+      conversationMessages.map((msg) => {
+        let messageDate: Date;
+        try {
+          messageDate = new Date(msg.received_at);
+        } catch (error) {
+          messageDate = new Date();
+        }
+        return {
+          answer: msg.answer,
+          input: msg.input,
+          message_id: msg.message_id,
+          conversationId: conversationId,
+          date: messageDate,
+          additionalAttributes: {
+            sources: msg.sources ?? [],
+            tool_call_metadata: msg.tool_call_metadata || null,
+            output_guard_result: msg.output_guard_result || null,
+          },
+        };
+      });
     return response;
   }
 

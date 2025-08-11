@@ -251,6 +251,7 @@ describe('ARH Client Integration Tests', () => {
 
         // User message should be first
         expect(messages[0]).toEqual({
+          date: expect.any(Date),
           id: expect.any(String),
           answer: userMessage,
           role: 'user',

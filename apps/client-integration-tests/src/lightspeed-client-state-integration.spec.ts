@@ -47,7 +47,7 @@ describe('Lightspeed Client State Integration', () => {
         expect(response.answer.length).toBeGreaterThan(0);
         expect(response.conversationId).toBe(conversationId);
         expect(typeof response.messageId).toBe('string');
-        expect(typeof response.createdAt).toBe('string');
+        expect(response.date instanceof Date).toBe(true);
 
         // Check additional attributes from Lightspeed response
         if (

@@ -115,7 +115,7 @@ describe('IFDClient', () => {
         answer: 'Hello, how can I help you?',
         input: 'Hello',
         conversationId: 'test-conversation-id',
-        createdAt: '2024-01-01T00:00:00Z',
+        date: new Date('2024-01-01T00:00:00Z'),
         additionalAttributes: {
           sources: [{ title: 'Source 1', link: 'https://example.com/1' }],
           tool_call_metadata: { tool_call: true, tool_name: 'search' },
@@ -127,7 +127,7 @@ describe('IFDClient', () => {
         answer: 'You are welcome!',
         input: 'Thank you',
         conversationId: 'test-conversation-id',
-        createdAt: '2024-01-01T00:01:00Z',
+        date: new Date('2024-01-01T00:01:00Z'),
         additionalAttributes: {
           sources: [],
           tool_call_metadata: null,
@@ -172,7 +172,7 @@ describe('IFDClient', () => {
         answer: 'Hello',
         input: 'Hi',
         conversationId: 'test-conversation-id',
-        createdAt: '2024-01-01T00:00:00Z',
+        date: new Date('2024-01-01T00:00:00Z'),
         additionalAttributes: {
           sources: [],
           tool_call_metadata: null,
@@ -284,7 +284,7 @@ describe('IFDClient', () => {
         messageId: mockResponse.message_id,
         answer: mockResponse.answer,
         conversationId: mockResponse.conversation_id,
-        createdAt: mockResponse.received_at,
+        date: expect.any(Date), // Date should be parsed from received_at
         additionalAttributes: {
           sources: mockResponse.sources,
           tool_call_metadata: mockResponse.tool_call_metadata,

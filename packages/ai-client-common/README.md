@@ -269,7 +269,7 @@ interface IMessageResponse<AP = Record<string, unknown>> {
   messageId: string;
   answer: string;
   conversationId: string;
-  createdAt?: string;
+  date?: string;
   additionalAttributes?: AP;
 }
 

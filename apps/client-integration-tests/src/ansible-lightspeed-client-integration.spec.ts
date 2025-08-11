@@ -413,6 +413,7 @@ describe('Ansible Lightspeed Client Integration Tests', () => {
           id: expect.any(String),
           answer: 'How do I manage services with Ansible?',
           role: 'user',
+          date: expect.any(Date),
         });
 
         // Bot message
@@ -420,6 +421,7 @@ describe('Ansible Lightspeed Client Integration Tests', () => {
           id: expect.any(String),
           answer: 'Use the ansible.builtin.service module to manage services.',
           role: 'bot',
+          date: expect.any(Date),
           additionalAttributes: {
             available_quotas: undefined,
             input_tokens: undefined,
@@ -621,11 +623,13 @@ describe('Ansible Lightspeed Client Integration Tests', () => {
         expect(messages).toHaveLength(4); // 2 user + 2 bot messages
 
         expect(messages[0]).toEqual({
+          date: expect.any(Date),
           id: expect.any(String),
           answer: 'How do I copy files?',
           role: 'user',
         });
         expect(messages[1]).toEqual({
+          date: expect.any(Date),
           id: expect.any(String),
           answer: 'Use ansible.builtin.copy for file operations',
           role: 'bot',
@@ -640,11 +644,13 @@ describe('Ansible Lightspeed Client Integration Tests', () => {
           },
         });
         expect(messages[2]).toEqual({
+          date: expect.any(Date),
           id: expect.any(String),
           answer: 'How do I manage services?',
           role: 'user',
         });
         expect(messages[3]).toEqual({
+          date: expect.any(Date),
           id: expect.any(String),
           answer: 'Use ansible.builtin.service for service management',
           role: 'bot',
