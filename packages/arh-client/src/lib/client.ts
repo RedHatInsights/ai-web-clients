@@ -28,6 +28,7 @@ import {
   IFDAdditionalAttributes,
   ConversationHistoryMessage,
   MessageQuotaStatus,
+  ConversationQuotaStatus,
 } from './types';
 import {
   DefaultStreamingHandler,
@@ -463,10 +464,8 @@ export class IFDClient
   /**
    * Get conversation quota status
    */
-  async getConversationQuota(
-    options?: RequestOptions
-  ): Promise<QuotaStatusResponse> {
-    return this.makeRequest<QuotaStatusResponse>(
+  async getConversationQuota(options?: RequestOptions) {
+    return this.makeRequest<QuotaStatusResponse<ConversationQuotaStatus>>(
       '/api/ask/v1/quota/conversations',
       {
         method: 'GET',
@@ -478,11 +477,8 @@ export class IFDClient
   /**
    * Get message quota status for a conversation
    */
-  async getMessageQuota(
-    conversationId: string,
-    options?: RequestOptions
-  ): Promise<MessageQuotaStatus> {
-    return this.makeRequest<MessageQuotaStatus>(
+  async getMessageQuota(conversationId: string, options?: RequestOptions) {
+    return this.makeRequest<QuotaStatusResponse<MessageQuotaStatus>>(
       `/api/ask/v1/quota/${conversationId}/messages`,
       {
         method: 'GET',

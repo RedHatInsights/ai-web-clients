@@ -88,9 +88,11 @@ export interface OutputGuardResult {
   answer_relevance?: number | null;
 }
 
-export interface QuotaStatusResponse {
+export interface QuotaStatusResponse<
+  T = ConversationQuotaStatus | MessageQuotaStatus
+> {
   enabled: boolean;
-  quota: ConversationQuotaStatus | MessageQuotaStatus | null;
+  quota: T | null;
 }
 
 export interface StatusChecks {
@@ -152,5 +154,5 @@ export type IFDAdditionalAttributes = {
   sources?: AnswerSource[];
   tool_call_metadata?: ToolCallMetadata | null | undefined;
   output_guard_result?: OutputGuardResult | null | undefined;
-  quota?: MessageQuotaStatus;
+  quota?: QuotaStatusResponse<MessageQuotaStatus>;
 };

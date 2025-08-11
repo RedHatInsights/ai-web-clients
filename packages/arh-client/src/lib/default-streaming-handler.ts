@@ -8,6 +8,7 @@ import {
   AnswerSource,
   IFDAdditionalAttributes,
   MessageQuotaStatus,
+  QuotaStatusResponse,
 } from './types';
 import {
   StreamingMessageChunk,
@@ -83,7 +84,9 @@ async function processStreamResponse({
   onComplete?: (finalChunk: MessageChunkResponse) => void;
   onError?: (error: Error) => void;
   afterChunk: AfterChunkCallback<IFDAdditionalAttributes>;
-  getQuota: (conversationId: string) => Promise<MessageQuotaStatus>;
+  getQuota: (
+    conversationId: string
+  ) => Promise<QuotaStatusResponse<MessageQuotaStatus>>;
 }): Promise<void> {
   const reader = response.body?.getReader();
   if (!reader) {
@@ -310,7 +313,9 @@ export async function processStreamWithHandler(
   handler: IStreamingHandler<MessageChunkResponse>,
   conversationId: string,
   afterChunk: AfterChunkCallback<IFDAdditionalAttributes>,
-  getQuota: (conversationId: string) => Promise<MessageQuotaStatus>
+  getQuota: (
+    conversationId: string
+  ) => Promise<QuotaStatusResponse<MessageQuotaStatus>>
 ): Promise<void> {
   await processStreamResponse({
     conversationId,
