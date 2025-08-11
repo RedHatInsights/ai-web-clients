@@ -12,6 +12,7 @@
 - Shared configuration via `jest.preset.js`
 - Mock external dependencies consistently
 - Professional test descriptions (no emojis)
+- **CRITICAL**: All tests must be verified to actually work by running them before committing
 
 ### **Package Testing Requirements**
 - Unit tests for all public APIs within individual packages
@@ -37,7 +38,7 @@ Use integration tests in `apps/client-integration-tests` for:
 - **End-to-End Workflows**: Complete user scenarios involving multiple packages
 - **Type Compatibility**: Ensure interfaces work correctly across package boundaries
 
-**CRITICAL**: Integration tests should **PREFER mock servers over mocked APIs** when available:
+**CRITICAL**: Integration tests **MUST ALWAYS use mock servers, NOT mocked APIs** when available:
 - **Real streaming tests**: Use ARH mock server (`npm run arh-mock-server`) for realistic streaming behavior
 - **Complex workflows**: Mock servers provide more realistic responses and error scenarios
 - **Fallback to mocked APIs**: Only when mock servers are not available or for simple unit test style integration tests

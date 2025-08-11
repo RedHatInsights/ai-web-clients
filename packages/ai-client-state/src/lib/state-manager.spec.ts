@@ -1,5 +1,8 @@
 import { createClientStateManager, Events, UserQuery } from './state-manager';
-import type { IAIClient } from '@redhat-cloud-services/ai-client-common';
+import type {
+  IAIClient,
+  ClientInitLimitation,
+} from '@redhat-cloud-services/ai-client-common';
 
 describe('ClientStateManager', () => {
   let mockClient: jest.Mocked<IAIClient>;
@@ -897,6 +900,181 @@ describe('ClientStateManager', () => {
       const state = stateManager.getState();
       expect(state.activeConversationId).toBe('new-conv');
       expect(state.conversations['new-conv']).toBeDefined();
+    });
+  });
+
+  describe('Client Init Limitation', () => {
+    it('should handle init limitation from client', async () => {
+      const mockLimitation: ClientInitLimitation = {
+        reason: 'QUOTA_EXCEEDED',
+        detail: 'User has exceeded their monthly query limit',
+      };
+
+      mockClient.init = jest.fn().mockResolvedValue({
+        initialConversationId: 'test-conv-id',
+        conversations: [],
+        limitation: mockLimitation,
+      });
+
+      await stateManager.init();
+
+      const state = stateManager.getState();
+      expect(state.initLimitation).toEqual(mockLimitation);
+      expect(stateManager.getInitLimitation()).toEqual(mockLimitation);
+    });
+
+    it('should return undefined when no limitation is present', async () => {
+      mockClient.init = jest.fn().mockResolvedValue({
+        initialConversationId: 'test-conv-id',
+        conversations: [],
+      });
+
+      await stateManager.init();
+
+      const state = stateManager.getState();
+      expect(state.initLimitation).toBeUndefined();
+      expect(stateManager.getInitLimitation()).toBeUndefined();
+    });
+
+    it('should emit INIT_LIMITATION event when limitation is received', async () => {
+      const mockLimitation: ClientInitLimitation = {
+        reason: 'SERVICE_UNAVAILABLE',
+        detail: 'AI service is temporarily unavailable',
+      };
+
+      const limitationCallback = jest.fn();
+      stateManager.subscribe(Events.INIT_LIMITATION, limitationCallback);
+
+      mockClient.init = jest.fn().mockResolvedValue({
+        initialConversationId: 'test-conv-id',
+        conversations: [],
+        limitation: mockLimitation,
+      });
+
+      await stateManager.init();
+
+      expect(limitationCallback).toHaveBeenCalledTimes(1);
+      expect(stateManager.getInitLimitation()).toEqual(mockLimitation);
+    });
+
+    it('should not emit INIT_LIMITATION event when no limitation is present', async () => {
+      const limitationCallback = jest.fn();
+      stateManager.subscribe(Events.INIT_LIMITATION, limitationCallback);
+
+      mockClient.init = jest.fn().mockResolvedValue({
+        initialConversationId: 'test-conv-id',
+        conversations: [],
+      });
+
+      await stateManager.init();
+
+      expect(limitationCallback).not.toHaveBeenCalled();
+      expect(stateManager.getInitLimitation()).toBeUndefined();
+    });
+
+    it('should handle limitation with only reason field', async () => {
+      const mockLimitation: ClientInitLimitation = {
+        reason: 'RATE_LIMITED',
+      };
+
+      mockClient.init = jest.fn().mockResolvedValue({
+        initialConversationId: 'test-conv-id',
+        conversations: [],
+        limitation: mockLimitation,
+      });
+
+      await stateManager.init();
+
+      const limitation = stateManager.getInitLimitation();
+      expect(limitation).toEqual({
+        reason: 'RATE_LIMITED',
+      });
+      expect(limitation?.detail).toBeUndefined();
+    });
+
+    it('should preserve limitation state across subsequent inits', async () => {
+      const mockLimitation: ClientInitLimitation = {
+        reason: 'QUOTA_EXCEEDED',
+        detail: 'Monthly limit reached',
+      };
+
+      mockClient.init = jest.fn().mockResolvedValue({
+        initialConversationId: 'test-conv-id',
+        conversations: [],
+        limitation: mockLimitation,
+      });
+
+      await stateManager.init();
+
+      expect(stateManager.getInitLimitation()).toEqual(mockLimitation);
+
+      // Second init call should not change the limitation
+      await stateManager.init();
+
+      expect(stateManager.getInitLimitation()).toEqual(mockLimitation);
+      expect(mockClient.init).toHaveBeenCalledTimes(1);
+    });
+
+    it('should handle client init error and not set limitation when error is present', async () => {
+      const mockLimitation: ClientInitLimitation = {
+        reason: 'AUTHENTICATION_FAILED',
+        detail: 'Invalid credentials provided',
+      };
+
+      const initError = {
+        message: 'Authentication failed',
+        status: 401,
+      };
+
+      mockClient.init = jest.fn().mockResolvedValue({
+        initialConversationId: '',
+        conversations: [],
+        limitation: mockLimitation,
+        error: initError,
+      });
+
+      await expect(stateManager.init()).rejects.toEqual(initError);
+
+      const state = stateManager.getState();
+      // When there's an error, limitation is not set because error is thrown first
+      expect(state.initLimitation).toBeUndefined();
+      expect(stateManager.getInitLimitation()).toBeUndefined();
+    });
+
+    it('should handle different limitation scenarios', async () => {
+      const testCases = [
+        {
+          limitation: { reason: 'QUOTA_EXCEEDED' },
+          description: 'quota exceeded without detail',
+        },
+        {
+          limitation: {
+            reason: 'SERVICE_UNAVAILABLE',
+            detail: 'Maintenance mode',
+          },
+          description: 'service unavailable with detail',
+        },
+        {
+          limitation: { reason: 'RATE_LIMITED', detail: 'Too many requests' },
+          description: 'rate limited with detail',
+        },
+      ];
+
+      for (const testCase of testCases) {
+        const localStateManager = createClientStateManager(mockClient);
+
+        mockClient.init = jest.fn().mockResolvedValue({
+          initialConversationId: 'test-conv',
+          conversations: [],
+          limitation: testCase.limitation,
+        });
+
+        await localStateManager.init();
+
+        expect(localStateManager.getInitLimitation()).toEqual(
+          testCase.limitation
+        );
+      }
     });
   });
 });

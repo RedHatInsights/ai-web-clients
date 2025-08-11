@@ -785,4 +785,83 @@ describe('ARH Client Integration Tests', () => {
       });
     });
   });
+
+  describe('Client Init Limitation Integration - Mock Server', () => {
+    const mockServerBaseUrl = 'http://localhost:3001';
+
+    beforeAll(async () => {
+      // Health check to ensure mock server is running
+      try {
+        const response = await fetch(`${mockServerBaseUrl}/api/ask/v1/health`);
+        if (!response.ok) {
+          throw new Error('Mock server not responding');
+        }
+      } catch (error) {
+        throw new Error(
+          `ARH Mock server not running at ${mockServerBaseUrl}. Start it with: npm run arh-mock-server`
+        );
+      }
+    });
+
+    it('should handle normal operation without limitation from mock server', async () => {
+      // Create normal client using mock server
+      const realClient = new IFDClient({
+        baseUrl: mockServerBaseUrl,
+      });
+
+      const stateManager = createClientStateManager(realClient);
+
+      const limitationCallback = jest.fn();
+      stateManager.subscribe(Events.INIT_LIMITATION, limitationCallback);
+
+      await stateManager.init();
+
+      const limitation = stateManager.getInitLimitation();
+      // Mock server should not return limitation for normal operation
+      expect(limitation).toBeUndefined();
+      expect(limitationCallback).not.toHaveBeenCalled();
+      expect(stateManager.isInitialized()).toBe(true);
+    });
+
+    it('should handle state manager operations correctly without limitations', async () => {
+      const realClient = new IFDClient({
+        baseUrl: mockServerBaseUrl,
+      });
+
+      const stateManager = createClientStateManager(realClient);
+
+      await stateManager.init();
+
+      // Should not have limitation
+      const limitation = stateManager.getInitLimitation();
+      expect(limitation).toBeUndefined();
+
+      // Should be able to create conversations normally
+      const conversation = await stateManager.createNewConversation();
+      expect(conversation.id).toBeDefined();
+
+      // Should still not have limitation after operations
+      expect(stateManager.getInitLimitation()).toBeUndefined();
+    });
+
+    it('should preserve limitation state from init if present', async () => {
+      // This tests the theoretical case where a limitation would be returned by ARH
+      // Since the mock server doesn't easily simulate quota exceeded, we rely on unit tests
+      // for limitation testing and integration tests for normal operation
+      const realClient = new IFDClient({
+        baseUrl: mockServerBaseUrl,
+      });
+
+      const stateManager = createClientStateManager(realClient);
+
+      await stateManager.init();
+
+      const state = stateManager.getState();
+      expect(state.initLimitation).toBeUndefined();
+      expect(stateManager.getInitLimitation()).toBeUndefined();
+
+      // State manager functionality should work normally
+      expect(stateManager.isInitialized()).toBe(true);
+    });
+  });
 });

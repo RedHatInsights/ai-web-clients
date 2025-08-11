@@ -1,4 +1,5 @@
 import {
+  ClientInitLimitation,
   IAIClient,
   IConversation,
   ISendMessageOptions,
@@ -11,6 +12,7 @@ export enum Events {
   IN_PROGRESS = 'in-progress',
   CONVERSATIONS = 'conversations',
   INITIALIZING_MESSAGES = 'initializing-messages',
+  INIT_LIMITATION = 'init-limitation',
 }
 
 export interface Message<
@@ -47,6 +49,7 @@ interface ClientState<
   isInitialized: boolean;
   isInitializing: boolean;
   client: IAIClient;
+  initLimitation: ClientInitLimitation | undefined;
 }
 
 interface EventSubscription {
@@ -71,6 +74,7 @@ export type StateManager<
   getConversations: () => Conversation<T>[];
   createNewConversation: () => Promise<IConversation>;
   getClient: () => C;
+  getInitLimitation: () => ClientInitLimitation | undefined;
 };
 
 export function createClientStateManager<
@@ -84,6 +88,7 @@ export function createClientStateManager<
     isInitialized: false,
     isInitializing: false,
     client,
+    initLimitation: undefined,
   };
 
   const eventSubscriptions: Record<string, EventSubscription[]> = {
@@ -141,10 +146,15 @@ export function createClientStateManager<
 
     try {
       // Call the client's init method to get the initial conversation ID
-      const { initialConversationId, conversations, error } =
+      const { initialConversationId, conversations, error, limitation } =
         await client.init();
       if (error) {
         throw error;
+      }
+
+      if (limitation) {
+        state.initLimitation = limitation;
+        notify(Events.INIT_LIMITATION);
       }
 
       conversations.forEach((conversation) => {
@@ -515,6 +525,10 @@ export function createClientStateManager<
     return client;
   }
 
+  function getInitLimitation(): ClientInitLimitation | undefined {
+    return state.initLimitation;
+  }
+
   return {
     init,
     isInitialized,
@@ -529,5 +543,6 @@ export function createClientStateManager<
     getConversations,
     createNewConversation,
     getClient,
+    getInitLimitation,
   };
 }
