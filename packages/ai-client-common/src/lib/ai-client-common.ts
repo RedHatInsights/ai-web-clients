@@ -338,6 +338,7 @@ export interface IStreamChunk<
   T extends Record<string, unknown> = Record<string, unknown>
 > {
   answer: string;
+  messageId: string;
   additionalAttributes: T;
 }
 

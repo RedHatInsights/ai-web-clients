@@ -37,6 +37,7 @@ export class DefaultStreamingHandler
     // Call the optional callback
     if (afterChunk) {
       afterChunk({
+        messageId: chunk.messageId ?? '',
         additionalAttributes: {},
         answer: chunk.answer ?? '',
       });

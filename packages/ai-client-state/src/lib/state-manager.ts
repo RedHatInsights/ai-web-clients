@@ -391,7 +391,7 @@ export function createClientStateManager<
             ...options,
             afterChunk: (chunk) => {
               botMessage.answer = chunk.answer;
-              botMessage.id = botMessage.id;
+              botMessage.id = chunk.messageId ?? botMessage.id;
               botMessage.additionalAttributes = chunk.additionalAttributes;
               notify(Events.MESSAGE);
             },
@@ -473,8 +473,6 @@ export function createClientStateManager<
   }
 
   async function createNewConversation(): Promise<IConversation> {
-    state.isInitializing = true;
-    notify(Events.INITIALIZING_MESSAGES);
     const newConversation = await client.createNewConversation();
     initializeConversationState(newConversation.id);
     await setActiveConversationId(newConversation.id);

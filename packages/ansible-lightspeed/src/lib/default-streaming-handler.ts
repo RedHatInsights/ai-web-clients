@@ -71,6 +71,7 @@ export class DefaultStreamingHandler
 
     if (afterChunk) {
       const commonChunk: IStreamChunk<AnsibleLightspeedMessageAttributes> = {
+        messageId: this.messageBuffer.data.id.toString(),
         answer: this.messageBuffer.data.token,
         additionalAttributes: {
           referenced_documents: this.messageBuffer.data.referenced_documents,

@@ -646,6 +646,7 @@ describe('DefaultStreamingHandler', () => {
       handler.onChunk(chunk, afterChunkCallback);
 
       expect(afterChunkCallback).toHaveBeenCalledWith({
+        messageId: '',
         additionalAttributes: {},
         answer: 'Test content',
       });

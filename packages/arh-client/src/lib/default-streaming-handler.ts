@@ -171,6 +171,7 @@ async function processStreamResponse({
               onChunk(errorChunk);
               afterChunk?.({
                 answer: errorChunk.answer,
+                messageId,
                 additionalAttributes: {
                   sources: errorChunk.sources,
                   tool_call_metadata: errorChunk.tool_call_metadata,
@@ -208,6 +209,7 @@ async function processStreamResponse({
             onChunk(chunkResponse);
             afterChunk?.({
               answer: accumulatedAnswer,
+              messageId,
               additionalAttributes: {
                 sources: parsed.sources || [],
                 tool_call_metadata: parsed.tool_call_metadata || null,
@@ -220,6 +222,7 @@ async function processStreamResponse({
                 const quota = await getQuota(conversationId);
                 afterChunk({
                   answer: accumulatedAnswer,
+                  messageId,
                   additionalAttributes: {
                     sources: parsed.sources || [],
                     tool_call_metadata: parsed.tool_call_metadata || null,
