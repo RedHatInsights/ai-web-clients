@@ -198,19 +198,11 @@ export class IFDClient
             detail: 'Conversation quota has been reached',
           }
         : undefined;
-
-      if (this.initOptions.initializeNewConversation === false) {
-        return {
-          initialConversationId: '',
-          conversations: [],
-          limitation: clientLimitation,
-        };
-      }
       const defaultConversation = history.find(
         (conversation) => conversation.is_latest
       );
 
-      let initialConversationId: string;
+      let initialConversationId: string = '';
       const conversations: IConversation[] = history.map((conversation) => {
         return {
           id: conversation.conversation_id,
@@ -218,16 +210,16 @@ export class IFDClient
           locked: !conversation.is_latest,
         };
       });
-      if (defaultConversation) {
+      if (this.initOptions.initializeNewConversation && defaultConversation) {
         initialConversationId = defaultConversation.conversation_id;
-        history;
-      } else {
+      } else if (this.initOptions.initializeNewConversation) {
         const newConversation = await this.createConversation();
         initialConversationId = newConversation.conversation_id;
       }
       return {
         initialConversationId,
         conversations,
+        limitation: clientLimitation,
       };
     } catch (error) {
       console.error('ARH Client initialization failed:', error);
@@ -319,7 +311,6 @@ export class IFDClient
           this.getMessageQuota.bind(this)
         );
       } catch (error) {
-        handler.onError?.(error as Error);
         throw error;
       }
     } else {

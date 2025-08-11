@@ -650,7 +650,7 @@ describe('IFDClient', () => {
       });
     });
 
-    it('should return empty conversation list when initializeNewConversation=false', async () => {
+    it('should return conversation list when initializeNewConversation=false', async () => {
       const mockHealthResponse = { status: 'healthy' };
       const mockStatusResponse = { api: { status: 'operational' } };
       const mockUserSettings = { id: 'user123' };
@@ -683,7 +683,9 @@ describe('IFDClient', () => {
 
       const result = await clientWithNoAutoInit.init();
 
-      expect(result.conversations).toHaveLength(0);
+      expect(result.conversations).toEqual([
+        { id: 'existing-conv', locked: false, title: 'Existing Conversation' },
+      ]);
       expect(result.initialConversationId).toBe('');
       expect(result.limitation).toBeUndefined();
     });
