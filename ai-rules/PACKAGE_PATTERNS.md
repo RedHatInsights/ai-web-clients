@@ -21,9 +21,10 @@ export interface StateManager<T> {
   
   // Conversation Management
   setActiveConversationId(conversationId: string): Promise<void>;
+  getActiveConversationId(): string | null;
   getActiveConversationMessages(): Message<T>[];
   getConversations(): Conversation<T>[];
-  createNewConversation(): Promise<IConversation>;
+  createNewConversation(force?: boolean): Promise<IConversation>;
   
   // Message Management
   sendMessage(query: UserQuery, options?: MessageOptions): Promise<any>;
@@ -31,6 +32,8 @@ export interface StateManager<T> {
   
   // State Access
   getState(): ClientState<T>;
+  getClient(): IAIClient<T>;
+  getInitLimitation(): ClientInitLimitation | undefined;
   
   // Event System
   subscribe(event: Events, callback: () => void): () => void;
@@ -42,6 +45,7 @@ export enum Events {
   IN_PROGRESS = 'in-progress',
   CONVERSATIONS = 'conversations',
   INITIALIZING_MESSAGES = 'initializing-messages',
+  INIT_LIMITATION = 'init-limitation',
 }
 ```
 
@@ -71,11 +75,13 @@ export const AIStateProvider: React.Component<{
 export function useActiveConversation(): Conversation | undefined;
 export function useSendMessage(): (query: UserQuery, options?: MessageOptions) => Promise<any>;
 export function useMessages<T>(): Message<T>[];
-export function useActiveInProgress(): boolean;
+export function useInProgress(): boolean;
 export function useConversations<T>(): Conversation<T>[];
 export function useCreateNewConversation(): () => Promise<IConversation>;
 export function useSetActiveConversation(): (conversationId: string) => Promise<void>;
 export function useIsInitializing(): boolean;
+export function useClient<T>(): IAIClient<T>;
+export function useInitLimitation(): ClientInitLimitation | undefined;
 ```
 
 #### **Key Features**
@@ -151,7 +157,12 @@ All AI clients must implement this interface:
 ```typescript
 export interface IAIClient<T extends Record<string, unknown> = Record<string, unknown>> {
   // Initialization
-  init(): Promise<{ initialConversationId: string; conversations: IConversation[] }>;
+  init(): Promise<{
+    initialConversationId: string;
+    conversations: IConversation[];
+    limitation?: ClientInitLimitation;
+    error?: IInitErrorResponse;
+  }>;
   
   // Core messaging
   sendMessage(
@@ -168,11 +179,14 @@ export interface IAIClient<T extends Record<string, unknown> = Record<string, un
   ): Promise<IConversationHistoryResponse<T>>;
   
   // Health and status
-  healthCheck(options?: IRequestOptions): Promise<HealthCheck>;
+  healthCheck(options?: IRequestOptions): Promise<unknown>;
   getServiceStatus?(options?: IRequestOptions): Promise<unknown>;
   
   // Streaming support
   getDefaultStreamingHandler?<TChunk>(): IStreamingHandler<TChunk> | undefined;
+  
+  // Configuration
+  getInitOptions(): ClientInitOptions;
 }
 ```
 
@@ -183,6 +197,7 @@ export interface Message<T extends Record<string, unknown> = Record<string, unkn
   answer: string;
   role: 'user' | 'bot';
   additionalAttributes?: T;
+  date: Date;
 }
 
 export interface Conversation<T extends Record<string, unknown> = Record<string, unknown>> {
@@ -190,12 +205,14 @@ export interface Conversation<T extends Record<string, unknown> = Record<string,
   title: string;
   messages: Message<T>[];
   locked: boolean;
+  createdAt: Date;
 }
 
 export interface IConversation {
   id: string;
   title: string;
   locked: boolean;
+  createdAt: Date;
 }
 ```
 

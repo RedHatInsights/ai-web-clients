@@ -121,13 +121,13 @@ await client.sendMessage(conversationId, 'Tell me about Ansible best practices',
 
 ```typescript
 // Liveness check
-await client.liveness();
+await client.getLiveness();
 
 // Readiness check
-await client.readiness();
+await client.getReadiness();
 
 // Service status
-const status = await client.status();
+const status = await client.getFeedbackStatus();
 ```
 
 ## Error Handling
@@ -192,6 +192,7 @@ await client.healthCheck();
 
 // Information and metrics
 await client.getModels();
+await client.getInfo();
 await client.getConfiguration();
 await client.getMetrics();
 ```

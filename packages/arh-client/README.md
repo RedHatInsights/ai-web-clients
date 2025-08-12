@@ -21,7 +21,7 @@ npm install @redhat-cloud-services/arh-client
 ## Quick Start
 
 ```typescript
-import { IFDClient, createAuthenticatedFetch } from '@redhat-cloud-services/arh-client';
+import { IFDClient } from '@redhat-cloud-services/arh-client';
 
 // Initialize the client
 const client = new IFDClient({

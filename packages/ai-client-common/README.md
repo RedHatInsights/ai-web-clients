@@ -28,7 +28,7 @@ All AI clients in this workspace implement the `IAIClient` interface:
 ```typescript
 import { IAIClient, ClientInitLimitation, IInitErrorResponse } from '@redhat-cloud-services/ai-client-common';
 
-interface IAIClient<AP extends Record<string, unknown> = Record<string, unknown>, TChunk = unknown> {
+declare class IAIClient<AP extends Record<string, unknown> = Record<string, unknown>, TChunk = unknown> {
   constructor(config: IBaseClientConfig<TChunk>);
   
   init(): Promise<{
@@ -159,6 +159,7 @@ import { IStreamChunk } from '@redhat-cloud-services/ai-client-common';
 
 interface IStreamChunk<T extends Record<string, unknown> = Record<string, unknown>> {
   answer: string;
+  messageId: string;
   additionalAttributes: T;
 }
 ```
@@ -269,7 +270,7 @@ interface IMessageResponse<AP = Record<string, unknown>> {
   messageId: string;
   answer: string;
   conversationId: string;
-  date?: string;
+  date?: Date;
   additionalAttributes?: AP;
 }
 
@@ -278,6 +279,7 @@ interface IConversation {
   id: string;
   title: string;
   locked: boolean; // Prevents new messages when true
+  createdAt: Date;
 }
 ```
 

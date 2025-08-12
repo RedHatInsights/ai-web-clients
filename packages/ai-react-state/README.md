@@ -420,6 +420,56 @@ function ChatControls() {
 }
 ```
 
+### useClient
+
+Hook to access the underlying AI client instance.
+
+```tsx
+import { useClient } from '@redhat-cloud-services/ai-react-state';
+
+function ClientInfo() {
+  const client = useClient();
+
+  const handleHealthCheck = async () => {
+    try {
+      await client.healthCheck();
+      console.log('Client is healthy');
+    } catch (error) {
+      console.error('Health check failed:', error);
+    }
+  };
+
+  return (
+    <div>
+      <button onClick={handleHealthCheck}>
+        Check Client Health
+      </button>
+    </div>
+  );
+}
+```
+
+### useInitLimitation
+
+Hook to access client initialization limitations (e.g., quota exceeded).
+
+```tsx
+import { useInitLimitation } from '@redhat-cloud-services/ai-react-state';
+
+function LimitationBanner() {
+  const limitation = useInitLimitation();
+
+  if (!limitation) return null;
+
+  return (
+    <div className="limitation-banner">
+      <p><strong>Notice:</strong> {limitation.reason}</p>
+      {limitation.detail && <p>{limitation.detail}</p>}
+    </div>
+  );
+}
+```
+
 ## Complete Example
 
 Here's a comprehensive example showing all hooks working together:

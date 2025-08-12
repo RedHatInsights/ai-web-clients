@@ -212,7 +212,10 @@ The state manager automatically handles conversation creation when needed, ensur
 ### StateManager Interface
 
 ```typescript
-export type StateManager<T extends Record<string, unknown> = Record<string, unknown>> = {
+export type StateManager<
+  T extends Record<string, unknown> = Record<string, unknown>,
+  C extends IAIClient<T> = IAIClient<T>
+> = {
   // Initialization
   init(): Promise<void>;
   isInitialized(): boolean;
@@ -223,7 +226,7 @@ export type StateManager<T extends Record<string, unknown> = Record<string, unkn
   getActiveConversationId(): string | null;
   getActiveConversationMessages(): Message<T>[];
   getConversations(): Conversation<T>[];
-  createNewConversation(): Promise<IConversation>;
+  createNewConversation(force?: boolean): Promise<IConversation>;
   
   // Message Management
   sendMessage(query: UserQuery, options?: MessageOptions): Promise<any>;
@@ -231,12 +234,13 @@ export type StateManager<T extends Record<string, unknown> = Record<string, unkn
   
   // State Access
   getState(): ClientState<T>;
+  getInitLimitation(): ClientInitLimitation | undefined;
   
   // Event System
   subscribe(event: Events, callback: () => void): () => void;
   
   // Client Access
-  getClient(): IAIClient<T>;
+  getClient(): C;
 }
 
 export type UserQuery = string;
@@ -252,6 +256,7 @@ export enum Events {
   IN_PROGRESS = 'in-progress',
   CONVERSATIONS = 'conversations',
   INITIALIZING_MESSAGES = 'initializing-messages',
+  INIT_LIMITATION = 'init-limitation',
 }
 ```
 
