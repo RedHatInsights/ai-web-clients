@@ -512,9 +512,16 @@ export function createClientStateManager<
       }
       return state.conversations[currentConversationId];
     }
+    let prevConversation: Conversation | undefined;
+    if (currentConversationId) {
+      prevConversation = state.conversations[currentConversationId];
+    }
     const newConversation = await client.createNewConversation();
     initializeConversationState(newConversation.id);
     await setActiveConversationId(newConversation.id);
+    if (prevConversation) {
+      prevConversation.locked = true;
+    }
     notifyAll();
 
     return newConversation;
