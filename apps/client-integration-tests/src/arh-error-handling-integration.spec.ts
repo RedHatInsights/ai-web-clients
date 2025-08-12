@@ -38,7 +38,16 @@ const createMockServerFetch = (headers?: Record<string, string>) => {
 describe('ARH Client Error Handling Integration Tests', () => {
   const mockServerBaseUrl = 'http://localhost:3001';
 
+  let consoleSpy: jest.SpyInstance<
+    void,
+    [message?: any, ...optionalParams: any[]],
+    any
+  >;
   beforeAll(async () => {
+    // silence console errors as we expect them
+    consoleSpy = jest
+      .spyOn(global.console, 'error')
+      .mockImplementation(() => {});
     // Verify mock server is running
     try {
       console.log(
@@ -63,6 +72,10 @@ describe('ARH Client Error Handling Integration Tests', () => {
       );
     }
   }, 10000);
+
+  afterAll(() => {
+    consoleSpy.mockRestore();
+  });
 
   describe('Client Initialization Error Handling', () => {
     it('should throw IInitErrorResponse when status endpoint returns 403', async () => {

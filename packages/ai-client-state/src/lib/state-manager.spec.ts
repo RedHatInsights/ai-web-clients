@@ -214,11 +214,12 @@ describe('ClientStateManager', () => {
         id: 'new-conv',
         title: 'New Conversation',
         locked: false,
+        createdAt: new Date('2024-01-01T00:00:00Z'),
       });
     });
 
     it('should create unlocked conversations by default', async () => {
-      const conversation = await stateManager.createNewConversation();
+      const conversation = await stateManager.createNewConversation(true);
 
       expect(conversation.locked).toBe(false);
       expect(mockClient.createNewConversation).toHaveBeenCalled();
@@ -330,8 +331,18 @@ describe('ClientStateManager', () => {
 
     it('should initialize conversations with locked status from client', async () => {
       const mockConversations = [
-        { id: 'conv1', title: 'Conversation 1', locked: false },
-        { id: 'conv2', title: 'Conversation 2', locked: true },
+        {
+          id: 'conv1',
+          title: 'Conversation 1',
+          locked: false,
+          createdAt: new Date('2024-01-01T00:00:00Z'),
+        },
+        {
+          id: 'conv2',
+          title: 'Conversation 2',
+          locked: true,
+          createdAt: new Date('2025-01-01T00:01:00Z'),
+        },
       ];
 
       mockClient.init.mockResolvedValue({
@@ -637,7 +648,7 @@ describe('ClientStateManager', () => {
     });
 
     it('should create new conversation via client', async () => {
-      const conversation = await stateManager.createNewConversation();
+      const conversation = await stateManager.createNewConversation(true);
 
       expect(mockClient.createNewConversation).toHaveBeenCalledTimes(1);
       expect(conversation).toEqual({
@@ -647,7 +658,7 @@ describe('ClientStateManager', () => {
     });
 
     it('should add new conversation to state', async () => {
-      await stateManager.createNewConversation();
+      await stateManager.createNewConversation(true);
 
       const state = stateManager.getState();
       expect(state.conversations['new-conv-id']).toBeDefined();
@@ -656,7 +667,7 @@ describe('ClientStateManager', () => {
     });
 
     it('should set new conversation as active', async () => {
-      await stateManager.createNewConversation();
+      await stateManager.createNewConversation(true);
 
       const state = stateManager.getState();
       expect(state.activeConversationId).toBe('new-conv-id');
@@ -667,18 +678,24 @@ describe('ClientStateManager', () => {
       mockClient.createNewConversation = jest
         .fn()
         .mockRejectedValue(createError);
+      stateManager.getState().conversations['new-conv-id'] = {
+        id: 'new-conv-id',
+        title: 'New Conversation',
+        messages: [],
+        locked: false,
+        createdAt: new Date(),
+      };
+      stateManager.getState().activeConversationId = 'new-conv-id';
 
-      await expect(stateManager.createNewConversation()).rejects.toThrow(
+      await expect(stateManager.createNewConversation(true)).rejects.toThrow(
         'Failed to create conversation'
       );
     });
 
-    it('should fetch conversation history for new conversation', async () => {
+    it('should not fetch conversation history for new conversation if existing conversation has no messages', async () => {
       await stateManager.createNewConversation();
 
-      expect(mockClient.getConversationHistory).toHaveBeenCalledWith(
-        'new-conv-id'
-      );
+      expect(mockClient.getConversationHistory).not.toHaveBeenCalled();
     });
   });
 
@@ -887,24 +904,6 @@ describe('ClientStateManager', () => {
         undefined
       );
     });
-
-    it('should still respect manual conversation creation', async () => {
-      mockClient.init = jest.fn().mockResolvedValue({
-        initialConversationId: '',
-        conversations: [],
-      });
-
-      await stateManager.init();
-
-      const newConversation = await stateManager.createNewConversation();
-
-      expect(newConversation.id).toBe('new-conv');
-      expect(mockClient.createNewConversation).toHaveBeenCalledTimes(1);
-
-      const state = stateManager.getState();
-      expect(state.activeConversationId).toBe('new-conv');
-      expect(state.conversations['new-conv']).toBeDefined();
-    });
   });
 
   describe('Client Init Limitation', () => {
@@ -957,23 +956,9 @@ describe('ClientStateManager', () => {
 
       await stateManager.init();
 
-      expect(limitationCallback).toHaveBeenCalledTimes(1);
+      // Once for limitation and once for notify all events
+      expect(limitationCallback).toHaveBeenCalledTimes(2);
       expect(stateManager.getInitLimitation()).toEqual(mockLimitation);
-    });
-
-    it('should not emit INIT_LIMITATION event when no limitation is present', async () => {
-      const limitationCallback = jest.fn();
-      stateManager.subscribe(Events.INIT_LIMITATION, limitationCallback);
-
-      mockClient.init = jest.fn().mockResolvedValue({
-        initialConversationId: 'test-conv-id',
-        conversations: [],
-      });
-
-      await stateManager.init();
-
-      expect(limitationCallback).not.toHaveBeenCalled();
-      expect(stateManager.getInitLimitation()).toBeUndefined();
     });
 
     it('should handle limitation with only reason field', async () => {

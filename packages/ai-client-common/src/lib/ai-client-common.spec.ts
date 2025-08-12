@@ -240,6 +240,7 @@ describe('ai-client-common', () => {
             id: 'test-conversation-id',
             title: 'Test Conversation',
             locked: false,
+            createdAt: new Date('2024-01-01T00:00:00Z'),
           };
         }
 
@@ -314,6 +315,7 @@ describe('ai-client-common', () => {
             id: 'test-conversation-id',
             title: 'Test Conversation',
             locked: false,
+            createdAt: new Date('2024-01-01T00:00:00Z'),
           };
         }
 
@@ -398,6 +400,7 @@ describe('ai-client-common', () => {
             id: 'test-conversation-id',
             title: 'Test Conversation',
             locked: false,
+            createdAt: new Date('2024-01-01T00:00:00Z'),
           };
         }
 

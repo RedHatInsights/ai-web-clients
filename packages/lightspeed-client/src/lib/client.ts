@@ -176,6 +176,7 @@ export class LightspeedClient
       id: conversationId,
       title: 'New Conversation',
       locked: false,
+      createdAt: new Date(),
     };
 
     // In a real implementation, you would likely want to store this conversation
@@ -457,14 +458,7 @@ export class LightspeedClient
    * @returns A new UUID string
    */
   private generateConversationId(): string {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(
-      /[xy]/g,
-      function (c) {
-        const r = (Math.random() * 16) | 0;
-        const v = c == 'x' ? r : (r & 0x3) | 0x8;
-        return v.toString(16);
-      }
-    );
+    return crypto.randomUUID();
   }
 
   /**
@@ -472,6 +466,6 @@ export class LightspeedClient
    * @returns A new message ID string
    */
   private generateMessageId(): string {
-    return `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    return crypto.randomUUID();
   }
 }

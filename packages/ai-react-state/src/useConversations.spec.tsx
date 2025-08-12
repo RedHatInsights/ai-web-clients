@@ -14,8 +14,16 @@ const createMockClient = (): jest.Mocked<IAIClient> => ({
   init: jest.fn().mockResolvedValue({
     initialConversationId: 'test-conversation-1',
     conversations: [
-      { id: 'test-conversation-1', title: 'Test Conversation 1' },
-      { id: 'test-conversation-2', title: 'Test Conversation 2' },
+      {
+        id: 'test-conversation-1',
+        title: 'Test Conversation 1',
+        createdAt: new Date('2024-01-01T00:00:00Z'),
+      },
+      {
+        id: 'test-conversation-2',
+        title: 'Test Conversation 2',
+        createdAt: new Date('2025-01-01T00:01:00Z'),
+      },
     ],
   }),
   sendMessage: jest.fn(),
@@ -85,8 +93,9 @@ describe('useConversations', () => {
     );
 
     expect(getByTestId('conversations-count').textContent).toBe('2');
+    // order matters here
     expect(getByTestId('conversation-ids').textContent).toBe(
-      'test-conversation-1,test-conversation-2'
+      'test-conversation-2,test-conversation-1'
     );
   });
 
@@ -113,7 +122,7 @@ describe('useConversations', () => {
 
     // Create a new conversation which should trigger the CONVERSATIONS event
     await act(async () => {
-      await stateManager.createNewConversation();
+      await stateManager.createNewConversation(true);
     });
 
     await waitFor(() => {
@@ -186,7 +195,12 @@ describe('useConversations', () => {
     mockClient2.init.mockResolvedValue({
       initialConversationId: 'different-conversation',
       conversations: [
-        { id: 'different-conversation', title: 'Different Conversation' },
+        {
+          createdAt: new Date(),
+          id: 'different-conversation',
+          title: 'Different Conversation',
+          locked: false,
+        },
       ],
     });
 

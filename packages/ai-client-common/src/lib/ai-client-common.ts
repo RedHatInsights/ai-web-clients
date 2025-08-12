@@ -329,6 +329,7 @@ export interface IConversation {
   id: string;
   title: string;
   locked: boolean;
+  createdAt: Date;
 }
 
 export interface IErrorMessageResponse {

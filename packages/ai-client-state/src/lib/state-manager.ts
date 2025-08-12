@@ -34,6 +34,7 @@ export interface Conversation<
   title: string;
   messages: Message<T>[];
   locked: boolean;
+  createdAt: Date;
 }
 
 export interface MessageOptions {
@@ -73,7 +74,7 @@ export type StateManager<
   getState: () => ClientState<T>;
   subscribe: (event: Events, callback: () => void) => () => void;
   getConversations: () => Conversation<T>[];
-  createNewConversation: () => Promise<IConversation>;
+  createNewConversation: (force?: boolean) => Promise<IConversation>;
   getClient: () => C;
   getInitLimitation: () => ClientInitLimitation | undefined;
 };
@@ -118,6 +119,7 @@ export function createClientStateManager<
       Events.IN_PROGRESS,
       Events.CONVERSATIONS,
       Events.INITIALIZING_MESSAGES,
+      Events.INIT_LIMITATION,
     ].forEach((event) => {
       notify(event);
     });
@@ -129,6 +131,7 @@ export function createClientStateManager<
       title: 'New conversation',
       messages: [],
       locked: false,
+      createdAt: new Date(),
     };
     state.conversations[id] = newConversation;
     notify(Events.CONVERSATIONS);
@@ -147,8 +150,8 @@ export function createClientStateManager<
 
     try {
       // Call the client's init method to get the initial conversation ID
-      const { initialConversationId, conversations, error, limitation } =
-        await client.init();
+      const { conversations, error, limitation, ...rest } = await client.init();
+      let { initialConversationId } = rest;
       if (error) {
         throw error;
       }
@@ -164,6 +167,7 @@ export function createClientStateManager<
           title: conversation.title,
           messages: [],
           locked: conversation.locked,
+          createdAt: conversation.createdAt,
         };
       });
       notify(Events.CONVERSATIONS);
@@ -200,9 +204,13 @@ export function createClientStateManager<
             },
             [] as Message<T>[]
           );
+        } else {
+          const conversation = await createNewConversation(true);
+          initialConversationId = conversation.id;
         }
 
         state.conversations[initialConversationId].messages = messages;
+        notify(Events.CONVERSATIONS);
       }
 
       state.isInitialized = true;
@@ -338,7 +346,7 @@ export function createClientStateManager<
       // we need to ensure the active conversation exists
       if (!state.activeConversationId) {
         try {
-          await createNewConversation();
+          await createNewConversation(true);
         } catch (error) {
           // unable to create a new conversation, reset in-progress state
           state.messageInProgress = false;
@@ -484,14 +492,26 @@ export function createClientStateManager<
   }
 
   function getConversations(): Conversation<T>[] {
-    return Object.values(state.conversations);
+    const conversations = Object.values(state.conversations);
+    conversations.sort((a, b) => {
+      return b.createdAt.getTime() - a.createdAt.getTime();
+    });
+    return conversations;
   }
 
   function getMessageInProgress() {
     return state.messageInProgress;
   }
 
-  async function createNewConversation(): Promise<IConversation> {
+  async function createNewConversation(force = false): Promise<IConversation> {
+    // do not create new conversation if current conversation is empty
+    const currentConversationId = getActiveConversationId();
+    if (!force && getActiveConversationMessages().length === 0) {
+      if (!currentConversationId) {
+        return initializeConversationState(crypto.randomUUID());
+      }
+      return state.conversations[currentConversationId];
+    }
     const newConversation = await client.createNewConversation();
     initializeConversationState(newConversation.id);
     await setActiveConversationId(newConversation.id);

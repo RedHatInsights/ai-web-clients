@@ -405,6 +405,7 @@ export class AnsibleLightspeedClient
       id: conversationId,
       title: 'New Ansible Conversation',
       locked: false,
+      createdAt: new Date(),
     };
   }
 

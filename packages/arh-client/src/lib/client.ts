@@ -172,6 +172,7 @@ export class IFDClient
       id: response.conversation_id,
       title: 'New Conversation',
       locked: false,
+      createdAt: new Date(),
     };
   }
 
@@ -209,6 +210,7 @@ export class IFDClient
           id: conversation.conversation_id,
           title: conversation.title,
           locked: !conversation.is_latest,
+          createdAt: new Date(conversation.created_at),
         };
       });
       if (this.initOptions.initializeNewConversation && defaultConversation) {

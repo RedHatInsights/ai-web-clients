@@ -684,7 +684,12 @@ describe('IFDClient', () => {
       const result = await clientWithNoAutoInit.init();
 
       expect(result.conversations).toEqual([
-        { id: 'existing-conv', locked: false, title: 'Existing Conversation' },
+        {
+          id: 'existing-conv',
+          locked: false,
+          title: 'Existing Conversation',
+          createdAt: expect.any(Date),
+        },
       ]);
       expect(result.initialConversationId).toBe('');
       expect(result.limitation).toBeUndefined();

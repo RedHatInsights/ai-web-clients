@@ -269,23 +269,11 @@ app.post('/v1/feedback', (req, res) => {
 });
 
 // GET /readiness - Readiness probe
-app.get('/readiness', (req, res) => {
-  // Simulate occasional not-ready state for testing
-  const isReady = Math.random() > 0.1; // 90% ready
-
-  if (isReady) {
-    res.json({
-      ready: true,
-      reason: 'service is ready',
-    });
-  } else {
-    res.status(503).json({
-      detail: {
-        cause: 'Index is not ready',
-        response: 'Service is not ready',
-      },
-    });
-  }
+app.get('/readiness', (_req, res) => {
+  res.json({
+    ready: true,
+    reason: 'service is ready',
+  });
 });
 
 // GET /liveness - Liveness probe

@@ -769,7 +769,7 @@ describe('ARH Client Integration Tests', () => {
       await stateManager.init();
 
       // Manually create a conversation
-      const newConv = await stateManager.createNewConversation();
+      const newConv = await stateManager.createNewConversation(true);
       expect(newConv.id).toBe('manual-conv-789'); // From the mocked response
 
       const state = stateManager.getState();
@@ -820,7 +820,7 @@ describe('ARH Client Integration Tests', () => {
       const limitation = stateManager.getInitLimitation();
       // Mock server should not return limitation for normal operation
       expect(limitation).toBeUndefined();
-      expect(limitationCallback).not.toHaveBeenCalled();
+      expect(limitationCallback).toHaveBeenCalledWith();
       expect(stateManager.isInitialized()).toBe(true);
     });
 
