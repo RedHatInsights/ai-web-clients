@@ -210,6 +210,7 @@ describe('ARH Client Integration Tests', () => {
         // Manually create conversation state (this is how the state manager works)
         const state = stateManager.getState();
         state.conversations[conversationId] = {
+          createdAt: new Date(),
           id: conversationId,
           messages: [],
           title: 'Test Conversation',
@@ -264,12 +265,36 @@ describe('ARH Client Integration Tests', () => {
         expect(botMessage.additionalAttributes).toBeDefined();
       });
 
-      it('should throw error when no active conversation is set', async () => {
-        const userMessage: UserQuery = 'This should fail';
+      it('should auto-create temporary conversation when no active conversation is set', async () => {
+        const mockServerBaseUrl = 'http://localhost:3001';
 
-        await expect(stateManager.sendMessage(userMessage)).rejects.toThrow(
-          'No active conversation'
-        );
+        // Create client that uses the mock server
+        const realClient = new IFDClient({
+          baseUrl: mockServerBaseUrl,
+        });
+
+        const realStateManager = createClientStateManager(realClient);
+        const userMessage: UserQuery = 'This should auto-create conversation';
+
+        // No need to set active conversation - lazy initialization should handle it
+        const response = await realStateManager.sendMessage(userMessage);
+
+        expect(response).toBeDefined();
+        expect(response.messageId).toBeDefined();
+        expect(response.answer).toBeDefined();
+
+        // Verify conversation was auto-created
+        const state = realStateManager.getState();
+        expect(state.activeConversationId).toBeDefined();
+        expect(state.activeConversationId).not.toBe('__temp_conversation__'); // Should be promoted
+        expect(state.conversations[state.activeConversationId!]).toBeDefined();
+
+        // Verify messages are in the conversation
+        const messages = realStateManager.getActiveConversationMessages();
+        expect(messages.length).toBeGreaterThanOrEqual(2); // user + bot
+        expect(messages[0].role).toBe('user');
+        expect(messages[0].answer).toBe(userMessage);
+        expect(messages[1].role).toBe('bot');
       });
     });
 
@@ -584,206 +609,96 @@ describe('ARH Client Integration Tests', () => {
     });
   });
 
-  describe('Lazy Conversation Initialization (initializeNewConversation=false)', () => {
-    let testClient: IFDClient;
-    let stateManager: ReturnType<typeof createClientStateManager>;
-    let testMockFetch: jest.MockedFunction<typeof fetch>;
+  describe('New Lazy Initialization Behavior', () => {
+    const mockServerBaseUrl = 'http://localhost:3001';
 
-    beforeEach(() => {
-      testMockFetch = jest.fn();
-
-      const config: IFDClientConfig = {
-        baseUrl: 'https://api.test.com',
-        fetchFunction: testMockFetch,
-        initOptions: {
-          initializeNewConversation: false,
-        },
-      };
-
-      testClient = new IFDClient(config);
-      stateManager = createClientStateManager(testClient);
+    beforeAll(async () => {
+      // Health check to ensure mock server is running
+      try {
+        const response = await fetch(`${mockServerBaseUrl}/api/ask/v1/health`);
+        if (!response.ok) {
+          throw new Error('Mock server not responding');
+        }
+      } catch (error) {
+        throw new Error(
+          `ARH Mock server not running at ${mockServerBaseUrl}. Start it with: npm run arh-mock-server`
+        );
+      }
     });
 
-    it('should not create conversations during initialization', async () => {
-      // Mock the init responses
-      testMockFetch
-        .mockResolvedValueOnce({
-          ok: true,
-          status: 200,
-          json: async () => ({ status: 'healthy' }),
-        } as Response)
-        .mockResolvedValueOnce({
-          ok: true,
-          status: 200,
-          json: async () => ({ api: { status: 'operational' } }),
-        } as Response)
-        .mockResolvedValueOnce({
-          ok: true,
-          status: 200,
-          json: async () => ({ id: 'user123' }),
-        } as Response)
-        .mockResolvedValueOnce({
-          ok: true,
-          status: 200,
-          json: async () => [],
-        } as Response)
-        .mockResolvedValueOnce({
-          ok: true,
-          status: 200,
-          json: async () => ({ quota: { limit: 10, used: 3 }, enabled: true }),
-        } as Response);
+    it('should no longer have initOptions property', () => {
+      const realClient = new IFDClient({
+        baseUrl: mockServerBaseUrl,
+      });
 
-      await stateManager.init();
+      // getInitOptions should no longer exist
+      expect((realClient as any).getInitOptions).toBeUndefined();
+    });
 
-      const state = stateManager.getState();
+    it('should auto-create conversations on first sendMessage without init configuration', async () => {
+      const realClient = new IFDClient({
+        baseUrl: mockServerBaseUrl,
+        fetchFunction: (input, init) => {
+          // Add clean state header to ensure fresh state
+          const headers = { ...init?.headers, 'x-mock-clean-state': 'true' };
+          return fetch(input, { ...init, headers });
+        },
+      });
+
+      const realStateManager = createClientStateManager(realClient);
+
+      await realStateManager.init();
+
+      // Should start with no active conversation
+      let state = realStateManager.getState();
       expect(state.activeConversationId).toBeNull();
       expect(Object.keys(state.conversations)).toHaveLength(0);
-      expect(stateManager.isInitialized()).toBe(true);
-    });
 
-    it('should auto-create conversation on first sendMessage', async () => {
-      // Mock init responses first
-      testMockFetch
-        .mockResolvedValueOnce({
-          ok: true,
-          status: 200,
-          json: async () => ({ status: 'healthy' }),
-        } as Response)
-        .mockResolvedValueOnce({
-          ok: true,
-          status: 200,
-          json: async () => ({ api: { status: 'operational' } }),
-        } as Response)
-        .mockResolvedValueOnce({
-          ok: true,
-          status: 200,
-          json: async () => ({ id: 'user123' }),
-        } as Response)
-        .mockResolvedValueOnce({
-          ok: true,
-          status: 200,
-          json: async () => [],
-        } as Response)
-        .mockResolvedValueOnce({
-          ok: true,
-          status: 200,
-          json: async () => ({ quota: { limit: 10, used: 3 }, enabled: true }),
-        } as Response)
-        // Mock createNewConversation response (ARH format)
-        .mockResolvedValueOnce({
-          ok: true,
-          status: 200,
-          json: async () => ({
-            conversation_id: 'auto-conv-123',
-            quota: null,
-          }),
-        } as Response)
-        // Mock conversation history for the new conversation (setActiveConversationId calls this)
-        .mockResolvedValueOnce({
-          ok: true,
-          status: 200,
-          json: async () => [],
-        } as Response)
-        // Mock sendMessage response
-        .mockResolvedValueOnce({
-          ok: true,
-          status: 200,
-          json: async () => ({
-            message_id: 'msg-456',
-            answer: 'Test response',
-            conversation_id: 'auto-conv-123',
-            received_at: new Date().toISOString(),
-            sources: [],
-          }),
-        } as Response)
-        // Mock quota response
-        .mockResolvedValueOnce({
-          ok: true,
-          status: 200,
-          json: async () => ({ quota: { limit: 10, used: 4 }, enabled: true }),
-        } as Response);
+      // First sendMessage should auto-create and promote temporary conversation
+      const userMessage = 'Test new lazy initialization';
+      const response = await realStateManager.sendMessage(userMessage);
 
-      await stateManager.init();
+      expect(response).toBeDefined();
+      expect(response.messageId).toBeDefined();
+      expect(response.answer).toBeDefined();
 
-      const userMessage = 'Test lazy conversation creation';
-      const response = await stateManager.sendMessage(userMessage);
-
-      expect(response?.messageId).toBe('msg-456');
-      expect(response?.answer).toBe('Test response');
-
-      const state = stateManager.getState();
-      expect(state.activeConversationId).toBe('auto-conv-123');
+      // Verify conversation was auto-created and promoted
+      state = realStateManager.getState();
+      expect(state.activeConversationId).toBeDefined();
+      expect(state.activeConversationId).not.toBe('__temp_conversation__'); // Should be promoted
       expect(Object.keys(state.conversations)).toHaveLength(1);
 
-      const conversation = state.conversations['auto-conv-123'];
-      expect(conversation.messages).toHaveLength(2); // user + bot
-      expect(conversation.messages[0].role).toBe('user');
-      expect(conversation.messages[0].answer).toBe(userMessage);
-      expect(conversation.messages[1].role).toBe('bot');
+      // Verify messages are properly stored
+      const messages = realStateManager.getActiveConversationMessages();
+      expect(messages.length).toBeGreaterThanOrEqual(2); // user + bot
+      expect(messages[0].role).toBe('user');
+      expect(messages[0].answer).toBe(userMessage);
+      expect(messages[1].role).toBe('bot');
     });
 
-    it('should work with manual conversation creation', async () => {
-      // Mock init responses
-      testMockFetch
-        .mockResolvedValueOnce({
-          ok: true,
-          status: 200,
-          json: async () => ({ status: 'healthy' }),
-        } as Response)
-        .mockResolvedValueOnce({
-          ok: true,
-          status: 200,
-          json: async () => ({ api: { status: 'operational' } }),
-        } as Response)
-        .mockResolvedValueOnce({
-          ok: true,
-          status: 200,
-          json: async () => ({ id: 'user123' }),
-        } as Response)
-        .mockResolvedValueOnce({
-          ok: true,
-          status: 200,
-          json: async () => [],
-        } as Response)
-        .mockResolvedValueOnce({
-          ok: true,
-          status: 200,
-          json: async () => ({ quota: { limit: 10, used: 3 }, enabled: true }),
-        } as Response)
-        // Mock createNewConversation response (ARH format)
-        .mockResolvedValueOnce({
-          ok: true,
-          status: 200,
-          json: async () => ({
-            conversation_id: 'manual-conv-789',
-            quota: null,
-          }),
-        } as Response)
-        // Mock getConversationHistory call after setActiveConversationId
-        .mockResolvedValueOnce({
-          ok: true,
-          status: 200,
-          json: async () => [],
-        } as Response);
-
-      await stateManager.init();
-
-      // Manually create a conversation
-      const newConv = await stateManager.createNewConversation(true);
-      expect(newConv.id).toBe('manual-conv-789'); // From the mocked response
-
-      const state = stateManager.getState();
-      expect(state.activeConversationId).toBe('manual-conv-789');
-      expect(Object.keys(state.conversations)).toHaveLength(1);
-      expect(state.conversations['manual-conv-789'].title).toBe(
-        'New conversation'
-      );
-    });
-
-    it('should return correct initOptions', () => {
-      expect(testClient.getInitOptions()).toEqual({
-        initializeNewConversation: false,
+    it('should expose isTemporaryConversation method', async () => {
+      const realClient = new IFDClient({
+        baseUrl: mockServerBaseUrl,
+        fetchFunction: (input, init) => {
+          // Add clean state header to ensure fresh state
+          const headers = { ...init?.headers, 'x-mock-clean-state': 'true' };
+          return fetch(input, { ...init, headers });
+        },
       });
+
+      const realStateManager = createClientStateManager(realClient);
+
+      // Initially should not be temporary (no conversation at all)
+      expect(realStateManager.isTemporaryConversation()).toBe(false);
+
+      // After sendMessage, should be promoted to real conversation
+      await realStateManager.sendMessage('Test temporary check');
+
+      expect(realStateManager.isTemporaryConversation()).toBe(false);
+      expect(realStateManager.getActiveConversationId()).toBeDefined();
+      expect(realStateManager.getActiveConversationId()).not.toBe(
+        '__temp_conversation__'
+      );
     });
   });
 

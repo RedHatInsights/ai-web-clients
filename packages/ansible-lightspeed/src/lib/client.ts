@@ -24,7 +24,6 @@ import {
   IStreamingHandler,
   IInitErrorResponse,
   IAIClient,
-  ClientInitOptions,
 } from '@redhat-cloud-services/ai-client-common';
 import {
   DefaultStreamingHandler,
@@ -58,7 +57,6 @@ export class AnsibleLightspeedClient
     init?: RequestInit
   ) => Promise<Response>;
   private defaultStreamingHandler: IStreamingHandler<StreamingEvent>;
-  private readonly initOptions: ClientInitOptions;
 
   constructor(config: AnsibleLightspeedConfig) {
     this.config = config;
@@ -66,10 +64,6 @@ export class AnsibleLightspeedClient
       config.fetchFunction || ((input, init) => fetch(input, init));
     this.defaultStreamingHandler =
       config.defaultStreamingHandler || new DefaultStreamingHandler();
-    this.initOptions = {
-      initializeNewConversation:
-        config.initOptions?.initializeNewConversation ?? true,
-    };
   }
 
   getConfig(): AnsibleLightspeedConfig {
@@ -85,10 +79,6 @@ export class AnsibleLightspeedClient
     return this.defaultStreamingHandler as
       | IStreamingHandler<TChunk>
       | undefined;
-  }
-
-  getInitOptions() {
-    return this.initOptions;
   }
 
   private async makeRequest<T>(
@@ -275,16 +265,12 @@ export class AnsibleLightspeedClient
 
   // IAIClient interface implementation
   async init(): Promise<{
-    initialConversationId: string;
     conversations: IConversation[];
     error?: IInitErrorResponse;
   }> {
     try {
-      // Generate initial conversation ID
-      const initialConversationId = this.generateConversationId();
-
+      // No longer auto-creating conversations
       return {
-        initialConversationId,
         conversations: [],
       };
     } catch (error) {
@@ -297,7 +283,6 @@ export class AnsibleLightspeedClient
       };
 
       return {
-        initialConversationId: '',
         conversations: [],
         error: errorResponse,
       };

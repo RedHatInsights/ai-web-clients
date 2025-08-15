@@ -32,7 +32,6 @@ declare class IAIClient<AP extends Record<string, unknown> = Record<string, unkn
   constructor(config: IBaseClientConfig<TChunk>);
   
   init(): Promise<{
-    initialConversationId: string;
     conversations: IConversation[];
     limitation?: ClientInitLimitation;
     error?: IInitErrorResponse;
@@ -53,8 +52,6 @@ declare class IAIClient<AP extends Record<string, unknown> = Record<string, unkn
   getServiceStatus?(options?: IRequestOptions): Promise<unknown>;
   
   createNewConversation(): Promise<IConversation>;
-  
-  getInitOptions(): ClientInitOptions;
 }
 ```
 
@@ -90,40 +87,25 @@ import { IBaseClientConfig } from '@redhat-cloud-services/ai-client-common';
 const config: IBaseClientConfig = {
   baseUrl: 'https://your-ai-service.com',
   fetchFunction: customFetch, // Optional - defaults to native fetch
-  defaultStreamingHandler: new CustomStreamingHandler(), // Optional
-  initOptions: {
-    initializeNewConversation: false  // Optional: See "Lazy Conversation Initialization"
-  }
+  defaultStreamingHandler: new CustomStreamingHandler() // Optional
 };
 ```
 
-#### Lazy Conversation Initialization
+#### Lazy Initialization (Default Behavior)
 
-The `ClientInitOptions` interface provides control over when conversations are created during client initialization.
+AI clients now use lazy initialization by default. The `init()` method no longer auto-creates conversations - instead, conversations are created automatically when needed (e.g., on first message send).
 
-```typescript
-import { ClientInitOptions } from '@redhat-cloud-services/ai-client-common';
+**Default Behavior:**
+- Client `init()` only loads existing conversations
+- No conversations are auto-created during initialization
+- Conversations are created automatically on first `sendMessage()` call
+- Provides optimal performance and seamless user experience
 
-interface ClientInitOptions {
-  /**
-   * Controls whether to automatically create a conversation during client initialization
-   * @default true
-   */
-  initializeNewConversation?: boolean;
-}
-```
-
-**Default Behavior (initializeNewConversation: true):**
-- Client automatically creates/finds a conversation during `init()`
-- Provides immediate conversation for users to start chatting
-- Suitable for most chat interfaces
-
-**Lazy Initialization (initializeNewConversation: false):**
-- Client initializes without creating conversations  
-- Conversations created only when needed (e.g., first message sent)
-- Useful for performance optimization and conditional conversation creation
-
-All AI clients implementing `IAIClient` provide this configuration via the `getInitOptions()` method.
+**Key Changes:**
+- **Removed**: `ClientInitOptions` interface (no longer needed)
+- **Removed**: `getInitOptions()` method from `IAIClient` interface
+- **Removed**: `initialConversationId` from `init()` return type
+- **New**: Automatic conversation creation on first message send
 
 ### Client Initialization Responses
 

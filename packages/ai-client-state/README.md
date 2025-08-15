@@ -4,6 +4,9 @@ State management for AI client conversations with event-driven architecture and 
 
 ## Features
 
+- **Lazy Initialization** - Conversations are created automatically on first sendMessage (no auto-creation during init)
+- **Temporary Conversation Pattern** - Seamless conversation creation using temporary conversation IDs
+- **Automatic Promotion** - First sendMessage automatically promotes temporary to real conversation
 - **Conversation Management** - Handle multiple AI conversations with persistent state
 - **Conversation Locking** - Prevent message sending to locked conversations with automatic error handling
 - **Event-Driven Architecture** - Subscribe to state changes with typed events
@@ -11,6 +14,7 @@ State management for AI client conversations with event-driven architecture and 
 - **Client Agnostic** - Works with any AI client implementing `IAIClient` interface
 - **TypeScript Support** - Comprehensive type definitions for all state operations
 - **Zero UI Dependencies** - Pure state management without framework coupling
+- **Retry Logic** - Promotion failures include retry mechanism with user-friendly error messages
 
 ## Installation
 
@@ -33,12 +37,11 @@ const client = new IFDClient({
 // Create state manager
 const stateManager = createClientStateManager(client);
 
-// Initialize and start using
+// Initialize (no longer auto-creates conversations)
 await stateManager.init();
-await stateManager.setActiveConversationId('conversation-id');
 
-// Send messages (pass string directly, not Message object)
-await stateManager.sendMessage('Hello AI!');
+// LAZY INITIALIZATION: First sendMessage auto-creates conversation
+await stateManager.sendMessage('Hello AI!'); // Auto-promotes temporary conversation
 ```
 
 ## Critical: fetchFunction Configuration
@@ -176,36 +179,42 @@ The state manager supports conversation locking to prevent users from sending me
 - **Client integration** allows AI clients to determine lock status based on their data
 - **Event system** properly handles locked conversation scenarios
 
-## Lazy Conversation Initialization
+## Lazy Initialization (Default Behavior)
 
-The state manager supports lazy conversation initialization, controlled by the AI client's `initOptions.initializeNewConversation` setting. This feature is documented in the [@redhat-cloud-services/ai-client-common](../ai-client-common#lazy-conversation-initialization) package.
+The state manager now uses lazy initialization by default. Conversations are created automatically on first `sendMessage()` call, providing a seamless user experience.
 
-### State Manager Behavior
+### How Lazy Initialization Works
 
-**When initializeNewConversation: true (default):**
 ```typescript
-const stateManager = createClientStateManager(client);
-await stateManager.init(); // Creates/loads conversations immediately
-// Ready to send messages to the active conversation
-```
-
-**When initializeNewConversation: false:**
-```typescript
-// Client configured with lazy initialization
-const client = new AIClient({
-  baseUrl: 'https://api.example.com',
-  fetchFunction: customFetch,
-  initOptions: { initializeNewConversation: false }
-});
-
 const stateManager = createClientStateManager(client);
 await stateManager.init(); // No conversations created
 
-// Conversation automatically created on first message
-await stateManager.sendMessage('Hello'); // Creates conversation internally
+// First sendMessage automatically creates conversation
+await stateManager.sendMessage('Hello'); // Creates temporary conversation, then promotes to real conversation
+
+// Check if current conversation is temporary (should be false after promotion)
+const isTemp = stateManager.isTemporaryConversation(); // false after successful promotion
 ```
 
-The state manager automatically handles conversation creation when needed, ensuring users can always send messages regardless of the initialization setting.
+### Key Implementation Details
+
+- **Temporary Conversation ID**: Uses `'__temp_conversation__'` constant for temporary state
+- **Automatic Promotion**: First sendMessage promotes temporary to real conversation via `client.createNewConversation()`  
+- **Retry Logic**: MAX_RETRY_ATTEMPTS = 2 for promotion failures with user-friendly error messages
+- **Backward Compatibility**: All existing APIs preserved, only initialization behavior changed
+
+### Manual Conversation Creation
+
+You can still create conversations manually if needed:
+
+```typescript
+// Create conversation explicitly
+const conversation = await stateManager.createNewConversation();
+await stateManager.setActiveConversationId(conversation.id);
+
+// Now send messages to the specific conversation
+await stateManager.sendMessage('Hello explicit conversation');
+```
 
 ## API Reference
 
@@ -227,6 +236,7 @@ export type StateManager<
   getActiveConversationMessages(): Message<T>[];
   getConversations(): Conversation<T>[];
   createNewConversation(force?: boolean): Promise<IConversation>;
+  isTemporaryConversation(): boolean;
   
   // Message Management
   sendMessage(query: UserQuery, options?: MessageOptions): Promise<any>;
@@ -506,10 +516,9 @@ const stateManager = createClientStateManager(customClient);
 
 ```typescript
 // Create multiple conversations
-await stateManager.init(); // Creates initial conversation
-const initialConversationId = stateManager.getState().activeConversationId;
+await stateManager.init(); // No longer auto-creates conversations
 
-// Create new conversations
+// Create conversations explicitly
 const conversation1 = await stateManager.createNewConversation();
 const conversation2 = await stateManager.createNewConversation();
 

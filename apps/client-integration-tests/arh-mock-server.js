@@ -407,6 +407,12 @@ app.put('/api/ask/v1/user/current', (req, res) => {
 app.get('/api/ask/v1/user/current/history', (req, res) => {
   const { limit = 10 } = req.query;
 
+  // Check for clean state header - return empty history if present
+  const cleanState = req.headers['x-mock-clean-state'] === 'true';
+  if (cleanState) {
+    return res.json([]);
+  }
+
   // Convert conversations to history format matching OpenAPI spec
   const history = Array.from(conversations.values())
     .slice(0, parseInt(limit))
@@ -423,9 +429,12 @@ app.get('/api/ask/v1/user/current/history', (req, res) => {
 
 // Get conversations quota
 app.get('/api/ask/v1/quota/conversations', (req, res) => {
+  // Check for clean state header - return 0 used if present
+  const cleanState = req.headers['x-mock-clean-state'] === 'true';
+
   res.json({
     limit: 10,
-    used: conversations.size,
+    used: cleanState ? 0 : conversations.size,
     timeframe: 24,
   });
 });

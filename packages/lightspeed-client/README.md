@@ -27,22 +27,21 @@ import { LightspeedClient } from '@redhat-cloud-services/lightspeed-client';
 // Initialize the client
 const client = new LightspeedClient({
   baseUrl: 'https://your-lightspeed-api.com',
-  fetchFunction: (input, init) => fetch(input, init), // Use arrow function to preserve context
-  initOptions: {
-    initializeNewConversation: false  // Optional: See ai-client-common docs
-  }
+  fetchFunction: (input, init) => fetch(input, init) // Use arrow function to preserve context
 });
 
 // Initialize the client
-const result = await client.init();
-const conversationId = result.initialConversationId;
+await client.init();
+
+// Create a conversation
+const conversation = await client.createNewConversation();
 
 // Send a message
-const response = await client.sendMessage(conversationId, 'How do I deploy a pod in OpenShift?');
+const response = await client.sendMessage(conversation.id, 'How do I deploy a pod in OpenShift?');
 console.log(response.answer);
 
 // Stream a response (requires afterChunk callback)
-await client.sendMessage(conversationId, 'Tell me about OpenShift networking', {
+await client.sendMessage(conversation.id, 'Tell me about OpenShift networking', {
   stream: true,
   afterChunk: (response) => {
     console.log('Streaming response:', response.answer);
@@ -66,7 +65,6 @@ interface LightspeedClientConfig {
   baseUrl: string;
   fetchFunction: IFetchFunction;
   defaultStreamingHandler?: IStreamingHandler<MessageChunkResponse>;
-  initOptions?: ClientInitOptions; // See ai-client-common docs for details
 }
 ```
 
@@ -83,14 +81,16 @@ The LightspeedClient implements the same `IAIClient` interface as other AI clien
 
 ```typescript
 // Initialize client
-const result = await client.init();
-const conversationId = result.initialConversationId;
+await client.init();
+
+// Create a conversation
+const conversation = await client.createNewConversation();
 
 // Send non-streaming message
-const response = await client.sendMessage(conversationId, 'How do I deploy a pod in OpenShift?');
+const response = await client.sendMessage(conversation.id, 'How do I deploy a pod in OpenShift?');
 
 // Send streaming message (requires afterChunk callback)
-await client.sendMessage(conversationId, 'Tell me about OpenShift networking', { 
+await client.sendMessage(conversation.id, 'Tell me about OpenShift networking', { 
   stream: true,
   afterChunk: (response) => {
     console.log('Answer:', response.answer);

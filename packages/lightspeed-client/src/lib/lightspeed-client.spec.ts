@@ -63,26 +63,19 @@ describe('LightspeedClient', () => {
   });
 
   describe('Client Initialization', () => {
-    it('should initialize and return a conversation ID', async () => {
+    it('should initialize and return conversations list', async () => {
       const result = await client.init();
 
       expect(typeof result).toBe('object');
-      expect(result).toHaveProperty('initialConversationId');
       expect(result).toHaveProperty('conversations');
-      expect(typeof result.initialConversationId).toBe('string');
-      expect(result.initialConversationId).toMatch(
-        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-      );
       expect(Array.isArray(result.conversations)).toBe(true);
     });
 
-    it('should generate different conversation IDs on multiple calls', async () => {
+    it('should return consistent conversations list on multiple calls', async () => {
       const result1 = await client.init();
       const result2 = await client.init();
 
-      expect(result1.initialConversationId).not.toBe(
-        result2.initialConversationId
-      );
+      expect(result1.conversations).toEqual(result2.conversations);
     });
   });
 
@@ -600,7 +593,6 @@ describe('LightspeedClient', () => {
     it('should handle init with empty conversations list', async () => {
       const result = await client.init();
 
-      expect(result.initialConversationId).toBeDefined();
       expect(result.conversations).toEqual([]);
     });
 

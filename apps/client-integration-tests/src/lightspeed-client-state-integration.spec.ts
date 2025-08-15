@@ -14,22 +14,21 @@ describe('Lightspeed Client State Integration', () => {
   });
 
   describe('Basic Client Operations', () => {
-    it('should initialize client and get conversation ID', async () => {
+    it('should initialize client and get conversations list', async () => {
       const result = await client.init();
 
       expect(typeof result).toBe('object');
-      expect(result).toHaveProperty('initialConversationId');
       expect(result).toHaveProperty('conversations');
-      expect(typeof result.initialConversationId).toBe('string');
-      expect(result.initialConversationId).toMatch(
-        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-      );
       expect(Array.isArray(result.conversations)).toBe(true);
+      // No longer auto-creates conversations
     });
 
     it('should send non-streaming messages successfully', async () => {
-      const result = await client.init();
-      const conversationId = result.initialConversationId;
+      await client.init();
+
+      // Create a conversation first since sendMessage requires an existing conversation
+      const conversation = await client.createNewConversation();
+      const conversationId = conversation.id;
 
       const response = await client.sendMessage(
         conversationId,
@@ -64,8 +63,11 @@ describe('Lightspeed Client State Integration', () => {
     });
 
     it('should handle multiple messages in same conversation', async () => {
-      const result = await client.init();
-      const conversationId = result.initialConversationId;
+      await client.init();
+
+      // Create a conversation first
+      const conversation = await client.createNewConversation();
+      const conversationId = conversation.id;
 
       // Send first message
       const response1 = await client.sendMessage(
@@ -148,12 +150,9 @@ describe('Lightspeed Client State Integration', () => {
       const stateManager = createClientStateManager(client);
 
       // Initialize state manager
-      const result = await client.init();
-      const conversationId = result.initialConversationId;
       await stateManager.init();
 
-      // Send a message through state manager
-      await stateManager.setActiveConversationId(conversationId);
+      // Send a message through state manager (lazy initialization will create conversation)
       const response = await stateManager.sendMessage('What is OpenShift?');
 
       expect(response).toBeDefined();
@@ -181,12 +180,9 @@ describe('Lightspeed Client State Integration', () => {
       const stateManager = createClientStateManager(client);
 
       // Initialize state manager
-      const result = await client.init();
-      const conversationId = result.initialConversationId;
       await stateManager.init();
 
-      // Send streaming message through state manager
-      await stateManager.setActiveConversationId(conversationId);
+      // Send streaming message through state manager (lazy initialization will create conversation)
       await stateManager.sendMessage('What is OpenShift streaming?', {
         streamResponse: true,
       });
@@ -205,15 +201,21 @@ describe('Lightspeed Client State Integration', () => {
 
   describe('Error Handling', () => {
     it('should handle validation errors properly', async () => {
-      const result = await client.init();
-      const conversationId = result.initialConversationId;
+      await client.init();
+
+      // Create a conversation first
+      const conversation = await client.createNewConversation();
+      const conversationId = conversation.id;
 
       await expect(client.sendMessage(conversationId, '')).rejects.toThrow();
     });
 
     it('should handle feedback validation errors', async () => {
-      const result = await client.init();
-      const conversationId = result.initialConversationId;
+      await client.init();
+
+      // Create a conversation first
+      const conversation = await client.createNewConversation();
+      const conversationId = conversation.id;
 
       await expect(
         client.storeFeedback({
@@ -231,10 +233,12 @@ describe('Lightspeed Client State Integration', () => {
       });
 
       // Test sendMessage which throws on network errors (unlike healthCheck which returns unhealthy status)
-      const result = await invalidClient.init();
-      const conversationId = result.initialConversationId;
+      await invalidClient.init();
+
+      // Create a conversation first since sendMessage requires an existing conversation
+      const conversation = await invalidClient.createNewConversation();
       await expect(
-        invalidClient.sendMessage(conversationId, 'Test message')
+        invalidClient.sendMessage(conversation.id, 'Test message')
       ).rejects.toThrow();
     });
 
@@ -257,8 +261,11 @@ describe('Lightspeed Client State Integration', () => {
 
   describe('Request Configuration', () => {
     it('should handle user_id parameter in requests', async () => {
-      const result = await client.init();
-      const conversationId = result.initialConversationId;
+      await client.init();
+
+      // Create a conversation first
+      const conversation = await client.createNewConversation();
+      const conversationId = conversation.id;
 
       const response = await client.sendMessage(
         conversationId,
@@ -273,8 +280,11 @@ describe('Lightspeed Client State Integration', () => {
     });
 
     it('should handle custom headers in requests', async () => {
-      const result = await client.init();
-      const conversationId = result.initialConversationId;
+      await client.init();
+
+      // Create a conversation first
+      const conversation = await client.createNewConversation();
+      const conversationId = conversation.id;
 
       const response = await client.sendMessage(
         conversationId,
@@ -294,8 +304,11 @@ describe('Lightspeed Client State Integration', () => {
     });
 
     it('should handle request timeout', async () => {
-      const result = await client.init();
-      const conversationId = result.initialConversationId;
+      await client.init();
+
+      // Create a conversation first
+      const conversation = await client.createNewConversation();
+      const conversationId = conversation.id;
 
       const controller = new AbortController();
       setTimeout(() => controller.abort(), 1000);

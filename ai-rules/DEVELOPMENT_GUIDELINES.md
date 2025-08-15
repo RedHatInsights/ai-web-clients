@@ -239,6 +239,34 @@ this.defaultStreamingHandler = config.defaultStreamingHandler || new DefaultStre
 - Critical for backward compatibility and ease of use
 - **NEVER suggest removing this fallback - it's a core design pattern**
 
+#### **State Manager Lazy Initialization Pattern** (CRITICAL)
+```typescript
+// State manager now uses lazy initialization by default
+const stateManager = createClientStateManager(client);
+await stateManager.init(); // No longer auto-creates conversations
+
+// First sendMessage automatically creates conversation
+const response = await stateManager.sendMessage('Hello'); // Auto-promotes temporary conversation
+```
+**Key Implementation Details:**
+- **Temporary Conversation ID**: Uses `'__temp_conversation__'` constant for temporary state
+- **Automatic Promotion**: First sendMessage promotes temporary to real conversation via `client.createNewConversation()`
+- **Retry Logic**: MAX_RETRY_ATTEMPTS = 2 for promotion failures with user-friendly error messages
+- **No Auto-Creation**: `init()` method no longer auto-creates conversations, only returns existing ones
+- **Backward Compatibility**: All existing APIs preserved, only initialization behavior changed
+
+#### **Removed Patterns** (DO NOT USE)
+```typescript
+// REMOVED: ClientInitOptions interface no longer exists
+// REMOVED: getInitOptions() method removed from all clients
+// REMOVED: initialConversationId from init() return type
+// REMOVED: initializeNewConversation option
+
+// OLD pattern (no longer supported):
+client.getInitOptions(); // Method removed
+const { initialConversationId } = await client.init(); // Property removed
+```
+
 ---
 
 ## 🚨 COMMON DEVELOPMENT ISSUES

@@ -11,7 +11,6 @@ describe('ClientStateManager', () => {
   beforeEach(() => {
     mockClient = {
       init: jest.fn().mockResolvedValue({
-        initialConversationId: 'test-conversation-id',
         conversations: [],
       }),
       sendMessage: jest.fn(),
@@ -24,9 +23,6 @@ describe('ClientStateManager', () => {
         locked: false,
       }),
       getServiceStatus: jest.fn(),
-      getInitOptions: jest.fn().mockReturnValue({
-        initializeNewConversation: true,
-      }),
     } as jest.Mocked<IAIClient>;
 
     stateManager = createClientStateManager(mockClient);
@@ -103,16 +99,20 @@ describe('ClientStateManager', () => {
       expect(messages[1].answer).toBe('Bot response');
     });
 
-    it('should throw error when no active conversation is set', async () => {
+    it('should auto-create temporary conversation when no active conversation is set', async () => {
       const stateManagerWithoutConv = createClientStateManager(mockClient);
 
-      const userMessage: UserQuery = 'This should fail';
+      const userMessage: UserQuery = 'Hello from auto-created conversation';
 
-      await expect(
-        stateManagerWithoutConv.sendMessage(userMessage)
-      ).rejects.toThrow(
-        'No active conversation set. Call setActiveConversationId() first.'
-      );
+      await stateManagerWithoutConv.sendMessage(userMessage);
+
+      // Should have auto-created a conversation and promoted it to real conversation
+      expect(mockClient.createNewConversation).toHaveBeenCalledTimes(1);
+
+      const state = stateManagerWithoutConv.getState();
+      expect(state.activeConversationId).toBe('new-conv'); // ID from mock after promotion
+      expect(state.conversations['new-conv'].messages).toHaveLength(2); // user + bot
+      expect(state.conversations['__temp_conversation__']).toBeUndefined(); // temp should be cleaned up
     });
 
     it('should throw error when message is already in progress', async () => {
@@ -346,7 +346,6 @@ describe('ClientStateManager', () => {
       ];
 
       mockClient.init.mockResolvedValue({
-        initialConversationId: 'conv1',
         conversations: mockConversations,
       });
 
@@ -363,7 +362,6 @@ describe('ClientStateManager', () => {
       ];
 
       mockClient.init.mockResolvedValue({
-        initialConversationId: 'conv1',
         conversations: mockConversations,
       });
 
@@ -371,6 +369,47 @@ describe('ClientStateManager', () => {
 
       const state = stateManager.getState();
       expect(state.conversations['conv1'].locked).toBeFalsy(); // Should default to false
+    });
+
+    it('should lock all previous conversations when creating a new conversation', async () => {
+      // Set up existing conversations in state
+      await stateManager.init();
+
+      // Create first conversation
+      await stateManager.setActiveConversationId('conv-1');
+      const state1 = stateManager.getState();
+      state1.conversations['conv-1'].locked = false;
+
+      // Create second conversation
+      await stateManager.setActiveConversationId('conv-2');
+      const state2 = stateManager.getState();
+      state2.conversations['conv-2'].locked = false;
+
+      // Verify both conversations are initially unlocked
+      expect(state2.conversations['conv-1'].locked).toBe(false);
+      expect(state2.conversations['conv-2'].locked).toBe(false);
+
+      // Mock createNewConversation to return a new conversation
+      mockClient.createNewConversation.mockResolvedValue({
+        id: 'conv-3',
+        title: 'New Conversation',
+        locked: false,
+        createdAt: new Date('2024-01-01T00:00:00Z'),
+      });
+
+      // Create a new conversation - this should lock all previous conversations
+      const newConversation = await stateManager.createNewConversation(true);
+
+      const finalState = stateManager.getState();
+
+      // Verify previous conversations are now locked
+      expect(finalState.conversations['conv-1'].locked).toBe(true);
+      expect(finalState.conversations['conv-2'].locked).toBe(true);
+
+      // Verify new conversation is unlocked and active
+      expect(finalState.conversations['conv-3'].locked).toBe(false);
+      expect(finalState.activeConversationId).toBe('conv-3');
+      expect(newConversation.id).toBe('conv-3');
     });
   });
 
@@ -510,7 +549,6 @@ describe('ClientStateManager', () => {
   describe('Initialization', () => {
     beforeEach(() => {
       mockClient.init = jest.fn().mockResolvedValue({
-        initialConversationId: 'initial-conv-id',
         conversations: [
           { id: 'initial-conv-id', title: 'Initial Conversation' },
           { id: 'conv-2', title: 'Second Conversation' },
@@ -533,38 +571,32 @@ describe('ClientStateManager', () => {
       const state = stateManager.getState();
       expect(state.isInitialized).toBe(true);
       expect(state.isInitializing).toBe(false);
-      expect(state.activeConversationId).toBe('initial-conv-id');
+      expect(state.activeConversationId).toBeNull(); // No auto-activation
       expect(Object.keys(state.conversations)).toHaveLength(2);
       expect(state.conversations['initial-conv-id']).toBeDefined();
       expect(state.conversations['conv-2']).toBeDefined();
     });
 
-    it('should load conversation history for initial conversation', async () => {
+    it('should not auto-load conversation history during init', async () => {
       await stateManager.init();
 
       const state = stateManager.getState();
-      const initialConversation = state.conversations['initial-conv-id'];
-      expect(initialConversation.messages).toHaveLength(2); // user + bot message
-      expect(initialConversation.messages[0]).toMatchObject({
-        id: 'msg-1',
-        answer: 'Hello',
-        role: 'user',
-      });
-      expect(initialConversation.messages[1]).toMatchObject({
-        id: 'msg-1',
-        answer: 'Hi there!',
-        role: 'bot',
-        additionalAttributes: { sources: [] },
-      });
+      // Conversations should exist but with empty messages (no auto-loading)
+      expect(state.conversations['initial-conv-id']).toBeDefined();
+      expect(state.conversations['initial-conv-id'].messages).toHaveLength(0);
+      expect(state.conversations['conv-2']).toBeDefined();
+      expect(state.conversations['conv-2'].messages).toHaveLength(0);
+
+      // History is only loaded when conversation becomes active
+      expect(mockClient.getConversationHistory).not.toHaveBeenCalled();
     });
 
     it('should call client.init() method', async () => {
       await stateManager.init();
 
       expect(mockClient.init).toHaveBeenCalledTimes(1);
-      expect(mockClient.getConversationHistory).toHaveBeenCalledWith(
-        'initial-conv-id'
-      );
+      // No longer auto-loads conversation history during init
+      expect(mockClient.getConversationHistory).not.toHaveBeenCalled();
     });
 
     it('should not initialize twice', async () => {
@@ -615,7 +647,6 @@ describe('ClientStateManager', () => {
               // Check if initializing is true during the init process
               initializingDuringInit = stateManager.isInitializing();
               resolve({
-                initialConversationId: 'initial-conv-id',
                 conversations: [],
               });
             }, 10);
@@ -792,6 +823,85 @@ describe('ClientStateManager', () => {
       const conversation = state.conversations['test-conv-id'];
       expect(conversation.messages).toEqual([]);
     });
+
+    it('should emit INITIALIZING_MESSAGES event immediately when starting history fetch', async () => {
+      const initializingCallback = jest.fn();
+      let resolveHistory: (value: any) => void;
+
+      // Create a promise that we control when to resolve
+      const historyPromise = new Promise((resolve) => {
+        resolveHistory = resolve;
+      });
+
+      mockClient.getConversationHistory = jest
+        .fn()
+        .mockReturnValue(historyPromise);
+      stateManager.subscribe(
+        Events.INITIALIZING_MESSAGES,
+        initializingCallback
+      );
+
+      // Start the setActiveConversationId but don't await it yet
+      const setActivePromise =
+        stateManager.setActiveConversationId('test-conv-id');
+
+      // Check that initializing state is true immediately
+      expect(stateManager.isInitializing()).toBe(true);
+      // Check that INITIALIZING_MESSAGES event was emitted
+      expect(initializingCallback).toHaveBeenCalledTimes(1);
+
+      // Now resolve the history fetch
+      resolveHistory!([]);
+      await setActivePromise;
+
+      // After completion, should not be initializing and event should be emitted again
+      expect(stateManager.isInitializing()).toBe(false);
+      expect(initializingCallback).toHaveBeenCalledTimes(2); // Start + end
+    });
+
+    it('should emit INITIALIZING_MESSAGES event on both start and end of history fetch', async () => {
+      const initializingCallback = jest.fn();
+      const initializingStates: boolean[] = [];
+
+      // Track the initializing state each time the event is emitted
+      stateManager.subscribe(Events.INITIALIZING_MESSAGES, () => {
+        initializingStates.push(stateManager.isInitializing());
+        initializingCallback();
+      });
+
+      let resolveHistory: (value: any) => void;
+      const historyPromise = new Promise((resolve) => {
+        resolveHistory = resolve;
+      });
+
+      mockClient.getConversationHistory = jest
+        .fn()
+        .mockReturnValue(historyPromise);
+
+      // Start the operation
+      const setActivePromise =
+        stateManager.setActiveConversationId('test-conv-id');
+
+      // Verify first emission (start of loading)
+      expect(initializingCallback).toHaveBeenCalledTimes(1);
+      expect(initializingStates[0]).toBe(true);
+
+      // Complete the operation
+      resolveHistory!([
+        {
+          message_id: 'test-msg',
+          input: 'Test input',
+          answer: 'Test response',
+          date: new Date(),
+          additionalAttributes: { test: 'data' },
+        },
+      ]);
+      await setActivePromise;
+
+      // Verify second emission (end of loading)
+      expect(initializingCallback).toHaveBeenCalledTimes(2);
+      expect(initializingStates[1]).toBe(false);
+    });
   });
 
   describe('isInitialized and isInitializing', () => {
@@ -805,7 +915,6 @@ describe('ClientStateManager', () => {
 
     it('should return true for isInitialized after successful init', async () => {
       mockClient.init = jest.fn().mockResolvedValue({
-        initialConversationId: 'test-id',
         conversations: [],
       });
       mockClient.getConversationHistory = jest.fn().mockResolvedValue([]);
@@ -817,253 +926,169 @@ describe('ClientStateManager', () => {
     });
   });
 
-  describe('initializeNewConversation=false behavior', () => {
-    beforeEach(() => {
-      mockClient.getInitOptions = jest.fn().mockReturnValue({
-        initializeNewConversation: false,
-      });
-    });
-
-    it('should not initialize conversations during init when initializeNewConversation=false', async () => {
-      mockClient.init = jest.fn().mockResolvedValue({
-        initialConversationId: '',
-        conversations: [],
-      });
-
-      await stateManager.init();
-
-      const state = stateManager.getState();
-      expect(state.activeConversationId).toBeNull();
-      expect(Object.keys(state.conversations)).toHaveLength(0);
-      expect(mockClient.getConversationHistory).not.toHaveBeenCalled();
-    });
-
-    it('should create new conversation on first sendMessage when no active conversation', async () => {
-      mockClient.init = jest.fn().mockResolvedValue({
-        initialConversationId: '',
-        conversations: [],
-      });
-      mockClient.sendMessage = jest.fn().mockResolvedValue({
-        messageId: 'msg-1',
-        answer: 'Hello response',
-        conversationId: 'new-conv-auto',
-      });
-
-      await stateManager.init();
-
-      const userMessage = 'Hello';
-      const response = await stateManager.sendMessage(userMessage);
-
-      expect(mockClient.createNewConversation).toHaveBeenCalledTimes(1);
-      expect(response.messageId).toBe('msg-1');
-
-      const state = stateManager.getState();
-      expect(state.activeConversationId).toBe('new-conv');
-      expect(state.conversations['new-conv'].messages).toHaveLength(2);
-    });
-
-    it('should handle errors when failing to create conversation on sendMessage', async () => {
-      mockClient.init = jest.fn().mockResolvedValue({
-        initialConversationId: '',
-        conversations: [],
-      });
-      mockClient.createNewConversation = jest
-        .fn()
-        .mockRejectedValue(new Error('Failed to create conversation'));
-
-      await stateManager.init();
-
-      await expect(stateManager.sendMessage('Hello')).rejects.toThrow();
-
-      const state = stateManager.getState();
-      expect(state.messageInProgress).toBe(false);
-      expect(state.activeConversationId).toBeNull();
-    });
-
-    it('should not auto-create conversation if active conversation already exists', async () => {
-      mockClient.init = jest.fn().mockResolvedValue({
-        initialConversationId: '',
-        conversations: [],
-      });
-      mockClient.sendMessage = jest.fn().mockResolvedValue({
-        messageId: 'msg-1',
-        answer: 'Hello response',
-        conversationId: 'existing-conv',
-      });
-
-      await stateManager.init();
-      await stateManager.setActiveConversationId('existing-conv');
-
-      const userMessage = 'Hello';
-      await stateManager.sendMessage(userMessage);
-
-      expect(mockClient.createNewConversation).not.toHaveBeenCalled();
-      expect(mockClient.sendMessage).toHaveBeenCalledWith(
-        'existing-conv',
-        'Hello',
-        undefined
-      );
-    });
-  });
-
   describe('Client Init Limitation', () => {
     it('should handle init limitation from client', async () => {
       const mockLimitation: ClientInitLimitation = {
         reason: 'QUOTA_EXCEEDED',
-        detail: 'User has exceeded their monthly query limit',
+        detail: 'Daily limit reached',
       };
 
       mockClient.init = jest.fn().mockResolvedValue({
-        initialConversationId: 'test-conv-id',
         conversations: [],
         limitation: mockLimitation,
       });
 
       await stateManager.init();
+
+      expect(stateManager.getInitLimitation()).toEqual(mockLimitation);
+    });
+  });
+
+  describe('Lazy Initialization Edge Cases', () => {
+    beforeEach(() => {
+      // Reset mocks for edge case testing
+      mockClient.sendMessage = jest.fn().mockResolvedValue({
+        messageId: 'test-msg',
+        answer: 'Test response',
+        conversationId: 'new-conv',
+      });
+    });
+
+    it('should expose isTemporaryConversation() method correctly', async () => {
+      // Initially no conversation
+      expect(stateManager.isTemporaryConversation()).toBe(false);
+
+      // Send message which creates temporary then promotes
+      await stateManager.sendMessage('Hello');
+
+      // Should be promoted to real conversation after sendMessage completes
+      expect(stateManager.isTemporaryConversation()).toBe(false);
+      expect(stateManager.getActiveConversationId()).toBe('new-conv');
+    });
+
+    it('should handle createNewConversation failure during promotion gracefully', async () => {
+      mockClient.createNewConversation = jest
+        .fn()
+        .mockRejectedValue(new Error('Network error'));
+
+      await stateManager.sendMessage('Hello');
 
       const state = stateManager.getState();
-      expect(state.initLimitation).toEqual(mockLimitation);
-      expect(stateManager.getInitLimitation()).toEqual(mockLimitation);
+      // Should remain in temporary conversation
+      expect(state.activeConversationId).toBe('__temp_conversation__');
+      expect(state.conversations['__temp_conversation__']).toBeDefined();
+      expect(state.promotionRetryCount).toBe(1);
     });
 
-    it('should return undefined when no limitation is present', async () => {
-      mockClient.init = jest.fn().mockResolvedValue({
-        initialConversationId: 'test-conv-id',
-        conversations: [],
-      });
+    it('should retry promotion and show error message after max attempts', async () => {
+      mockClient.createNewConversation = jest
+        .fn()
+        .mockRejectedValue(new Error('Network error'));
 
-      await stateManager.init();
+      // First attempt (retry count = 1)
+      await stateManager.sendMessage('Hello');
+
+      // Second attempt (retry count = 2, should show error message)
+      await stateManager.sendMessage('World');
 
       const state = stateManager.getState();
-      expect(state.initLimitation).toBeUndefined();
-      expect(stateManager.getInitLimitation()).toBeUndefined();
+      const messages = state.conversations['__temp_conversation__'].messages;
+
+      // Should have user messages + error message
+      const errorMessage = messages.find(
+        (msg) =>
+          msg.role === 'bot' &&
+          msg.answer.includes('Unable to initialize conversation')
+      );
+      expect(errorMessage).toBeDefined();
+      expect(state.promotionRetryCount).toBe(2);
     });
 
-    it('should emit INIT_LIMITATION event when limitation is received', async () => {
-      const mockLimitation: ClientInitLimitation = {
-        reason: 'SERVICE_UNAVAILABLE',
-        detail: 'AI service is temporarily unavailable',
-      };
+    it('should only promote temporary conversation once for multiple messages', async () => {
+      // Send multiple messages sequentially to avoid race conditions
+      await stateManager.sendMessage('Hello');
+      await stateManager.sendMessage('World');
+      await stateManager.sendMessage('Test');
 
-      const limitationCallback = jest.fn();
-      stateManager.subscribe(Events.INIT_LIMITATION, limitationCallback);
-
-      mockClient.init = jest.fn().mockResolvedValue({
-        initialConversationId: 'test-conv-id',
-        conversations: [],
-        limitation: mockLimitation,
-      });
-
-      await stateManager.init();
-
-      // Once for limitation and once for notify all events
-      expect(limitationCallback).toHaveBeenCalledTimes(2);
-      expect(stateManager.getInitLimitation()).toEqual(mockLimitation);
-    });
-
-    it('should handle limitation with only reason field', async () => {
-      const mockLimitation: ClientInitLimitation = {
-        reason: 'RATE_LIMITED',
-      };
-
-      mockClient.init = jest.fn().mockResolvedValue({
-        initialConversationId: 'test-conv-id',
-        conversations: [],
-        limitation: mockLimitation,
-      });
-
-      await stateManager.init();
-
-      const limitation = stateManager.getInitLimitation();
-      expect(limitation).toEqual({
-        reason: 'RATE_LIMITED',
-      });
-      expect(limitation?.detail).toBeUndefined();
-    });
-
-    it('should preserve limitation state across subsequent inits', async () => {
-      const mockLimitation: ClientInitLimitation = {
-        reason: 'QUOTA_EXCEEDED',
-        detail: 'Monthly limit reached',
-      };
-
-      mockClient.init = jest.fn().mockResolvedValue({
-        initialConversationId: 'test-conv-id',
-        conversations: [],
-        limitation: mockLimitation,
-      });
-
-      await stateManager.init();
-
-      expect(stateManager.getInitLimitation()).toEqual(mockLimitation);
-
-      // Second init call should not change the limitation
-      await stateManager.init();
-
-      expect(stateManager.getInitLimitation()).toEqual(mockLimitation);
-      expect(mockClient.init).toHaveBeenCalledTimes(1);
-    });
-
-    it('should handle client init error and not set limitation when error is present', async () => {
-      const mockLimitation: ClientInitLimitation = {
-        reason: 'AUTHENTICATION_FAILED',
-        detail: 'Invalid credentials provided',
-      };
-
-      const initError = {
-        message: 'Authentication failed',
-        status: 401,
-      };
-
-      mockClient.init = jest.fn().mockResolvedValue({
-        initialConversationId: '',
-        conversations: [],
-        limitation: mockLimitation,
-        error: initError,
-      });
-
-      await expect(stateManager.init()).rejects.toEqual(initError);
+      // Should only call createNewConversation once (for the first message)
+      expect(mockClient.createNewConversation).toHaveBeenCalledTimes(1);
 
       const state = stateManager.getState();
-      // When there's an error, limitation is not set because error is thrown first
-      expect(state.initLimitation).toBeUndefined();
-      expect(stateManager.getInitLimitation()).toBeUndefined();
+      expect(state.activeConversationId).toBe('new-conv');
+      expect(state.conversations['__temp_conversation__']).toBeUndefined();
     });
 
-    it('should handle different limitation scenarios', async () => {
-      const testCases = [
-        {
-          limitation: { reason: 'QUOTA_EXCEEDED' },
-          description: 'quota exceeded without detail',
-        },
-        {
-          limitation: {
-            reason: 'SERVICE_UNAVAILABLE',
-            detail: 'Maintenance mode',
-          },
-          description: 'service unavailable with detail',
-        },
-        {
-          limitation: { reason: 'RATE_LIMITED', detail: 'Too many requests' },
-          description: 'rate limited with detail',
-        },
-      ];
+    it('should work with streaming in temporary conversations', async () => {
+      const mockHandler = {
+        onChunk: jest.fn(),
+        onStart: jest.fn(),
+        onComplete: jest.fn(),
+      };
 
-      for (const testCase of testCases) {
-        const localStateManager = createClientStateManager(mockClient);
+      mockClient.getDefaultStreamingHandler = jest
+        .fn()
+        .mockReturnValue(mockHandler);
 
-        mockClient.init = jest.fn().mockResolvedValue({
-          initialConversationId: 'test-conv',
-          conversations: [],
-          limitation: testCase.limitation,
+      await stateManager.sendMessage('Hello', { stream: true });
+
+      // Should promote and work with streaming
+      expect(mockClient.createNewConversation).toHaveBeenCalledTimes(1);
+      expect(mockClient.sendMessage).toHaveBeenCalledWith(
+        'new-conv',
+        'Hello',
+        expect.objectContaining({ stream: true })
+      );
+    });
+
+    it('should emit proper events during temporary conversation promotion', async () => {
+      const activeConversationEvents: string[] = [];
+      const conversationEvents: number[] = [];
+
+      stateManager.subscribe(Events.ACTIVE_CONVERSATION, () => {
+        activeConversationEvents.push(
+          stateManager.getActiveConversationId() || 'null'
+        );
+      });
+
+      stateManager.subscribe(Events.CONVERSATIONS, () => {
+        conversationEvents.push(Date.now());
+      });
+
+      await stateManager.sendMessage('Hello');
+
+      // Should emit ACTIVE_CONVERSATION events (temp creation + promotion)
+      expect(activeConversationEvents.length).toBeGreaterThanOrEqual(2);
+      expect(activeConversationEvents).toContain('__temp_conversation__');
+      expect(activeConversationEvents).toContain('new-conv');
+
+      // Should emit CONVERSATIONS events
+      expect(conversationEvents.length).toBeGreaterThan(0);
+    });
+
+    it('should reset retry count on successful promotion after failures', async () => {
+      // First, simulate a failure
+      mockClient.createNewConversation = jest
+        .fn()
+        .mockRejectedValueOnce(new Error('Network error'))
+        .mockResolvedValue({
+          id: 'new-conv-retry',
+          title: 'New Conversation',
+          locked: false,
+          createdAt: new Date(),
         });
 
-        await localStateManager.init();
+      // First message fails promotion
+      await stateManager.sendMessage('Hello');
 
-        expect(localStateManager.getInitLimitation()).toEqual(
-          testCase.limitation
-        );
-      }
+      let state = stateManager.getState();
+      expect(state.promotionRetryCount).toBe(1);
+
+      // Second message succeeds
+      await stateManager.sendMessage('World');
+
+      state = stateManager.getState();
+      expect(state.promotionRetryCount).toBe(0); // Reset on success
+      expect(state.activeConversationId).toBe('new-conv-retry');
     });
   });
 });

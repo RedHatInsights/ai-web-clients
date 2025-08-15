@@ -434,12 +434,34 @@ describe('Ansible Lightspeed Client Integration Tests', () => {
         });
       });
 
-      it('should throw error when no active conversation is set', async () => {
-        const userMessage: UserQuery = 'This should fail';
+      it('should auto-create temporary conversation when no active conversation is set', async () => {
+        // Use real mock server instead of mocked fetch
+        const mockServerBaseUrl = 'http://localhost:3003'; // Ansible Lightspeed mock server port
 
-        await expect(stateManager.sendMessage(userMessage)).rejects.toThrow(
-          'No active conversation'
-        );
+        const realClient = new AnsibleLightspeedClient({
+          baseUrl: mockServerBaseUrl,
+        });
+
+        const realStateManager = createClientStateManager(realClient);
+        const userMessage: UserQuery = 'This should auto-create conversation';
+
+        const response = await realStateManager.sendMessage(userMessage);
+
+        expect(response).toBeDefined();
+        if (
+          response &&
+          typeof response === 'object' &&
+          'messageId' in response
+        ) {
+          expect(response.messageId).toBeDefined();
+          expect(response.answer).toBeDefined();
+        }
+
+        // Verify conversation was auto-created
+        const state = realStateManager.getState();
+        expect(state.activeConversationId).toBeDefined();
+        expect(state.activeConversationId).not.toBe('__temp_conversation__'); // Should be promoted
+        expect(state.conversations[state.activeConversationId!]).toBeDefined();
       });
     });
 

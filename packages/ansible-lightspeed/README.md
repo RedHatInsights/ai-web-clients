@@ -27,22 +27,21 @@ import { AnsibleLightspeedClient } from '@redhat-cloud-services/ansible-lightspe
 // Initialize the client
 const client = new AnsibleLightspeedClient({
   baseUrl: 'https://your-ansible-lightspeed-api.com',
-  fetchFunction: (input, init) => fetch(input, init), // Use arrow function to preserve context
-  initOptions: {
-    initializeNewConversation: false  // Optional: See ai-client-common docs
-  }
+  fetchFunction: (input, init) => fetch(input, init) // Use arrow function to preserve context
 });
 
 // Initialize the client
-const result = await client.init();
-const conversationId = result.initialConversationId;
+await client.init();
+
+// Create a conversation
+const conversation = await client.createNewConversation();
 
 // Send a message
-const response = await client.sendMessage(conversationId, 'Help me write an Ansible playbook');
+const response = await client.sendMessage(conversation.id, 'Help me write an Ansible playbook');
 console.log(response.answer);
 
 // Stream a response (requires afterChunk callback)
-await client.sendMessage(conversationId, 'Show me best practices for Ansible', {
+await client.sendMessage(conversation.id, 'Show me best practices for Ansible', {
   stream: true,
   afterChunk: (response) => {
     console.log('Streaming response:', response.answer);
@@ -66,7 +65,6 @@ interface AnsibleLightspeedConfig {
   baseUrl: string;
   fetchFunction: IFetchFunction;
   defaultStreamingHandler?: IStreamingHandler<StreamingEvent>;
-  initOptions?: ClientInitOptions; // See ai-client-common docs for details
 }
 ```
 
@@ -82,18 +80,17 @@ interface AnsibleLightspeedConfig {
 ### Conversation Management
 
 ```typescript
-// Initialize client to get conversation ID
-const result = await client.init();
-const conversationId = result.initialConversationId;
+// Initialize client
+await client.init();
 
 // Create a new conversation
 const conversation = await client.createNewConversation();
 
 // Send a non-streaming message
-const response = await client.sendMessage(conversationId, 'How do I use Ansible with Kubernetes?');
+const response = await client.sendMessage(conversation.id, 'How do I use Ansible with Kubernetes?');
 
 // Get conversation history
-const history = await client.getConversationHistory(conversationId);
+const history = await client.getConversationHistory(conversation.id);
 ```
 
 ### Streaming Messages

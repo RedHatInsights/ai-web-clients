@@ -11,7 +11,6 @@ import {
   IConversationHistoryResponse,
   IConversation,
   IInitErrorResponse,
-  ClientInitOptions,
   ClientInitLimitation,
 } from '@redhat-cloud-services/ai-client-common';
 import {
@@ -47,7 +46,6 @@ export class IFDClient
   private readonly baseUrl: string;
   private readonly fetchFunction: IFetchFunction;
   private readonly defaultStreamingHandler?: IStreamingHandler<MessageChunkResponse>;
-  private readonly initOptions: ClientInitOptions;
 
   constructor(config: IFDClientConfig) {
     this.baseUrl = config.baseUrl;
@@ -55,10 +53,6 @@ export class IFDClient
       config.fetchFunction || ((input, init) => fetch(input, init));
     this.defaultStreamingHandler =
       config.defaultStreamingHandler || new DefaultStreamingHandler();
-    this.initOptions = {
-      initializeNewConversation:
-        config.initOptions?.initializeNewConversation ?? true,
-    };
   }
 
   /**
@@ -177,7 +171,6 @@ export class IFDClient
   }
 
   async init(): Promise<{
-    initialConversationId: string;
     conversations: IConversation[];
     limitation?: ClientInitLimitation;
   }> {
@@ -200,11 +193,7 @@ export class IFDClient
             detail: 'Conversation quota has been reached',
           }
         : undefined;
-      const defaultConversation = history.find(
-        (conversation) => conversation.is_latest
-      );
 
-      let initialConversationId: string = '';
       const conversations: IConversation[] = history.map((conversation) => {
         return {
           id: conversation.conversation_id,
@@ -213,14 +202,8 @@ export class IFDClient
           createdAt: new Date(conversation.created_at),
         };
       });
-      if (this.initOptions.initializeNewConversation && defaultConversation) {
-        initialConversationId = defaultConversation.conversation_id;
-      } else if (this.initOptions.initializeNewConversation) {
-        const newConversation = await this.createConversation();
-        initialConversationId = newConversation.conversation_id;
-      }
+
       return {
-        initialConversationId,
         conversations,
         limitation: clientLimitation,
       };
@@ -501,9 +484,5 @@ export class IFDClient
         ...options,
       }
     );
-  }
-
-  getInitOptions() {
-    return this.initOptions;
   }
 }

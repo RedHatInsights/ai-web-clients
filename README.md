@@ -39,9 +39,9 @@ Common interfaces and utilities for all AI client packages.
 - **Usage**: `npm install @redhat-cloud-services/ai-client-common`
 
 #### [@redhat-cloud-services/ai-client-state](packages/ai-client-state/)
-Framework-agnostic state management for AI conversations with comprehensive conversation management.
+Framework-agnostic state management for AI conversations with lazy initialization and comprehensive conversation management.
 
-- **Features**: Multi-conversation support, event-driven architecture, message flow control, conversation history, streaming integration
+- **Features**: Lazy initialization, automatic conversation creation, multi-conversation support, event-driven architecture, message flow control, conversation history, streaming integration
 - **Status**: Production ready
 - **Usage**: `npm install @redhat-cloud-services/ai-client-state`
 
@@ -87,12 +87,12 @@ const client = new IFDClient({
   fetchFunction: (input, init) => fetch(input, init)
 });
 
-const result = await client.init();
-const conversationId = result.initialConversationId;
-const response = await client.sendMessage(conversationId, 'Hello AI!');
+await client.init();
+const conversation = await client.createNewConversation();
+const response = await client.sendMessage(conversation.conversation_id, 'Hello AI!');
 
 // Streaming usage (requires afterChunk callback)
-await client.sendMessage(conversationId, 'Tell me about containers', {
+await client.sendMessage(conversation.conversation_id, 'Tell me about containers', {
   stream: true,
   afterChunk: (response) => {
     console.log('Streaming response:', response.answer);
@@ -113,7 +113,8 @@ const client = new IFDClient({
 const stateManager = createClientStateManager(client);
 
 await stateManager.init();
-await stateManager.sendMessage('Hello!');
+// LAZY INITIALIZATION: First sendMessage auto-creates conversation
+await stateManager.sendMessage('Hello!'); // Auto-promotes temporary conversation
 
 // Streaming usage
 await stateManager.sendMessage('Explain Kubernetes', { stream: true });
@@ -130,7 +131,7 @@ const newConversation = await stateManager.createNewConversation();
 import { createClientStateManager, Events } from '@redhat-cloud-services/ai-client-state';
 
 const stateManager = createClientStateManager(client);
-await stateManager.init();
+await stateManager.init(); // No longer auto-creates conversations
 
 // Create and manage multiple conversations
 const conv1 = await stateManager.createNewConversation();
@@ -242,7 +243,7 @@ const client = new IFDClient({
 });
 
 const stateManager = createClientStateManager(client);
-// Initialize immediately when module loads
+// Initialize immediately when module loads (no longer auto-creates conversations)
 stateManager.init();
 
 function App() {
@@ -294,7 +295,7 @@ function App() {
     // Create state manager (init will be called by provider)
     const manager = createClientStateManager(client);
     
-    // Initialize async - once resolved, the client is ready
+    // Initialize async - once resolved, the client is ready (no longer auto-creates conversations)
     manager.init();
     
     return manager;
@@ -346,7 +347,7 @@ function ChatInterface() {
 - **🔗 Interoperability**: All packages implement common interfaces
 - **🎯 Dependency Injection**: Testable and configurable clients  
 - **📡 Streaming Support**: Real-time AI responses with custom handlers
-- **💬 Conversation Management**: Multi-conversation support with history and state persistence
+- **💬 Conversation Management**: Lazy initialization with automatic conversation creation, multi-conversation support with history and state persistence
 - **⚛️ React Ready**: Complete hook ecosystem and context providers
 - **📦 Modular**: Use only what you need, from raw clients to full React integration
 - **🔒 Type Safe**: Comprehensive TypeScript coverage across all packages

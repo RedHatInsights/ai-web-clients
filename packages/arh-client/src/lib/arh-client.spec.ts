@@ -437,7 +437,7 @@ describe('IFDClient', () => {
       const result = await client.init();
 
       expect(result.conversations).toHaveLength(3);
-      expect(result.initialConversationId).toBe('latest-conv');
+      // No longer returns initialConversationId
 
       // Latest conversation should be unlocked
       const latestConv = result.conversations.find(
@@ -632,124 +632,8 @@ describe('IFDClient', () => {
       const result = await client.init();
 
       expect(result.conversations).toHaveLength(1);
-      expect(result.initialConversationId).toBe('new-conv-created');
+      // No longer returns initialConversationId
       expect(result.conversations[0].locked).toBe(true); // Should default to locked when is_latest is missing/undefined
-    });
-  });
-
-  describe('initializeNewConversation=false', () => {
-    let clientWithNoAutoInit: IFDClient;
-
-    beforeEach(() => {
-      clientWithNoAutoInit = new IFDClient({
-        fetchFunction: mockFetch,
-        baseUrl: 'https://test-api.example.com',
-        initOptions: {
-          initializeNewConversation: false,
-        },
-      });
-    });
-
-    it('should return conversation list when initializeNewConversation=false', async () => {
-      const mockHealthResponse = { status: 'healthy' };
-      const mockStatusResponse = { api: { status: 'operational' } };
-      const mockUserSettings = { id: 'user123' };
-      const mockHistoryResponse = [
-        {
-          conversation_id: 'existing-conv',
-          title: 'Existing Conversation',
-          created_at: '2023-01-01T00:00:00Z',
-          is_latest: true,
-        },
-      ];
-      const mockQuota = { quota: { limit: 10, used: 3 }, enabled: true };
-
-      // Mock all required API calls for init
-      (mockFetch as jest.Mock)
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => mockHealthResponse,
-        })
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => mockStatusResponse,
-        })
-        .mockResolvedValueOnce({ ok: true, json: async () => mockUserSettings })
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => mockHistoryResponse,
-        })
-        .mockResolvedValueOnce({ ok: true, json: async () => mockQuota });
-
-      const result = await clientWithNoAutoInit.init();
-
-      expect(result.conversations).toEqual([
-        {
-          id: 'existing-conv',
-          locked: false,
-          title: 'Existing Conversation',
-          createdAt: expect.any(Date),
-        },
-      ]);
-      expect(result.initialConversationId).toBe('');
-      expect(result.limitation).toBeUndefined();
-    });
-
-    it('should return limitation when quota is breached', async () => {
-      const mockHealthResponse = { status: 'healthy' };
-      const mockStatusResponse = { api: { status: 'operational' } };
-      const mockUserSettings = { id: 'user123' };
-      const mockHistoryResponse: unknown[] = [];
-      const mockQuota = { quota: { limit: 10, used: 10 }, enabled: true };
-
-      // Mock all required API calls for init
-      (mockFetch as jest.Mock)
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => mockHealthResponse,
-        })
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => mockStatusResponse,
-        })
-        .mockResolvedValueOnce({ ok: true, json: async () => mockUserSettings })
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => mockHistoryResponse,
-        })
-        .mockResolvedValueOnce({ ok: true, json: async () => mockQuota });
-
-      const result = await clientWithNoAutoInit.init();
-
-      expect(result.conversations).toHaveLength(0);
-      expect(result.initialConversationId).toBe('');
-      expect(result.limitation).toEqual({
-        reason: 'quota-breached',
-        detail: 'Conversation quota has been reached',
-      });
-    });
-
-    it('should return correct getInitOptions values', () => {
-      const defaultClient = new IFDClient({
-        fetchFunction: mockFetch,
-        baseUrl: 'https://test-api.example.com',
-      });
-
-      const noAutoInitClient = new IFDClient({
-        fetchFunction: mockFetch,
-        baseUrl: 'https://test-api.example.com',
-        initOptions: {
-          initializeNewConversation: false,
-        },
-      });
-
-      expect(defaultClient.getInitOptions()).toEqual({
-        initializeNewConversation: true,
-      });
-
-      expect(noAutoInitClient.getInitOptions()).toEqual({
-        initializeNewConversation: false,
-      });
     });
   });
 });

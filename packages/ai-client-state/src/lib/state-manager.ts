@@ -6,6 +6,14 @@ import {
   isInitErrorResponse,
 } from '@redhat-cloud-services/ai-client-common';
 
+// Temporary conversation constants
+const TEMP_CONVERSATION_ID = '__temp_conversation__';
+
+// Helper functions for temporary conversations
+function isTemporaryConversationId(id: string | null): boolean {
+  return id === TEMP_CONVERSATION_ID;
+}
+
 export enum Events {
   MESSAGE = 'message',
   ACTIVE_CONVERSATION = 'active-conversation',
@@ -52,6 +60,7 @@ interface ClientState<
   isInitializing: boolean;
   client: IAIClient;
   initLimitation: ClientInitLimitation | undefined;
+  promotionRetryCount: number;
 }
 
 interface EventSubscription {
@@ -77,6 +86,7 @@ export type StateManager<
   createNewConversation: (force?: boolean) => Promise<IConversation>;
   getClient: () => C;
   getInitLimitation: () => ClientInitLimitation | undefined;
+  isTemporaryConversation: () => boolean;
 };
 
 export function createClientStateManager<
@@ -91,6 +101,7 @@ export function createClientStateManager<
     isInitializing: false,
     client,
     initLimitation: undefined,
+    promotionRetryCount: 0,
   };
 
   const eventSubscriptions: Record<string, EventSubscription[]> = {
@@ -138,6 +149,70 @@ export function createClientStateManager<
     return newConversation;
   }
 
+  async function promoteTemporaryConversation(): Promise<void> {
+    if (!isTemporaryConversationId(state.activeConversationId)) {
+      return;
+    }
+
+    const MAX_RETRY_ATTEMPTS = 2;
+
+    try {
+      // Create real conversation
+      const newConversation = await client.createNewConversation();
+
+      // Transfer messages from temporary to real conversation
+      const tempMessages =
+        state.conversations[TEMP_CONVERSATION_ID]?.messages || [];
+      initializeConversationState(newConversation.id);
+      state.conversations[newConversation.id].messages = tempMessages;
+
+      // Update title if we have messages
+      if (tempMessages.length > 0) {
+        const firstUserMessage = tempMessages.find(
+          (msg) => msg.role === 'user'
+        );
+        if (firstUserMessage) {
+          state.conversations[newConversation.id].title =
+            firstUserMessage.answer;
+        }
+      }
+
+      // Switch to real conversation
+      state.activeConversationId = newConversation.id;
+
+      // Clean up temporary conversation
+      delete state.conversations[TEMP_CONVERSATION_ID];
+
+      // Reset retry count on successful promotion
+      state.promotionRetryCount = 0;
+
+      notify(Events.ACTIVE_CONVERSATION);
+      notify(Events.CONVERSATIONS);
+    } catch (error) {
+      console.error('Failed to promote temporary conversation:', error);
+      state.promotionRetryCount++;
+
+      // If we've exceeded retry attempts, show user-friendly error message
+      if (state.promotionRetryCount >= MAX_RETRY_ATTEMPTS) {
+        const errorMessage: Message<T> = {
+          date: new Date(),
+          id: crypto.randomUUID(),
+          answer:
+            'Unable to initialize conversation. Please check your connection and try again.',
+          role: 'bot',
+        };
+
+        // Add error message to temporary conversation
+        if (state.conversations[TEMP_CONVERSATION_ID]) {
+          state.conversations[TEMP_CONVERSATION_ID].messages.push(errorMessage);
+          notify(Events.MESSAGE);
+        }
+      }
+
+      // Keep using temporary conversation for error display
+    }
+  }
+
   async function init(): Promise<void> {
     if (state.isInitialized || state.isInitializing) {
       return;
@@ -146,12 +221,10 @@ export function createClientStateManager<
     state.isInitializing = true;
     notify(Events.IN_PROGRESS);
     notify(Events.INITIALIZING_MESSAGES);
-    const initOptions = client.getInitOptions();
 
     try {
-      // Call the client's init method to get the initial conversation ID
-      const { conversations, error, limitation, ...rest } = await client.init();
-      let { initialConversationId } = rest;
+      // Call the client's init method to get existing conversations
+      const { conversations, error, limitation } = await client.init();
       if (error) {
         throw error;
       }
@@ -161,6 +234,7 @@ export function createClientStateManager<
         notify(Events.INIT_LIMITATION);
       }
 
+      // Load existing conversations without auto-activating any
       conversations.forEach((conversation) => {
         state.conversations[conversation.id] = {
           id: conversation.id,
@@ -171,47 +245,6 @@ export function createClientStateManager<
         };
       });
       notify(Events.CONVERSATIONS);
-
-      if (initOptions.initializeNewConversation) {
-        // Set the initial conversation as the active conversation
-        state.activeConversationId = initialConversationId;
-        // Create the initial conversation if it doesn't exist
-        if (!state.conversations[initialConversationId]) {
-          initializeConversationState(initialConversationId);
-        }
-        let messages: Message<T>[] = [];
-        if (initialConversationId) {
-          const history = await client.getConversationHistory(
-            initialConversationId
-          );
-          messages = (Array.isArray(history) ? history : []).reduce(
-            (acc, historyMessage) => {
-              const humanMessage: Message<T> = {
-                id: historyMessage.message_id,
-                answer: historyMessage.input,
-                role: 'user',
-                date: historyMessage.date,
-              };
-              const botMessage: Message<T> = {
-                id: historyMessage.message_id,
-                answer: historyMessage.answer,
-                role: 'bot',
-                date: historyMessage.date,
-                additionalAttributes: historyMessage.additionalAttributes,
-              };
-              acc.push(humanMessage, botMessage);
-              return acc;
-            },
-            [] as Message<T>[]
-          );
-        } else {
-          const conversation = await createNewConversation(true);
-          initialConversationId = conversation.id;
-        }
-
-        state.conversations[initialConversationId].messages = messages;
-        notify(Events.CONVERSATIONS);
-      }
 
       state.isInitialized = true;
       state.isInitializing = false;
@@ -263,6 +296,7 @@ export function createClientStateManager<
     notify(Events.CONVERSATIONS);
 
     state.isInitializing = true;
+    notify(Events.INITIALIZING_MESSAGES);
     try {
       const history = await client.getConversationHistory(conversationId);
       const messages = (Array.isArray(history) ? history : []).reduce(
@@ -341,33 +375,17 @@ export function createClientStateManager<
     state.messageInProgress = true;
     notify(Events.IN_PROGRESS);
 
-    if (client.getInitOptions().initializeNewConversation === false) {
-      // If the client is not configured to auto-create conversations,
-      // we need to ensure the active conversation exists
-      if (!state.activeConversationId) {
-        try {
-          await createNewConversation(true);
-        } catch (error) {
-          // unable to create a new conversation, reset in-progress state
-          state.messageInProgress = false;
-          notify(Events.IN_PROGRESS);
-          // TODO create error state and event
-          console.error('Failed to create new conversation:', error);
-        }
-      }
-    }
-
     try {
-      // Ensure we have an active conversation
+      // Auto-create temporary conversation if none exists
       if (!state.activeConversationId) {
-        throw new Error(
-          'No active conversation set. Call setActiveConversationId() first.'
-        );
+        state.activeConversationId = TEMP_CONVERSATION_ID;
+        initializeConversationState(TEMP_CONVERSATION_ID);
+        notify(Events.ACTIVE_CONVERSATION);
       }
 
-      // Auto-create conversation if it doesn't exist
-      if (!state.conversations[state.activeConversationId]) {
-        initializeConversationState(state.activeConversationId);
+      // Promote temporary conversation to real conversation before API call
+      if (isTemporaryConversationId(state.activeConversationId)) {
+        await promoteTemporaryConversation();
       }
 
       const conversation = state.conversations[state.activeConversationId];
@@ -512,16 +530,18 @@ export function createClientStateManager<
       }
       return state.conversations[currentConversationId];
     }
-    let prevConversation: Conversation | undefined;
-    if (currentConversationId) {
-      prevConversation = state.conversations[currentConversationId];
-    }
+
     const newConversation = await client.createNewConversation();
     initializeConversationState(newConversation.id);
     await setActiveConversationId(newConversation.id);
-    if (prevConversation) {
-      prevConversation.locked = true;
-    }
+
+    // Lock all existing conversations when creating a new one
+    Object.values(state.conversations).forEach((conversation) => {
+      if (conversation.id !== newConversation.id) {
+        conversation.locked = true;
+      }
+    });
+
     notifyAll();
 
     return newConversation;
@@ -565,6 +585,10 @@ export function createClientStateManager<
     return state.initLimitation;
   }
 
+  function isTemporaryConversation(): boolean {
+    return isTemporaryConversationId(state.activeConversationId);
+  }
+
   return {
     init,
     isInitialized,
@@ -580,5 +604,6 @@ export function createClientStateManager<
     createNewConversation,
     getClient,
     getInitLimitation,
+    isTemporaryConversation,
   };
 }

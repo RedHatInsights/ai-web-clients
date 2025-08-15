@@ -8,4 +8,5 @@ export default {
   },
   moduleFileExtensions: ['ts', 'js', 'html'],
   coverageDirectory: '../../coverage/apps/client-integration-tests',
+  testTimeout: 30000, // 30 seconds for integration tests
 };

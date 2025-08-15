@@ -1,9 +1,9 @@
 # AI Agent Context Documentation
 ## AI Web Clients NX Workspace
 
-> **Last Updated**: Context Version 3.0 (Modular Architecture)  
+> **Last Updated**: Context Version 3.1 (Lazy Initialization Implementation)  
 > **Workspace Version**: 1.0.0  
-> **Context Version**: 3.0  
+> **Context Version**: 3.1  
 > **NX Version**: 21.3.3
 
 ---
@@ -126,6 +126,16 @@ ai-web-clients/
 ---
 
 ## 📝 CHANGE LOG
+
+### Version 3.1 (Lazy Initialization Implementation)
+- **BREAKING: Lazy Initialization by Default** - State manager no longer auto-creates conversations during init()
+- **NEW: Temporary Conversation Pattern** - Uses `'__temp_conversation__'` ID for seamless conversation creation
+- **NEW: Automatic Promotion** - First sendMessage automatically promotes temporary to real conversation
+- **REMOVED: ClientInitOptions Interface** - getInitOptions() method removed from all clients
+- **REMOVED: initialConversationId** - No longer returned from init() method
+- **NEW: isTemporaryConversation() Method** - Added to StateManager interface for checking conversation state
+- **ENHANCED: Error Handling** - Promotion failures include retry logic with user-friendly messages
+- **IMPROVED: User Experience** - Users can start typing immediately without explicit conversation setup
 
 ### Version 3.0 (Modular Architecture)
 - **MAJOR: Context System Refactor** - Split large AI_CONTEXT.md into focused domain-specific files

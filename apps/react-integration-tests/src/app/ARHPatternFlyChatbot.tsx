@@ -9,9 +9,6 @@ export const ARHPatternFlyChatbot = () => {
     const client = new IFDClient({
       baseUrl: 'http://localhost:3001',
       fetchFunction: (...args) => fetch(...args),
-      initOptions: {
-        initializeNewConversation: false,
-      },
     });
     const stateManager = createClientStateManager(client);
     stateManager.init();

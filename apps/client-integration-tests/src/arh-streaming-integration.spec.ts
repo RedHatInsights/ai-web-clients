@@ -67,6 +67,7 @@ class TestStreamingHandler implements IStreamingHandler<MessageChunkResponse> {
   ): void {
     afterChunk?.({
       answer: chunk.answer,
+      messageId: chunk.message_id,
       additionalAttributes: {
         sources: chunk.sources,
         tool_call_metadata: chunk.tool_call_metadata,

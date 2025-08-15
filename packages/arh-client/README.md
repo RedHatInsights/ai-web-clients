@@ -61,10 +61,7 @@ import { IFDClient } from '@redhat-cloud-services/arh-client';
 
 const client = new IFDClient({
   baseUrl: 'https://your-ifd-api.com',
-  fetchFunction: (input, init) => fetch(input, init),
-  initOptions: {
-    initializeNewConversation: false  // Optional: See ai-client-common docs
-  }
+  fetchFunction: (input, init) => fetch(input, init)
 });
 ```
 
@@ -427,9 +424,6 @@ interface IFDClientConfig {
   
   // Optional: Default streaming handler for stream: true requests
   defaultStreamingHandler?: IStreamingHandler<MessageChunkResponse>;
-  
-  // Optional: Initialization options (see ai-client-common docs)
-  initOptions?: ClientInitOptions;
 }
 ```
 

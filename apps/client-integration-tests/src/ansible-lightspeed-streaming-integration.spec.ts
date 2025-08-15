@@ -102,17 +102,22 @@ describe('Ansible Lightspeed Streaming Integration Tests', () => {
     it('should handle conversation_id management through state manager', async () => {
       const message = 'How do I install packages with Ansible?';
 
-      const conversationId = await stateManager.getActiveConversationId();
-      expect(conversationId).toBeTruthy();
-      expect(typeof conversationId).toBe('string');
-
+      // First send a message to trigger lazy initialization
       await sendStreamingMessage(message);
 
-      const currentConversationId =
-        await stateManager.getActiveConversationId();
+      // Now conversation ID should be set
+      const conversationId = stateManager.getActiveConversationId();
+      expect(conversationId).toBeTruthy();
+      expect(typeof conversationId).toBe('string');
+      expect(conversationId).not.toBe('__temp_conversation__'); // Should be promoted
+
+      // Send another message to the same conversation
+      await sendStreamingMessage('Follow up question');
+
+      const currentConversationId = stateManager.getActiveConversationId();
       expect(currentConversationId).toBe(conversationId);
 
-      expect(getActiveMessages().length).toBeGreaterThanOrEqual(2);
+      expect(getActiveMessages().length).toBeGreaterThanOrEqual(4); // 2 user + 2 bot messages
     });
   });
 

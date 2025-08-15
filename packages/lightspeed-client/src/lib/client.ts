@@ -8,7 +8,6 @@ import {
   IRequestOptions,
   IConversationHistoryResponse,
   IConversation,
-  ClientInitOptions,
 } from '@redhat-cloud-services/ai-client-common';
 import {
   LLMRequest,
@@ -45,7 +44,6 @@ export class LightspeedClient
   private readonly baseUrl: string;
   private readonly fetchFunction: IFetchFunction;
   private readonly defaultStreamingHandler?: IStreamingHandler<MessageChunkResponse>;
-  private readonly initOptions: ClientInitOptions;
 
   constructor(config: LightspeedClientConfig) {
     this.baseUrl = config.baseUrl.replace(/\/$/, ''); // Remove trailing slash
@@ -53,10 +51,6 @@ export class LightspeedClient
       config.fetchFunction || ((input, init) => fetch(input, init));
     this.defaultStreamingHandler =
       config.defaultStreamingHandler || new DefaultStreamingHandler();
-    this.initOptions = {
-      initializeNewConversation:
-        config.initOptions?.initializeNewConversation ?? true,
-    };
   }
 
   // ====================
@@ -68,12 +62,10 @@ export class LightspeedClient
    * @returns Promise that resolves to a new conversation ID
    */
   async init(): Promise<{
-    initialConversationId: string;
     conversations: IConversation[];
   }> {
-    const initialConversationId = this.generateConversationId();
-    // Just a stub for now
-    return { initialConversationId, conversations: [] };
+    // Just a stub for now - no auto-creation of conversations
+    return { conversations: [] };
   }
 
   /**
@@ -194,10 +186,6 @@ export class LightspeedClient
     return this.defaultStreamingHandler as
       | IStreamingHandler<TChunk>
       | undefined;
-  }
-
-  getInitOptions() {
-    return this.initOptions;
   }
 
   /**

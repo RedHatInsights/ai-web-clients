@@ -25,6 +25,7 @@ export interface StateManager<T> {
   getActiveConversationMessages(): Message<T>[];
   getConversations(): Conversation<T>[];
   createNewConversation(force?: boolean): Promise<IConversation>;
+  isTemporaryConversation(): boolean;
   
   // Message Management
   sendMessage(query: UserQuery, options?: MessageOptions): Promise<any>;
@@ -50,6 +51,9 @@ export enum Events {
 ```
 
 #### **Key Features**
+- **Lazy initialization**: Conversations are created automatically on first sendMessage (no auto-creation during init)
+- **Temporary conversation pattern**: Uses temporary conversation ID (`'__temp_conversation__'`) before promotion
+- **Automatic promotion**: First sendMessage automatically promotes temporary to real conversation
 - **Multi-conversation support**: Manage multiple conversations simultaneously
 - **Active conversation tracking**: Set and track the currently active conversation
 - **Conversation locking**: Prevent message sending to locked conversations with automatic error handling
@@ -57,6 +61,7 @@ export enum Events {
 - **Event-driven architecture**: Subscribe to state changes across the application
 - **Conversation history**: Automatic loading of conversation history when switching conversations
 - **Message persistence**: Messages are stored and maintained across conversation switches
+- **Retry logic**: Promotion failures include retry mechanism with user-friendly error messages
 
 ### **AI React State Package (React Integration)**
 
@@ -158,7 +163,6 @@ All AI clients must implement this interface:
 export interface IAIClient<T extends Record<string, unknown> = Record<string, unknown>> {
   // Initialization
   init(): Promise<{
-    initialConversationId: string;
     conversations: IConversation[];
     limitation?: ClientInitLimitation;
     error?: IInitErrorResponse;
@@ -184,9 +188,6 @@ export interface IAIClient<T extends Record<string, unknown> = Record<string, un
   
   // Streaming support
   getDefaultStreamingHandler?<TChunk>(): IStreamingHandler<TChunk> | undefined;
-  
-  // Configuration
-  getInitOptions(): ClientInitOptions;
 }
 ```
 
@@ -275,14 +276,18 @@ When creating new packages in this workspace:
 // Always use the factory function
 const stateManager = createClientStateManager(client);
 
-// Initialize before use
+// Initialize (no longer auto-creates conversations)
 await stateManager.init();
 
-// Set active conversation before sending messages
-await stateManager.setActiveConversationId('conversation-id');
+// LAZY INITIALIZATION: First sendMessage auto-creates conversation
+const response = await stateManager.sendMessage('Hello'); // Auto-promotes temporary conversation
 
-// Send messages
-const response = await stateManager.sendMessage('Hello');
+// Or manually create and set conversation
+const conversation = await stateManager.createNewConversation();
+await stateManager.setActiveConversationId(conversation.id);
+
+// Check if current conversation is temporary
+const isTemp = stateManager.isTemporaryConversation(); // false after promotion
 ```
 
 #### **Event Subscription Patterns**
