@@ -32,6 +32,7 @@
       "@redhat-cloud-services/ansible-lightspeed": [
         "packages/ansible-lightspeed/src/index.ts"
       ],
+      "@redhat-cloud-services/aai-client": ["packages/aai-client/src/index.ts"]
     }
   },
   "exclude": ["node_modules", "tmp"]

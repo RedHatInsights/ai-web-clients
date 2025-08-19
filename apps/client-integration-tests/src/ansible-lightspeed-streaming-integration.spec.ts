@@ -88,8 +88,10 @@ describe('Ansible Lightspeed Streaming Integration Tests', () => {
 
       const result = await sendStreamingMessage(message);
 
-      // Verify streaming returns void
-      expect(result).toBeUndefined();
+      // Verify streaming returns IMessageResponse
+      expect(result).toBeDefined();
+      expect(result.messageId).toBeDefined();
+      expect(result.answer).toBeDefined();
 
       // Check current state after streaming
       const currentState = stateManager.getState();
@@ -144,7 +146,9 @@ describe('Ansible Lightspeed Streaming Integration Tests', () => {
       const message = 'How do I manage files with Ansible?';
 
       const result = await sendStreamingMessage(message);
-      expect(result).toBeUndefined();
+      expect(result).toBeDefined();
+      expect(result.messageId).toBeDefined();
+      expect(result.answer).toBeDefined();
 
       verifyBasicConversation(message);
     });

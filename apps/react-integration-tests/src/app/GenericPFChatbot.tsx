@@ -14,7 +14,11 @@ import {
 } from '@redhat-cloud-services/ai-react-state';
 import { useEffect, useRef } from 'react';
 
-const GenericPFChatbot = () => {
+const GenericPFChatbot = ({
+  sendMessageOptions,
+}: {
+  sendMessageOptions?: Record<string, unknown>;
+}) => {
   const messages = useMessages();
   const sendMessage = useSendMessage();
   const inProgress = useInProgress();
@@ -23,6 +27,7 @@ const GenericPFChatbot = () => {
   const handleSend = (message: string | number) => {
     sendMessage(`${message}`, {
       stream: true,
+      ...sendMessageOptions,
     });
   };
 

@@ -6,6 +6,8 @@
   "scripts": {
     "test": "jest",
     "test:watch": "jest --watch",
+    "aai-mock-server": "node aai-mock-server.js",
+    "aai-mock-server:dev": "nodemon aai-mock-server.js",
     "arh-mock-server": "node arh-mock-server.js",
     "arh-mock-server:dev": "nodemon arh-mock-server.js",
     "lightspeed-mock-server": "node lightspeed-mock-server.js",
