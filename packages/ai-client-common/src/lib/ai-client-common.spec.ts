@@ -248,12 +248,16 @@ describe('ai-client-common', () => {
           conversationId: string,
           message: string,
           options?: ISendMessageOptions
-        ): Promise<IMessageResponse | void> {
+        ): Promise<IMessageResponse> {
           void conversationId;
           void message;
           void options; // Mark parameters as used for linting
           if (options?.stream) {
-            return; // Streaming mode returns void
+            return {
+              messageId: 'msg-stream-123',
+              answer: 'Streaming response content',
+              conversationId: 'conv-stream-456',
+            };
           }
           return {
             messageId: 'msg-123',
@@ -319,7 +323,7 @@ describe('ai-client-common', () => {
           conversationId: string,
           message: string,
           options?: ISendMessageOptions
-        ): Promise<IMessageResponse | void> {
+        ): Promise<IMessageResponse> {
           void options; // Mark parameter as used for linting
           return {
             messageId: 'msg-123',
@@ -400,14 +404,18 @@ describe('ai-client-common', () => {
           conversationId: string,
           message: string,
           options?: ISendMessageOptions
-        ): Promise<IMessageResponse | void> {
+        ): Promise<IMessageResponse> {
           if (options?.stream && this.defaultHandler) {
             // Simulate streaming response using default handler
             this.defaultHandler.onStart?.(conversationId, 'msg-456');
             this.defaultHandler.onChunk('Hello');
             this.defaultHandler.onChunk(' world');
             this.defaultHandler.onComplete?.('Hello world');
-            return; // Streaming returns void
+            return {
+              messageId: 'msg-streaming-456',
+              answer: 'Hello world',
+              conversationId,
+            };
           }
           return {
             messageId: 'msg-456',
@@ -442,7 +450,10 @@ describe('ai-client-common', () => {
         stream: true,
       });
 
-      expect(response).toBeUndefined(); // Streaming returns void
+      expect(response).toBeDefined(); // Streaming now returns IMessageResponse
+      expect(response.messageId).toBe('msg-streaming-456');
+      expect(response.answer).toBe('Hello world');
+      expect(response.conversationId).toBe('conv-123');
       expect(chunks).toEqual(['Hello', ' world']);
     });
 

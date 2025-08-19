@@ -1,6 +1,7 @@
 import {
   AfterChunkCallback,
   IStreamingHandler,
+  IMessageResponse,
 } from '@redhat-cloud-services/ai-client-common';
 import {
   LightSpeedCoreAdditionalProperties,
@@ -38,6 +39,7 @@ export class DefaultStreamingHandler
     if (afterChunk) {
       afterChunk({
         messageId: chunk.messageId ?? '',
+        conversationId: '',
         additionalAttributes: {},
         answer: chunk.answer ?? '',
       });
@@ -82,14 +84,19 @@ export class DefaultStreamingHandler
 export async function processStreamWithHandler(
   response: Response,
   handler: IStreamingHandler<MessageChunkResponse>,
+  conversationId: string,
   afterChunk?: AfterChunkCallback<LightSpeedCoreAdditionalProperties>
-): Promise<void> {
+): Promise<IMessageResponse<LightSpeedCoreAdditionalProperties>> {
   if (!response.body) {
     throw new Error('Response body is not available for streaming');
   }
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
+
+  let finalMessageId = '';
+  let finalAnswer = '';
+  let finalConversationId = conversationId;
 
   try {
     // Call onStart if available
@@ -109,13 +116,23 @@ export async function processStreamWithHandler(
       // Decode the chunk as plain text
       const textChunk = decoder.decode(value, { stream: true });
       fullMessage += textChunk;
+      finalAnswer = fullMessage;
 
       // Create a chunk response for this text piece
       const chunkResponse: MessageChunkResponse = {
         answer: fullMessage, // Send the accumulated message so far
         finished: false,
-        conversation_id: undefined, // Will be set by state manager
+        conversation_id: conversationId,
+        messageId: finalMessageId || crypto.randomUUID(),
       };
+
+      // Update final values
+      if (chunkResponse.messageId) {
+        finalMessageId = chunkResponse.messageId;
+      }
+      if (chunkResponse.conversation_id) {
+        finalConversationId = chunkResponse.conversation_id;
+      }
 
       // Process the chunk with the handler
       handler.onChunk(chunkResponse, afterChunk);
@@ -126,8 +143,15 @@ export async function processStreamWithHandler(
       const finalChunk: MessageChunkResponse = {
         answer: fullMessage,
         finished: true,
-        conversation_id: undefined, // Will be set by state manager
+        conversation_id: finalConversationId,
+        messageId: finalMessageId || crypto.randomUUID(),
       };
+
+      // Update final values one more time
+      if (finalChunk.messageId) {
+        finalMessageId = finalChunk.messageId;
+      }
+      finalAnswer = finalChunk.answer ?? '';
 
       // Process the final chunk
       handler.onChunk(finalChunk, afterChunk);
@@ -146,4 +170,12 @@ export async function processStreamWithHandler(
   } finally {
     reader.releaseLock();
   }
+
+  // Return the final message response
+  return {
+    messageId: finalMessageId || crypto.randomUUID(),
+    answer: finalAnswer,
+    conversationId: finalConversationId,
+    additionalAttributes: {},
+  };
 }

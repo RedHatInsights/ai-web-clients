@@ -1,6 +1,7 @@
 import {
   AfterChunkCallback,
   IStreamingHandler,
+  IMessageResponse,
 } from '@redhat-cloud-services/ai-client-common';
 import {
   MessageChunkResponse,
@@ -175,6 +176,7 @@ async function processStreamResponse({
               afterChunk?.({
                 answer: errorChunk.answer,
                 messageId,
+                conversationId,
                 additionalAttributes: {
                   sources: errorChunk.sources,
                   tool_call_metadata: errorChunk.tool_call_metadata,
@@ -212,6 +214,7 @@ async function processStreamResponse({
             onChunk(chunkResponse);
             afterChunk?.({
               answer: accumulatedAnswer,
+              conversationId,
               messageId,
               additionalAttributes: {
                 sources: parsed.sources || [],
@@ -226,6 +229,7 @@ async function processStreamResponse({
                 afterChunk({
                   answer: accumulatedAnswer,
                   messageId,
+                  conversationId,
                   additionalAttributes: {
                     sources: parsed.sources || [],
                     tool_call_metadata: parsed.tool_call_metadata || null,
@@ -316,11 +320,24 @@ export async function processStreamWithHandler(
   getQuota: (
     conversationId: string
   ) => Promise<QuotaStatusResponse<MessageQuotaStatus>>
-): Promise<void> {
+): Promise<IMessageResponse<IFDAdditionalAttributes>> {
+  let finalMessageId = '';
+  let finalAnswer = '';
+  let finalSources: AnswerSource[] = [];
+  let toolCallMetadata: any = null;
+  let outputGuardResult: any = null;
+
   await processStreamResponse({
     conversationId,
     response,
-    onChunk: (message) => handler.onChunk(message),
+    onChunk: (message) => {
+      finalMessageId = message.message_id;
+      finalAnswer = message.answer;
+      finalSources = message.sources || [];
+      toolCallMetadata = message.tool_call_metadata;
+      outputGuardResult = message.output_guard_result;
+      handler.onChunk(message);
+    },
     onStart: (conversationId, messageId) =>
       handler.onStart?.(conversationId, messageId),
     onComplete: (finalChunk) => handler.onComplete?.(finalChunk),
@@ -328,4 +345,16 @@ export async function processStreamWithHandler(
     afterChunk,
     getQuota,
   });
+
+  // Return the final message response
+  return {
+    messageId: finalMessageId,
+    answer: finalAnswer,
+    conversationId,
+    additionalAttributes: {
+      sources: finalSources,
+      tool_call_metadata: toolCallMetadata,
+      output_guard_result: outputGuardResult,
+    },
+  };
 }

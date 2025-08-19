@@ -239,7 +239,11 @@ describe('LightspeedClient', () => {
         })
       );
 
-      expect(result).toBeUndefined(); // Streaming returns void
+      expect(result).toBeDefined(); // Streaming now returns IMessageResponse
+      expect(result.messageId).toBeDefined();
+      expect(result.conversationId).toBe('conv-stream-123');
+      expect(result.answer).toBeDefined();
+      expect(result.additionalAttributes).toBeDefined();
     });
 
     it('should throw error for streaming without handler', async () => {
@@ -639,6 +643,7 @@ describe('DefaultStreamingHandler', () => {
 
       expect(afterChunkCallback).toHaveBeenCalledWith({
         messageId: '',
+        conversationId: '',
         additionalAttributes: {},
         answer: 'Test content',
       });

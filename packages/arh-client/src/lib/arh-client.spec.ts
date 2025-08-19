@@ -313,7 +313,16 @@ describe('IFDClient', () => {
       // Mock processStreamWithHandler before making the call
       jest
         .spyOn(defaultStreamingHandler, 'processStreamWithHandler')
-        .mockResolvedValueOnce(undefined);
+        .mockResolvedValueOnce({
+          messageId: 'test-message-id',
+          answer: 'test answer',
+          conversationId: 'conv-123',
+          additionalAttributes: {
+            sources: [],
+            tool_call_metadata: null,
+            output_guard_result: null,
+          },
+        });
 
       // Mock streaming response with a proper body
       const mockResponse = {
@@ -347,7 +356,11 @@ describe('IFDClient', () => {
         })
       );
 
-      expect(result).toBeUndefined(); // Streaming returns void
+      expect(result).toBeDefined(); // Streaming now returns IMessageResponse
+      expect(result.messageId).toBeDefined();
+      expect(result.conversationId).toBe('conv-123');
+      expect(result.answer).toBeDefined();
+      expect(result.additionalAttributes).toBeDefined();
     });
   });
 

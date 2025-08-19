@@ -102,6 +102,13 @@ describe('ClientStateManager', () => {
     it('should auto-create temporary conversation when no active conversation is set', async () => {
       const stateManagerWithoutConv = createClientStateManager(mockClient);
 
+      // Override the mock to return the promoted conversation ID
+      mockClient.sendMessage.mockResolvedValue({
+        messageId: 'bot-msg-1',
+        answer: 'Bot response',
+        conversationId: 'new-conv', // This should match the createNewConversation mock
+      });
+
       const userMessage: UserQuery = 'Hello from auto-created conversation';
 
       await stateManagerWithoutConv.sendMessage(userMessage);
@@ -967,13 +974,22 @@ describe('ClientStateManager', () => {
     });
 
     it('should handle createNewConversation failure during promotion gracefully', async () => {
+      const freshStateManager = createClientStateManager(mockClient);
+
       mockClient.createNewConversation = jest
         .fn()
         .mockRejectedValue(new Error('Network error'));
 
-      await stateManager.sendMessage('Hello');
+      // Set up a mock response for sendMessage since promotion will fail
+      mockClient.sendMessage.mockResolvedValue({
+        messageId: 'temp-msg-1',
+        answer: 'Bot response',
+        conversationId: '__temp_conversation__',
+      });
 
-      const state = stateManager.getState();
+      await freshStateManager.sendMessage('Hello');
+
+      const state = freshStateManager.getState();
       // Should remain in temporary conversation
       expect(state.activeConversationId).toBe('__temp_conversation__');
       expect(state.conversations['__temp_conversation__']).toBeDefined();
@@ -981,17 +997,26 @@ describe('ClientStateManager', () => {
     });
 
     it('should retry promotion and show error message after max attempts', async () => {
+      const freshStateManager = createClientStateManager(mockClient);
+
       mockClient.createNewConversation = jest
         .fn()
         .mockRejectedValue(new Error('Network error'));
 
+      // Set up a mock response for sendMessage since promotion will fail
+      mockClient.sendMessage.mockResolvedValue({
+        messageId: 'temp-msg-1',
+        answer: 'Bot response',
+        conversationId: '__temp_conversation__',
+      });
+
       // First attempt (retry count = 1)
-      await stateManager.sendMessage('Hello');
+      await freshStateManager.sendMessage('Hello');
 
       // Second attempt (retry count = 2, should show error message)
-      await stateManager.sendMessage('World');
+      await freshStateManager.sendMessage('World');
 
-      const state = stateManager.getState();
+      const state = freshStateManager.getState();
       const messages = state.conversations['__temp_conversation__'].messages;
 
       // Should have user messages + error message
@@ -1066,6 +1091,8 @@ describe('ClientStateManager', () => {
     });
 
     it('should reset retry count on successful promotion after failures', async () => {
+      const freshStateManager = createClientStateManager(mockClient);
+
       // First, simulate a failure
       mockClient.createNewConversation = jest
         .fn()
@@ -1077,16 +1104,29 @@ describe('ClientStateManager', () => {
           createdAt: new Date(),
         });
 
-      // First message fails promotion
-      await stateManager.sendMessage('Hello');
+      // First message fails promotion, so use temp conversation
+      mockClient.sendMessage
+        .mockResolvedValueOnce({
+          messageId: 'temp-msg-1',
+          answer: 'Bot response',
+          conversationId: '__temp_conversation__',
+        })
+        .mockResolvedValue({
+          messageId: 'retry-msg-1',
+          answer: 'Bot response',
+          conversationId: 'new-conv-retry',
+        });
 
-      let state = stateManager.getState();
+      // First message fails promotion
+      await freshStateManager.sendMessage('Hello');
+
+      let state = freshStateManager.getState();
       expect(state.promotionRetryCount).toBe(1);
 
       // Second message succeeds
-      await stateManager.sendMessage('World');
+      await freshStateManager.sendMessage('World');
 
-      state = stateManager.getState();
+      state = freshStateManager.getState();
       expect(state.promotionRetryCount).toBe(0); // Reset on success
       expect(state.activeConversationId).toBe('new-conv-retry');
     });

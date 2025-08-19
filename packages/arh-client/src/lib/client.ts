@@ -238,7 +238,7 @@ export class IFDClient
     conversationId: string,
     message: string,
     options?: ISendMessageOptions
-  ): Promise<IMessageResponse | void> {
+  ): Promise<IMessageResponse> {
     const requestBody = {
       input: message,
       received_at: new Date().toISOString(),

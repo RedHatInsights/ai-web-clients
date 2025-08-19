@@ -149,6 +149,39 @@ export function createClientStateManager<
     return newConversation;
   }
 
+  function handleConversationPromotion(
+    originalConversationId: string,
+    responseConversationId: string
+  ): void {
+    if (!originalConversationId || !responseConversationId) {
+      return;
+    }
+    // If the conversation ID changed, we need to promote the conversation
+    if (originalConversationId !== responseConversationId) {
+      // Transfer messages from original conversation to new conversation
+      const originalConversation = state.conversations[originalConversationId];
+      if (originalConversation) {
+        // Initialize new conversation state
+        initializeConversationState(responseConversationId);
+
+        // Transfer all messages
+        state.conversations[responseConversationId].messages =
+          originalConversation.messages;
+        state.conversations[responseConversationId].title =
+          originalConversation.title;
+
+        // Update active conversation
+        state.activeConversationId = responseConversationId;
+
+        // Clean up original conversation
+        delete state.conversations[originalConversationId];
+
+        notify(Events.ACTIVE_CONVERSATION);
+        notify(Events.CONVERSATIONS);
+      }
+    }
+  }
+
   async function promoteTemporaryConversation(): Promise<void> {
     if (!isTemporaryConversationId(state.activeConversationId)) {
       return;
@@ -442,14 +475,25 @@ export function createClientStateManager<
             },
           };
 
+          const originalConversationId = conversation.id;
           return client
-            .sendMessage(conversation.id, query, enhancedOptions)
+            .sendMessage(originalConversationId, query, enhancedOptions)
             .catch((error) => {
-              removeMessageFromConversation(botMessage.id, conversation.id);
+              removeMessageFromConversation(
+                botMessage.id,
+                originalConversationId
+              );
               notify(Events.MESSAGE);
               throw error;
             })
             .then((response) => {
+              // Check if conversation ID changed and handle promotion
+              if (response && response.conversationId) {
+                handleConversationPromotion(
+                  originalConversationId,
+                  response.conversationId
+                );
+              }
               return response;
             })
             .finally(() => {
@@ -464,10 +508,14 @@ export function createClientStateManager<
         }
       } else {
         // Non-streaming: update bot message after response
+        const originalConversationId = conversation.id;
         return client
-          .sendMessage(conversation.id, query, options)
+          .sendMessage(originalConversationId, query, options)
           .catch((error) => {
-            removeMessageFromConversation(botMessage.id, conversation.id);
+            removeMessageFromConversation(
+              botMessage.id,
+              originalConversationId
+            );
             throw error;
           })
           .then((response) => {
@@ -481,6 +529,7 @@ export function createClientStateManager<
                 const typedResponse = response as {
                   answer: string;
                   messageId: string;
+                  conversationId?: string;
                   additionalAttributes?: T;
                 };
                 botMessage.answer = typedResponse.answer;
@@ -488,6 +537,14 @@ export function createClientStateManager<
                 if (typedResponse.additionalAttributes) {
                   botMessage.additionalAttributes =
                     typedResponse.additionalAttributes;
+                }
+
+                // Check if conversation ID changed and handle promotion
+                if (typedResponse.conversationId) {
+                  handleConversationPromotion(
+                    originalConversationId,
+                    typedResponse.conversationId
+                  );
                 }
               } else if (typeof response === 'string') {
                 botMessage.answer = response as string;

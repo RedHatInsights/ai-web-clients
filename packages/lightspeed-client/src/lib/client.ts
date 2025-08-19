@@ -82,9 +82,7 @@ export class LightspeedClient
     options?: ISendMessageOptions<LightSpeedCoreAdditionalProperties> & {
       userId?: string;
     }
-  ): Promise<
-    TChunk | IMessageResponse<LightSpeedCoreAdditionalProperties> | void
-  > {
+  ): Promise<IMessageResponse<LightSpeedCoreAdditionalProperties>> {
     const request: LLMRequest = {
       query: message,
       conversation_id: conversationId,
@@ -118,13 +116,12 @@ export class LightspeedClient
       });
 
       // Process the streaming response
-      await processStreamWithHandler(
+      return await processStreamWithHandler(
         response,
         handler as IStreamingHandler<MessageChunkResponse>,
+        conversationId,
         options?.afterChunk
       );
-
-      return; // Streaming returns void
     } else {
       // Non-streaming request
       const url = this.buildUrl('/v1/query', options?.userId);

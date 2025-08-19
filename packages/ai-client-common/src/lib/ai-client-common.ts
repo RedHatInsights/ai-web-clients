@@ -92,14 +92,11 @@ declare class IAIClient<
    * @param options - Optional configuration for the request
    * @returns Promise that resolves to the AI's response
    */
-  sendMessage<
-    TChunk = unknown,
-    T extends Record<string, unknown> = Record<string, unknown>
-  >(
+  sendMessage<T extends Record<string, unknown> = Record<string, unknown>>(
     conversationId: string,
     message: string,
     options?: ISendMessageOptions<T>
-  ): Promise<TChunk | IMessageResponse<AP> | void>;
+  ): Promise<IMessageResponse<AP>>;
 
   /**
    * Get the default streaming handler for this client
@@ -325,6 +322,7 @@ export interface IStreamChunk<
 > {
   answer: string;
   messageId: string;
+  conversationId: string;
   additionalAttributes: T;
 }
 

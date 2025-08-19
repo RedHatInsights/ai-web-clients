@@ -293,7 +293,7 @@ export class AnsibleLightspeedClient
     conversationId: string,
     message: string,
     options?: ISendMessageOptions
-  ): Promise<IMessageResponse<AnsibleLightspeedMessageAttributes> | void> {
+  ): Promise<IMessageResponse<AnsibleLightspeedMessageAttributes>> {
     const queryRequest: QueryRequest = {
       query: message,
       conversation_id: conversationId,
@@ -312,7 +312,11 @@ export class AnsibleLightspeedClient
 
       try {
         const response = await this.streamingQuery(queryRequest);
-        await processStreamWithHandler(response, handler, options?.afterChunk);
+        return await processStreamWithHandler(
+          response,
+          handler,
+          options?.afterChunk
+        );
       } catch (error) {
         handler.onError?.(error as Error);
         throw error;

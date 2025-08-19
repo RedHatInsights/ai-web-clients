@@ -1,5 +1,6 @@
 import {
   AfterChunkCallback,
+  IMessageResponse,
   IStreamChunk,
   IStreamingHandler,
 } from '@redhat-cloud-services/ai-client-common';
@@ -73,6 +74,7 @@ export class DefaultStreamingHandler
       const commonChunk: IStreamChunk<AnsibleLightspeedMessageAttributes> = {
         messageId: this.messageBuffer.data.id.toString(),
         answer: this.messageBuffer.data.token,
+        conversationId: '',
         additionalAttributes: {
           referenced_documents: this.messageBuffer.data.referenced_documents,
           truncated: this.messageBuffer.data.truncated,
@@ -106,7 +108,7 @@ export class DefaultStreamingHandler
   async processStream(
     response: Response,
     afterChunk?: AfterChunkCallback<AnsibleLightspeedMessageAttributes>
-  ): Promise<void> {
+  ): Promise<IMessageResponse<AnsibleLightspeedMessageAttributes>> {
     this.onStart();
     if (!response.body) {
       throw new Error('Response body is null');
@@ -149,6 +151,22 @@ export class DefaultStreamingHandler
     } finally {
       reader.releaseLock();
     }
+
+    // Return the final message response
+    return {
+      messageId: this.messageBuffer.data.id.toString() || crypto.randomUUID(),
+      answer: this.messageBuffer.data.token,
+      conversationId: '', // Ansible Lightspeed doesn't use conversationId in the same way
+      additionalAttributes: {
+        provider: undefined,
+        model: undefined,
+        input_tokens: this.messageBuffer.data.input_tokens,
+        output_tokens: this.messageBuffer.data.output_tokens,
+        referenced_documents: this.messageBuffer.data.referenced_documents,
+        truncated: this.messageBuffer.data.truncated,
+        available_quotas: this.messageBuffer.data.available_quotas,
+      },
+    };
   }
 
   private async processLine(line: string): Promise<StreamingEvent | void> {
@@ -169,7 +187,7 @@ export async function processStreamWithHandler(
   response: Response,
   handler: IStreamingHandler<StreamingEvent>,
   afterChunk?: AfterChunkCallback<AnsibleLightspeedMessageAttributes>
-): Promise<void> {
+): Promise<IMessageResponse<AnsibleLightspeedMessageAttributes>> {
   if (handler instanceof DefaultStreamingHandler) {
     return handler.processStream(response, afterChunk);
   }
