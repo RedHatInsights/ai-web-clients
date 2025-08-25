@@ -30,7 +30,7 @@ const client = new IFDClient({
 });
 
 // Create a conversation
-const conversation = await client.createConversation();
+const conversation = await client.createNewConversation();
 
 // Send a message
 const response = await client.sendMessage(conversation.conversation_id, 'What is Red Hat OpenShift?');
@@ -119,7 +119,7 @@ const client = new IFDClient({
 
 ```typescript
 // Create a new conversation
-const conversation = await client.createConversation();
+const conversation = await client.createNewConversation();
 
 // Send a non-streaming message
 const response = await client.sendMessage(conversation.conversation_id, 'What is Red Hat OpenShift?');
@@ -385,7 +385,7 @@ export function useIFDStreaming(client: IFDClient) {
 
 ```typescript
 // Conversations
-await client.createConversation();
+await client.createNewConversation();
 await client.sendMessage(conversationId, 'your message');
 await client.sendMessage(conversationId, 'streaming message', { 
   stream: true,

@@ -305,6 +305,7 @@ interface Message<T = Record<string, unknown>> {
   answer: string;
   role: 'user' | 'bot';
   additionalAttributes?: T;
+  date: Date;
 }
 
 // Conversation structure
@@ -313,6 +314,7 @@ interface Conversation<T = Record<string, unknown>> {
   title: string;
   messages: Message<T>[];
   locked: boolean; // Prevents new messages when true
+  createdAt: Date;
 }
 
 // Example: Messages are automatically created when you send strings
@@ -399,6 +401,7 @@ import { Events } from '@redhat-cloud-services/ai-client-state';
 // Events.IN_PROGRESS - When message sending status changes
 // Events.CONVERSATIONS - When conversation list changes
 // Events.INITIALIZING_MESSAGES - When conversation history is being loaded
+// Events.INIT_LIMITATION - When client initialization has limitations
 ```
 
 ### Subscribing to Events

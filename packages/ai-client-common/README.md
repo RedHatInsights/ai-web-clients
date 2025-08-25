@@ -37,11 +37,22 @@ declare class IAIClient<AP extends Record<string, unknown> = Record<string, unkn
     error?: IInitErrorResponse;
   }>;
   
-  sendMessage<TChunk = unknown, T extends Record<string, unknown> = Record<string, unknown>>(
+  // Basic message sending
+  sendMessage<T extends Record<string, unknown> = Record<string, unknown>>(
     conversationId: string, 
     message: string, 
     options?: ISendMessageOptions<T>
-  ): Promise<TChunk | IMessageResponse<AP> | void>;
+  ): Promise<IMessageResponse<AP>>;
+  
+  // Message sending with custom request payload
+  sendMessage<
+    T extends Record<string, unknown> = Record<string, unknown>,
+    R extends Record<string, unknown> = Record<string, unknown>
+  >(
+    conversationId: string, 
+    message: string, 
+    options?: ISendMessageOptions<T, R>
+  ): Promise<IMessageResponse<AP>>;
   
   getDefaultStreamingHandler<TChunk = unknown>(): IStreamingHandler<TChunk> | undefined;
   
@@ -182,11 +193,12 @@ class CustomStreamingHandler<TChunk = unknown> implements IStreamingHandler<TChu
 }
 ```
 
-#### Streaming Request Options
+#### Send Message Options
 
 ```typescript
 import { ISendMessageOptions, IStreamChunk } from '@redhat-cloud-services/ai-client-common';
 
+// Basic streaming options
 const streamingOptions: ISendMessageOptions = {
   stream: true,
   headers: { 'Custom-Header': 'value' },
@@ -198,6 +210,50 @@ const streamingOptions: ISendMessageOptions = {
     updateUI(chunk.answer);
   }
 };
+
+// Options with custom request payload (client-specific)
+const optionsWithPayload: ISendMessageOptions<AdditionalProps, CustomPayload> = {
+  stream: false,
+  headers: { 'X-Custom': 'value' },
+  requestPayload: {
+    // Client-specific payload data
+    customData: 'value',
+    options: { setting: true }
+  }
+};
+```
+
+#### Request Payload Support
+
+The `ISendMessageOptions` interface supports method overloading to enable client-specific request payloads:
+
+```typescript
+// Interface definition
+export interface ISendMessageOptions<
+  T extends Record<string, unknown> = Record<string, unknown>,
+  R extends Record<string, unknown> = never
+> extends IRequestOptions {
+  stream?: boolean;
+  afterChunk?: AfterChunkCallback<T>;
+  requestPayload?: R extends never ? never : R;
+}
+
+// Usage with client-specific payload
+interface MyClientPayload {
+  context?: { systemInfo: string };
+  skipCache?: boolean;
+}
+
+const response = await client.sendMessage(
+  'conversation-id',
+  'message',
+  {
+    requestPayload: {
+      context: { systemInfo: 'linux' },
+      skipCache: true
+    }
+  }
+);
 ```
 
 ## Error Handling
@@ -272,6 +328,8 @@ This package provides the foundation for:
 - **[@redhat-cloud-services/arh-client](../arh-client)** - Intelligent Front Door (IFD) API client
 - **[@redhat-cloud-services/lightspeed-client](../lightspeed-client)** - OpenShift Lightspeed API client
 - **[@redhat-cloud-services/ansible-lightspeed](../ansible-lightspeed)** - Ansible Lightspeed API client
+- **[@redhat-cloud-services/rhel-lightspeed-client](../rhel-lightspeed-client)** - RHEL LightSpeed RAG API client
+- **[@redhat-cloud-services/aai-client](../aai-client)** - Ansible Assisted Installer API client
 - **[@redhat-cloud-services/ai-client-state](../ai-client-state)** - State management for AI conversations
 - **[@redhat-cloud-services/ai-react-state](../ai-react-state)** - React hooks and context for AI state
 

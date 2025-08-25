@@ -583,7 +583,11 @@ export function createClientStateManager<
     const currentConversationId = getActiveConversationId();
     if (!force && getActiveConversationMessages().length === 0) {
       if (!currentConversationId) {
-        return initializeConversationState(crypto.randomUUID());
+        state.activeConversationId = TEMP_CONVERSATION_ID;
+        const tempConversation =
+          initializeConversationState(TEMP_CONVERSATION_ID);
+        notify(Events.ACTIVE_CONVERSATION);
+        return tempConversation;
       }
       return state.conversations[currentConversationId];
     }

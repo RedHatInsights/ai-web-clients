@@ -61,10 +61,9 @@ This client implements the `IAIClient` interface from `@redhat-cloud-services/ai
 The client requires a configuration object with dependency injection support:
 
 ```typescript
-interface AnsibleLightspeedConfig {
-  baseUrl: string;
-  fetchFunction: IFetchFunction;
-  defaultStreamingHandler?: IStreamingHandler<StreamingEvent>;
+interface AnsibleLightspeedConfig extends IBaseClientConfig<StreamingEvent> {
+  // Inherits baseUrl, fetchFunction, and defaultStreamingHandler from IBaseClientConfig
+  // fetchFunction is optional with native fetch as default
 }
 ```
 

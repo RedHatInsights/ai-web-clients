@@ -99,6 +99,22 @@ declare class IAIClient<
   ): Promise<IMessageResponse<AP>>;
 
   /**
+   * Send a message to the AI service with custom request payload
+   * @param conversationId - The conversation ID to send the message to
+   * @param message - The message content to send
+   * @param options - Optional configuration for the request with custom payload
+   * @returns Promise that resolves to the AI's response
+   */
+  sendMessage<
+    T extends Record<string, unknown> = Record<string, unknown>,
+    R extends Record<string, unknown> = Record<string, unknown>
+  >(
+    conversationId: string,
+    message: string,
+    options?: ISendMessageOptions<T, R>
+  ): Promise<IMessageResponse<AP>>;
+
+  /**
    * Get the default streaming handler for this client
    * All AI clients must implement this method to provide consistent streaming behavior
    * @returns The default streaming handler or undefined if not configured
@@ -334,7 +350,8 @@ export type AfterChunkCallback<
  * Options for sending messages, supporting both streaming and non-streaming modes
  */
 export interface ISendMessageOptions<
-  T extends Record<string, unknown> = Record<string, unknown>
+  T extends Record<string, unknown> = Record<string, unknown>,
+  R extends Record<string, unknown> = never
 > extends IRequestOptions {
   /**
    * Whether to use streaming mode for the response
@@ -342,4 +359,9 @@ export interface ISendMessageOptions<
    */
   stream?: boolean;
   afterChunk?: AfterChunkCallback<T>;
+  /**
+   * Additional request payload data specific to the client implementation
+   * Only available when R is not 'never'
+   */
+  requestPayload?: R extends never ? never : R;
 }

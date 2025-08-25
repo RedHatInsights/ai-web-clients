@@ -61,10 +61,9 @@ This client implements the `IAIClient` interface from `@redhat-cloud-services/ai
 The client requires a configuration object with dependency injection support:
 
 ```typescript
-interface LightspeedClientConfig {
-  baseUrl: string;
-  fetchFunction: IFetchFunction;
-  defaultStreamingHandler?: IStreamingHandler<MessageChunkResponse>;
+interface LightspeedClientConfig extends IBaseClientConfig<MessageChunkResponse> {
+  // Inherits baseUrl, fetchFunction, and defaultStreamingHandler from IBaseClientConfig
+  // All inherited properties are optional except baseUrl which is required
 }
 ```
 
@@ -97,8 +96,8 @@ await client.sendMessage(conversation.id, 'Tell me about OpenShift networking', 
   }
 });
 
-// Get conversation history
-const history = await client.getConversationHistory(conversationId);
+// Get conversation history (Note: Lightspeed API doesn't support history - always returns empty array)
+const history = await client.getConversationHistory(conversationId); // Returns []
 
 // Health checks
 await client.healthCheck(); // Combines readiness and liveness checks
@@ -157,13 +156,17 @@ try {
 }
 ```
 
+## API Limitations
+
+**Conversation History**: The Lightspeed API v1.0.1 does not provide a conversation history endpoint. The `getConversationHistory()` method is implemented for interface compliance but always returns an empty array and logs a warning.
+
 ## Available Methods
 
 ```typescript
 // Core client methods
 await client.init();
 await client.sendMessage(conversationId, message, options);
-await client.getConversationHistory(conversationId);
+await client.getConversationHistory(conversationId); // Returns [] - not supported by Lightspeed API
 await client.createNewConversation();
 
 // Health checks

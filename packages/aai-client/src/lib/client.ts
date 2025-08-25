@@ -30,7 +30,7 @@ export interface AAIClientConfig extends IBaseClientConfig<AAISSEEvent> {
 
 // Extended send message options for AAI
 export interface AAISendMessageOptions extends ISendMessageOptions<Record<string, unknown>> {
-  requestBody?: AAIRequestBody;
+  requestBody: AAIRequestBody; // Required for AAI client
 }
 
 /**
