@@ -13,19 +13,21 @@
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const cors = require('cors');
+const {
+  createMockLogger,
+  logServerStart,
+  logServerShutdown,
+} = require('./shared/mock-logger');
 
 const app = express();
 const port = process.env.PORT || 3002;
 
-const expressLogger = (req, res, next) => {
-  console.log(`${req.method} ${req.originalUrl}`);
-  next();
-};
+const mockLogger = createMockLogger('LightSpeed', port);
 
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(expressLogger);
+app.use(mockLogger);
 
 // In-memory storage for conversations and feedback
 const conversations = new Map();
@@ -368,27 +370,23 @@ app.use((req, res) => {
 
 // Start server
 const server = app.listen(port, () => {
-  console.log(`Lightspeed Mock Server running on http://localhost:${port}`);
-  console.log(`Lightspeed API endpoints:`);
-  console.log(`   POST /v1/query`);
-  console.log(`   POST /v1/streaming_query`);
-  console.log(`   GET  /v1/feedback/status`);
-  console.log(`   POST /v1/feedback`);
-  console.log(`   GET  /readiness`);
-  console.log(`   GET  /liveness`);
-  console.log(`   GET  /metrics`);
-  console.log(`   POST /authorized`);
-  console.log(
-    `\nBased on OpenShift Lightspeed service API specification v1.0.1`
-  );
-  console.log(`Compatible with @redhat-cloud-services/lightspeed-client`);
+  logServerStart('LightSpeed', port, [
+    { method: 'POST', path: '/v1/query' },
+    { method: 'POST', path: '/v1/streaming_query' },
+    { method: 'GET', path: '/v1/feedback/status' },
+    { method: 'POST', path: '/v1/feedback' },
+    { method: 'GET', path: '/readiness' },
+    { method: 'GET', path: '/liveness' },
+    { method: 'GET', path: '/metrics' },
+    { method: 'POST', path: '/authorized' },
+  ]);
 });
 
 // Graceful shutdown
 process.on('SIGINT', () => {
-  console.log('\nShutting down Lightspeed mock server...');
+  logServerShutdown('LightSpeed');
   server.close(() => {
-    console.log('Lightspeed mock server stopped');
+    console.log('✅ LightSpeed mock server stopped');
     process.exit(0);
   });
 });

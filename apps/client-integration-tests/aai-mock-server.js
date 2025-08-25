@@ -13,19 +13,21 @@
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const cors = require('cors');
+const {
+  createMockLogger,
+  logServerStart,
+  logServerShutdown,
+} = require('./shared/mock-logger');
 
 const app = express();
 const port = process.env.PORT || 3004;
 
-const expressLogger = (req, res, next) => {
-  console.log(`${req.method} ${req.originalUrl}`);
-  next();
-};
+const mockLogger = createMockLogger('AAI', port);
 
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(expressLogger);
+app.use(mockLogger);
 
 // In-memory storage for conversations (session-based)
 const conversationSessions = new Map();
@@ -292,21 +294,15 @@ app.use((req, res) => {
 
 // Start server
 const server = app.listen(port, () => {
-  console.log(
-    `🚀 AAI (Ansible Assisted Installer) Mock Server running on http://localhost:${port}`
-  );
-  console.log(`📋 AAI API endpoints:`);
-  console.log(`   GET  /api/v1/health/status/chatbot/`);
-  console.log(`   POST /api/v1/ai/streaming_chat/`);
-  console.log(`\n💡 Use Server-Sent Events format for streaming responses`);
-  console.log(
-    `📚 This mock server implements the AAI (Ansible Assisted Installer) API specification`
-  );
+  logServerStart('AAI', port, [
+    { method: 'GET', path: '/api/v1/health/status/chatbot/' },
+    { method: 'POST', path: '/api/v1/ai/streaming_chat/' },
+  ]);
 });
 
 // Graceful shutdown
 process.on('SIGINT', () => {
-  console.log('\n🛑 Shutting down AAI mock server...');
+  logServerShutdown('AAI');
   server.close(() => {
     console.log('✅ AAI mock server stopped');
     process.exit(0);

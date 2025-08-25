@@ -13,19 +13,17 @@
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const cors = require('cors');
+const { createMockLogger, logServerStart } = require('./shared/mock-logger');
 
 const app = express();
 const port = process.env.PORT || 3003;
 
-const expressLogger = (req, res, next) => {
-  console.log(`${req.method} ${req.originalUrl}`);
-  next();
-};
+const mockLogger = createMockLogger('Ansible-LS', port);
 
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(expressLogger);
+app.use(mockLogger);
 
 // In-memory storage for conversations and feedback
 const conversations = new Map();
@@ -398,21 +396,19 @@ ansible_lightspeed_requests_total{method="POST",endpoint="/v1/streaming_query"} 
 
 // Start server
 app.listen(port, () => {
-  console.log(
-    `Ansible Lightspeed Mock Server running on http://localhost:${port}`
-  );
-  console.log('Available endpoints:');
-  console.log('  GET  /v1/info');
-  console.log('  GET  /v1/models');
-  console.log('  POST /v1/query');
-  console.log('  POST /v1/streaming_query');
-  console.log('  POST /v1/feedback');
-  console.log('  GET  /v1/feedback/status');
-  console.log('  GET  /v1/conversations/:id');
-  console.log('  DELETE /v1/conversations/:id');
-  console.log('  GET  /v1/config');
-  console.log('  GET  /readiness');
-  console.log('  GET  /liveness');
-  console.log('  POST /authorized');
-  console.log('  GET  /metrics');
+  logServerStart('Ansible LightSpeed', port, [
+    { method: 'GET', path: '/v1/info' },
+    { method: 'GET', path: '/v1/models' },
+    { method: 'POST', path: '/v1/query' },
+    { method: 'POST', path: '/v1/streaming_query' },
+    { method: 'POST', path: '/v1/feedback' },
+    { method: 'GET', path: '/v1/feedback/status' },
+    { method: 'GET', path: '/v1/conversations/:id' },
+    { method: 'DELETE', path: '/v1/conversations/:id' },
+    { method: 'GET', path: '/v1/config' },
+    { method: 'GET', path: '/readiness' },
+    { method: 'GET', path: '/liveness' },
+    { method: 'POST', path: '/authorized' },
+    { method: 'GET', path: '/metrics' },
+  ]);
 });

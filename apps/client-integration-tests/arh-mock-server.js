@@ -13,19 +13,21 @@
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const cors = require('cors');
+const {
+  createMockLogger,
+  logServerStart,
+  logServerShutdown,
+} = require('./shared/mock-logger');
 
 const app = express();
 const port = process.env.PORT || 3001;
 
-const expressLogger = (req, res, next) => {
-  console.log(`${req.method} ${req.originalUrl}`);
-  next();
-};
+const mockLogger = createMockLogger('ARH', port);
 
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(expressLogger);
+app.use(mockLogger);
 
 // In-memory storage for conversations and messages
 const conversations = new Map();
@@ -495,34 +497,27 @@ app.use((req, res) => {
 
 // Start server
 const server = app.listen(port, () => {
-  console.log(
-    `🚀 ARH (Intelligent Front Door) Mock Server running on http://localhost:${port}`
-  );
-  console.log(`📋 ARH API endpoints:`);
-  console.log(`   POST /api/ask/v1/conversation`);
-  console.log(`   POST /api/ask/v1/conversation/:id/message`);
-  console.log(`   GET  /api/ask/v1/conversation/:id/history`);
-  console.log(
-    `   POST /api/ask/v1/conversation/:id/message/:messageId/feedback`
-  );
-  console.log(`   GET  /api/ask/v1/health`);
-  console.log(`   GET  /api/ask/v1/status`);
-  console.log(`   GET  /api/ask/v1/user/current`);
-  console.log(`   PUT  /api/ask/v1/user/current`);
-  console.log(`   GET  /api/ask/v1/user/current/history`);
-  console.log(`   GET  /api/ask/v1/quota/conversations`);
-  console.log(`   GET  /api/ask/v1/quota/:conversationId/messages`);
-  console.log(
-    `\n💡 Use stream=true in message requests for streaming responses`
-  );
-  console.log(
-    `📚 This mock server implements the ARH (Intelligent Front Door) API specification`
-  );
+  logServerStart('ARH', port, [
+    { method: 'POST', path: '/api/ask/v1/conversation' },
+    { method: 'POST', path: '/api/ask/v1/conversation/:id/message' },
+    { method: 'GET', path: '/api/ask/v1/conversation/:id/history' },
+    {
+      method: 'POST',
+      path: '/api/ask/v1/conversation/:id/message/:messageId/feedback',
+    },
+    { method: 'GET', path: '/api/ask/v1/health' },
+    { method: 'GET', path: '/api/ask/v1/status' },
+    { method: 'GET', path: '/api/ask/v1/user/current' },
+    { method: 'PUT', path: '/api/ask/v1/user/current' },
+    { method: 'GET', path: '/api/ask/v1/user/current/history' },
+    { method: 'GET', path: '/api/ask/v1/quota/conversations' },
+    { method: 'GET', path: '/api/ask/v1/quota/:conversationId/messages' },
+  ]);
 });
 
 // Graceful shutdown
 process.on('SIGINT', () => {
-  console.log('\n🛑 Shutting down ARH mock server...');
+  logServerShutdown('ARH');
   server.close(() => {
     console.log('✅ ARH mock server stopped');
     process.exit(0);
