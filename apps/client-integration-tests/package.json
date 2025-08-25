@@ -13,7 +13,9 @@
     "lightspeed-mock-server": "node lightspeed-mock-server.js",
     "lightspeed-mock-server:dev": "nodemon lightspeed-mock-server.js",
     "ansible-lightspeed-mock-server": "node ansible-lightspeed-mock-server.js",
-    "ansible-lightspeed-mock-server:dev": "nodemon ansible-lightspeed-mock-server.js"
+    "ansible-lightspeed-mock-server:dev": "nodemon ansible-lightspeed-mock-server.js",
+    "rhel-lightspeed-mock-server": "node rhel-lightspeed-mock-server.js",
+    "rhel-lightspeed-mock-server:dev": "nodemon rhel-lightspeed-mock-server.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

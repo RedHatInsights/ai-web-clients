@@ -115,6 +115,93 @@ export class LightspeedClient implements IAIClient<LightSpeedCoreAdditionalPrope
 }
 ```
 
+### **RHEL LightSpeed Client Package**
+
+The `rhel-lightspeed-client` package provides TypeScript client functionality for the RHEL LightSpeed RAG-based API.
+
+#### **Architecture**
+- Implements `IAIClient<RHELLightspeedAdditionalProperties>` interface from ai-client-common
+- **RAG System Design**: Follows RAG (Retrieval Augmented Generation) patterns, not traditional conversation management
+- **Constant Conversation ID**: Uses single conversation ID `'rhel-lightspeed-conversation'` for all interactions
+- **Non-streaming Only**: RAG system doesn't support streaming, returns `undefined` for streaming handlers
+- **No Server-side Persistence**: Client manages all conversation state locally
+- **Real Server Integration**: Handles actual RHEL LightSpeed API response format `{data: {text: string, request_id: string}}`
+
+#### **Main Class**
+```typescript
+export class RHELLightspeedClient implements IAIClient<RHELLightspeedAdditionalProperties> {
+  constructor(config: RHELLightspeedClientConfig);
+  
+  // RAG-specific methods
+  async sendMessage(
+    conversationId: string,
+    message: string,
+    options?: ISendMessageOptions<T, RHELLightspeedRequestPayload>
+  ): Promise<IMessageResponse<RHELLightspeedAdditionalProperties>>;
+  
+  // Always returns single conversation
+  async createNewConversation(): Promise<IConversation>;
+  
+  // RAG system - no streaming support
+  getDefaultStreamingHandler(): undefined;
+  
+  // RAG system - no server-side history
+  async getConversationHistory(): Promise<[]>;
+}
+```
+
+#### **Key Features**
+- **RAG Query Support**: Supports context payload with system information and terminal output
+- **Skip RAG Option**: Optional `skip_rag` parameter to bypass RAG retrieval
+- **Context Metadata**: Automatic context metadata generation from provided system info
+- **Real Server Format**: Handles `{data: {text, request_id}}` response format from actual API
+- **Error Handling**: Custom error classes for validation and server errors
+- **Mock Server Integration**: Comprehensive mock server for development and testing
+
+#### **Request Payload Type**
+```typescript
+export interface RHELLightspeedRequestPayload {
+  context?: {
+    systeminfo?: {
+      os?: string;
+      version?: string;
+      arch?: string;
+      id?: string;
+    };
+    terminal?: {
+      output?: string;
+    };
+  };
+  skip_rag?: boolean;
+}
+```
+
+#### **Additional Properties Type**
+```typescript
+export interface RHELLightspeedAdditionalProperties {
+  rag_metadata: {
+    skip_rag: boolean;
+    sources_consulted: number;
+    knowledge_base_version: string;
+    confidence_score: number;
+  };
+  context_metadata: {
+    has_systeminfo: boolean;
+    has_terminal_output: boolean;
+    has_attachments: boolean;
+    has_stdin: boolean;
+    has_cla_info: boolean;
+  } | null;
+  sources: {
+    title: string;
+    link: string;
+    score: number;
+    snippet: string;
+  }[];
+  original_question: string;
+}
+```
+
 ### **IFD Client Package (Reference Implementation)**
 
 The `arh-client` package serves as the reference implementation for all future packages in this workspace.
@@ -249,7 +336,8 @@ When creating new packages in this workspace:
    - Maintain error handling standards
 
 2. **Package Naming**
-   - Use `@redhat-cloud-services/{service-name}-client` pattern
+   - Use `@redhat-cloud-services/{service-name}-client` pattern for npm package name
+   - **CRITICAL**: Directory name MUST match the package name suffix (e.g., `rhel-lightspeed-client` directory for `@redhat-cloud-services/rhel-lightspeed-client` package)
    - Keep names descriptive and consistent
 
 3. **Configuration**
@@ -258,6 +346,12 @@ When creating new packages in this workspace:
    - Maintain consistent package.json structure
    - **Set `"importHelpers": false`** in tsconfig to avoid tslib dependency
    - Keep dependencies section empty unless absolutely required
+   - **CRITICAL: Update `tsconfig.base.json`** - Add path mapping for the new package in the `paths` section to enable imports by package name:
+     ```json
+     "@redhat-cloud-services/{package-name}": [
+       "packages/{package-directory}/src/index.ts"
+     ]
+     ```
 
 4. **Interface Implementation**
    - Implement `IAIClient<YourAdditionalProperties>` from ai-client-common
@@ -344,6 +438,7 @@ When developing a new package:
 - [ ] Maintain zero runtime dependencies preference
 - [ ] Implement conversation locking support
 - [ ] Add proper NX project configuration
+- [ ] Update AI documentation (PACKAGE_PATTERNS.md) with new client details
 
 ---
 
