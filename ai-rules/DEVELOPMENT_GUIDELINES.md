@@ -171,7 +171,7 @@ cd packages/project && npm test  # Bypasses NX configuration
 
 8. **AI Client Documentation Patterns** (CRITICAL)
    - **Streaming requirements** - All streaming examples MUST include `afterChunk` callback requirement
-   - **Init method structure** - Document that `client.init()` returns `{ initialConversationId, conversations }`, not just a string
+   - **Init method structure** - Document that `client.init()` returns `{ conversations, limitation?, error? }` (initialConversationId was removed)
    - **fetchFunction patterns** - Always show arrow function usage: `fetchFunction: (input, init) => fetch(input, init)`
    - **Health check methods** - Verify actual method names per client (e.g., `healthCheck()` vs `livenessCheck()`)
    - **Configuration interfaces** - Document actual interface shapes, including optional properties like `initOptions`

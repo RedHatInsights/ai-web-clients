@@ -36,10 +36,13 @@ NX monorepo for AI-related web client libraries, starting with the IFD (Intellig
 
 ### **Current Packages**
 1. **`@redhat-cloud-services/arh-client`** - IFD API TypeScript client (production-ready)
-2. **`@redhat-cloud-services/lightspeed-client`** - LightSpeed API TypeScript client
-3. **`@redhat-cloud-services/ai-client-common`** - Common interfaces and utilities for AI clients
-4. **`@redhat-cloud-services/ai-client-state`** - State management for AI client interactions with conversation management capabilities
-5. **`@redhat-cloud-services/ai-react-state`** - React hooks for AI state management integration
+2. **`@redhat-cloud-services/lightspeed-client`** - OpenShift Lightspeed API TypeScript client
+3. **`@redhat-cloud-services/ansible-lightspeed`** - Ansible Lightspeed API TypeScript client
+4. **`@redhat-cloud-services/aai-client`** - Ansible Assisted Installer (AAI) API TypeScript client with SSE streaming
+5. **`@redhat-cloud-services/rhel-lightspeed-client`** - RHEL Lightspeed API TypeScript client
+6. **`@redhat-cloud-services/ai-client-common`** - Common interfaces and utilities for AI clients
+7. **`@redhat-cloud-services/ai-client-state`** - State management for AI client interactions with conversation management capabilities
+8. **`@redhat-cloud-services/ai-react-state`** - React hooks for AI state management integration
 
 ### **Current Apps**
 1. **`client-integration-tests`** - Integration test app for validating package interoperability

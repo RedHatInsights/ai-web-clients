@@ -8,9 +8,9 @@
 ## 🔧 TECHNICAL SPECIFICATIONS
 
 ### **Workspace Requirements**
-- **Node.js**: 18+ (for native fetch support)
+- **Node.js**: 20+ (development dependencies target Node 20+)
 - **npm**: Latest stable version
-- **NX**: 21.2.3 or compatible
+- **NX**: 21.3.3 (plugin-based architecture)
 - **TypeScript**: 5.8.3 or compatible
 
 ### **Development Environment**
@@ -29,17 +29,28 @@
 ## ⚙️ WORKSPACE CONFIGURATION
 
 ### **NX Configuration (nx.json)**
+**Note**: Uses modern plugin-based architecture with automatic target inference.
+
+Key features:
+- Plugin-based project detection (`@nx/eslint/plugin`, `@nx/vite/plugin`)
+- Native release system with independent versioning
+- Advanced named inputs and target defaults
+- Automatic target inference for builds and tests
+
 ```json
 {
-  "extends": "nx/presets/npm.json",
-  "targetDefaults": {
-    "test": {
-      "inputs": ["default", "^default"],
-      "cache": true
-    },
-    "lint": {
-      "inputs": ["default", "{workspaceRoot}/.eslintrc.json"],
-      "cache": true
+  "$schema": "./node_modules/nx/schemas/nx-schema.json",
+  "defaultBase": "main",
+  "plugins": [
+    "@nx/eslint/plugin",
+    "@nx/vite/plugin"
+  ],
+  "release": {
+    "version": {
+      "preVersionCommand": "npx nx run-many -t build",
+      "generatorOptions": {
+        "fallbackCurrentVersionResolver": "disk"
+      }
     }
   }
 }

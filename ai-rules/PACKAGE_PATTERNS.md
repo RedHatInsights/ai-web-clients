@@ -142,9 +142,6 @@ export class RHELLightspeedClient implements IAIClient<RHELLightspeedAdditionalP
   // Always returns single conversation
   async createNewConversation(): Promise<IConversation>;
   
-  // RAG system - no streaming support
-  getDefaultStreamingHandler(): undefined;
-  
   // RAG system - no server-side history
   async getConversationHistory(): Promise<[]>;
 }
@@ -247,7 +244,7 @@ async methodName(
 All AI clients must implement this interface:
 
 ```typescript
-export interface IAIClient<T extends Record<string, unknown> = Record<string, unknown>> {
+export interface IAIClient<AP extends Record<string, unknown> = Record<string, unknown>> {
   // Initialization
   init(): Promise<{
     conversations: IConversation[];
@@ -255,26 +252,32 @@ export interface IAIClient<T extends Record<string, unknown> = Record<string, un
     error?: IInitErrorResponse;
   }>;
   
-  // Core messaging
-  sendMessage(
+  // Core messaging (overloaded for different use cases)
+  sendMessage<T extends Record<string, unknown> = Record<string, unknown>>(
     conversationId: string,
     message: string,
     options?: ISendMessageOptions<T>
-  ): Promise<IMessageResponse<T> | void>;
+  ): Promise<IMessageResponse<AP>>;
+  
+  sendMessage<
+    T extends Record<string, unknown> = Record<string, unknown>,
+    R extends Record<string, unknown> = Record<string, unknown>
+  >(
+    conversationId: string,
+    message: string,
+    options?: ISendMessageOptions<T, R>
+  ): Promise<IMessageResponse<AP>>;
   
   // Conversation management
   createNewConversation(): Promise<IConversation>;
   getConversationHistory(
     conversationId: string,
     options?: IRequestOptions
-  ): Promise<IConversationHistoryResponse<T>>;
+  ): Promise<IConversationHistoryResponse<AP>>;
   
   // Health and status
   healthCheck(options?: IRequestOptions): Promise<unknown>;
   getServiceStatus?(options?: IRequestOptions): Promise<unknown>;
-  
-  // Streaming support
-  getDefaultStreamingHandler?<TChunk>(): IStreamingHandler<TChunk> | undefined;
 }
 ```
 
@@ -311,18 +314,44 @@ export interface IConversation {
 export interface ClientConfig {
   baseUrl: string;
   fetchFunction: IFetchFunction;
-  defaultStreamingHandler?: IStreamingHandler<ResponseType>;
   // Additional client-specific options
 }
 ```
 
-#### **Streaming Handler Pattern**
+#### **Streaming Handler Patterns**
+
+**Current Pattern**: Self-contained streaming with mandatory handleChunk callbacks:
+```typescript
+// Send message with streaming
+await client.sendMessage(conversationId, message, {
+  stream: true,
+  handleChunk: (chunk: IStreamChunk<AdditionalAttributes>) => {
+    console.log('Streaming response:', chunk.answer);
+    console.log('Conversation ID:', chunk.conversationId);
+  }
+});
+```
+
+**Legacy Streaming Interface** (for reference):
 ```typescript
 export interface IStreamingHandler<TChunk> {
-  onStart?: () => void;
-  onChunk?: (chunk: TChunk) => void;
-  onComplete?: () => void;
-  onError?: (error: Error) => void;
+  onChunk(chunk: TChunk, handleChunk?: (chunk: IStreamChunk) => void): void;
+  onStart?(conversationId?: string, messageId?: string): void;
+  onComplete?(finalChunk: TChunk): void;
+  onError?(error: Error): void;
+  onAbort?(): void;
+}
+```
+
+**Simplified Streaming Interface**:
+```typescript
+export interface ISimpleStreamingHandler<TChunk = unknown> {
+  processChunk(
+    chunk: TChunk,
+    currentBuffer: string,
+    handleChunk: HandleChunkCallback
+  ): string;
+  onError?(error: Error): void;
 }
 ```
 
@@ -406,7 +435,7 @@ unsubscribe();
 function MessageComponent() {
   const messages = useMessages();
   const sendMessage = useSendMessage();
-  const isInProgress = useActiveInProgress();
+  const isInProgress = useInProgress();
   
   return (
     <div>
@@ -430,7 +459,7 @@ When developing a new package:
 - [ ] Define service-specific additional properties type
 - [ ] Create dependency injection configuration interface
 - [ ] Implement proper error handling with custom error classes
-- [ ] Add streaming support with default handler fallback
+- [ ] Add streaming support with handleChunk callback pattern
 - [ ] Create comprehensive unit tests
 - [ ] Add integration tests with ai-client-state
 - [ ] Document usage patterns in USAGE.md
@@ -455,8 +484,7 @@ const customHandler: IStreamingHandler<MessageChunkResponse> = {
 
 const client = new IFDClient({
   baseUrl: 'https://api.example.com',
-  fetchFunction: (input, init) => fetch(input, init),
-  defaultStreamingHandler: customHandler
+  fetchFunction: (input, init) => fetch(input, init)
 });
 ```
 
