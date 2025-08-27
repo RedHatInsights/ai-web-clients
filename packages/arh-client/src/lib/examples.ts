@@ -257,7 +257,6 @@ export function useIFDStreamingWithDefault() {
   }));
 
   const sendStreamingMessage = useCallback(async (conversationId: string, input: string) => {
-    const handler = client.getDefaultStreamingHandler();
     if (handler instanceof EventStreamingHandler) {
       // Setup event listeners for the default handler
       handler.addEventListener('stream:start', () => setIsStreaming(true));

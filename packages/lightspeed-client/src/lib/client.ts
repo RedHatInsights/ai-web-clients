@@ -76,8 +76,8 @@ export class LightspeedClient
       userId?: string;
     }
   ): Promise<IMessageResponse<LightSpeedCoreAdditionalProperties>> {
-    // Determine media type from options, defaulting to text/plain for backward compatibility
-    const mediaType = options?.mediaType || 'text/plain';
+    // Determine media type from options, defaulting to application/json
+    const mediaType = options?.mediaType || 'application/json';
 
     const request: LLMRequest = {
       query: message,

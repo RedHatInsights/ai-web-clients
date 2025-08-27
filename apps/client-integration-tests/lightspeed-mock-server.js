@@ -151,7 +151,7 @@ app.post('/v1/query', (req, res) => {
 
 // POST /v1/streaming_query - Streaming conversation request
 app.post('/v1/streaming_query', async (req, res) => {
-  const { query, conversation_id } = req.body;
+  const { query, conversation_id, media_type } = req.body;
   const { user_id } = req.query;
 
   // Validate required fields
@@ -169,6 +169,7 @@ app.post('/v1/streaming_query', async (req, res) => {
 
   const conversationId = conversation_id || uuidv4();
   const aiResponse = generateAIResponse(query);
+  const mediaType = media_type || 'text/plain';
 
   // Store conversation if not exists
   if (!conversations.has(conversationId)) {
@@ -179,42 +180,102 @@ app.post('/v1/streaming_query', async (req, res) => {
     });
   }
 
-  // Set headers for plain text streaming (Lightspeed client expects plain text)
-  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-  res.setHeader('Transfer-Encoding', 'chunked');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
+  if (mediaType === 'application/json') {
+    // JSON SSE streaming
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Transfer-Encoding', 'chunked');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
 
-  const chunks = createStreamingChunks(aiResponse);
+    const words = aiResponse.split(' ');
 
-  // Send chunks with realistic delays
-  for (let i = 0; i < chunks.length; i++) {
-    const chunk = chunks[i];
-
-    // Add delay to simulate realistic streaming (50-200ms between chunks)
-    await new Promise((resolve) =>
-      setTimeout(resolve, 50 + Math.random() * 150)
+    // Send start event
+    res.write(
+      `data: ${JSON.stringify({
+        event: 'start',
+        data: { conversation_id: conversationId },
+      })}\n\n`
     );
 
-    try {
-      // Send as plain text - Lightspeed client accumulates all text chunks
-      res.write(chunk.content);
-    } catch (error) {
-      console.error('Error writing chunk:', error);
-      break;
+    // Send token events
+    for (let i = 0; i < words.length; i++) {
+      const token = words[i] + (i < words.length - 1 ? ' ' : '');
+
+      await new Promise((resolve) =>
+        setTimeout(resolve, 50 + Math.random() * 150)
+      );
+
+      try {
+        res.write(
+          `data: ${JSON.stringify({
+            event: 'token',
+            data: { id: i, token },
+          })}\n\n`
+        );
+      } catch (error) {
+        console.error('Error writing JSON chunk:', error);
+        break;
+      }
     }
 
-    // Store the complete conversation message when streaming ends
-    if (chunk.finished) {
-      const conversation = conversations.get(conversationId);
-      conversation.messages.push({
-        query,
-        response: aiResponse,
-        timestamp: new Date().toISOString(),
-        user_id: user_id || null,
-      });
+    // Send end event
+    res.write(
+      `data: ${JSON.stringify({
+        event: 'end',
+        data: {
+          referenced_documents: [
+            {
+              doc_url:
+                'https://docs.openshift.com/container-platform/4.15/welcome/index.html',
+              doc_title: 'Red Hat OpenShift Container Platform Documentation',
+            },
+          ],
+          truncated: false,
+          input_tokens: query.split(' ').length + 10,
+          output_tokens: aiResponse.split(' ').length + 5,
+        },
+        available_quotas: {
+          ClusterQuotaLimiter: 998911,
+          UserQuotaLimiter: 998911,
+        },
+      })}\n\n`
+    );
+  } else {
+    // Plain text streaming (existing behavior)
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Transfer-Encoding', 'chunked');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+
+    const chunks = createStreamingChunks(aiResponse);
+
+    // Send chunks with realistic delays
+    for (let i = 0; i < chunks.length; i++) {
+      const chunk = chunks[i];
+
+      // Add delay to simulate realistic streaming (50-200ms between chunks)
+      await new Promise((resolve) =>
+        setTimeout(resolve, 50 + Math.random() * 150)
+      );
+
+      try {
+        // Send as plain text - Lightspeed client accumulates all text chunks
+        res.write(chunk.content);
+      } catch (error) {
+        console.error('Error writing chunk:', error);
+        break;
+      }
     }
   }
+
+  // Store the complete conversation message when streaming ends
+  const conversation = conversations.get(conversationId);
+  conversation.messages.push({
+    query,
+    response: aiResponse,
+    timestamp: new Date().toISOString(),
+    user_id: user_id || null,
+  });
 
   res.end();
 });

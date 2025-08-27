@@ -154,7 +154,6 @@ describe('RHEL LightSpeed Client Integration Tests', () => {
       expect(typeof client.getConversationHistory).toBe('function');
       expect(typeof client.healthCheck).toBe('function');
       expect(typeof client.createNewConversation).toBe('function');
-      expect(typeof client.getDefaultStreamingHandler).toBe('function');
     });
 
     it('should initialize successfully', async () => {
@@ -181,11 +180,6 @@ describe('RHEL LightSpeed Client Integration Tests', () => {
       const history = await client.getConversationHistory(conversationId);
 
       expect(history).toEqual([]);
-    });
-
-    it('should have no default streaming handler', () => {
-      const streamingHandler = client.getDefaultStreamingHandler();
-      expect(streamingHandler).toBeUndefined();
     });
   });
 

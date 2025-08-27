@@ -28,8 +28,8 @@ export interface LightspeedSendMessageOptions
   extends ISendMessageOptions<LightSpeedCoreAdditionalProperties> {
   /**
    * Media type for the response
-   * - 'text/plain': Simple text streaming (current default)
-   * - 'application/json': JSON Server-Sent Events with comprehensive event types
+   * - 'text/plain': Simple text streaming
+   * - 'application/json': JSON Server-Sent Events with comprehensive event types (default)
    */
   mediaType?: 'text/plain' | 'application/json';
 }

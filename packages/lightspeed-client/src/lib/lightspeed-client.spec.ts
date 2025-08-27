@@ -179,10 +179,14 @@ describe('LightspeedClient', () => {
       const mockResponse = {
         ok: true,
         status: 200,
-        headers: new Headers({ 'content-type': 'text/plain' }),
+        headers: new Headers({ 'content-type': 'application/json' }),
         body: new ReadableStream({
           start(controller) {
-            controller.enqueue(new TextEncoder().encode('Streaming response'));
+            controller.enqueue(
+              new TextEncoder().encode(
+                'data: {"event": "token", "data": {"id": 0, "token": "Streaming response"}}\n\n'
+              )
+            );
             controller.close();
           },
         }),
@@ -201,9 +205,9 @@ describe('LightspeedClient', () => {
           method: 'POST',
           headers: expect.objectContaining({
             'Content-Type': 'application/json',
-            Accept: 'text/plain', // Correctly matches mediaType
+            Accept: 'application/json', // Now defaults to JSON
           }),
-          body: expect.stringContaining('"media_type":"text/plain"'),
+          body: expect.stringContaining('"media_type":"application/json"'),
         })
       );
 
@@ -212,6 +216,49 @@ describe('LightspeedClient', () => {
       expect(result.conversationId).toBe('conv-stream-123');
       expect(result.answer).toBeDefined();
       expect(result.additionalAttributes).toBeDefined();
+    });
+
+    it('should support text/plain streaming when explicitly specified', async () => {
+      const conversationId = 'conv-text-stream';
+      const message = 'Test text streaming';
+      const afterChunkCallback = jest.fn();
+
+      const mockResponse = {
+        ok: true,
+        status: 200,
+        headers: new Headers({ 'content-type': 'text/plain' }),
+        body: new ReadableStream({
+          start(controller) {
+            controller.enqueue(
+              new TextEncoder().encode('Text streaming response')
+            );
+            controller.close();
+          },
+        }),
+      };
+
+      (mockFetch as jest.Mock).mockResolvedValueOnce(mockResponse);
+
+      const result = await client.sendMessage(conversationId, message, {
+        stream: true,
+        mediaType: 'text/plain', // Explicitly override default
+        afterChunk: afterChunkCallback,
+      });
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://test-lightspeed.example.com/v1/streaming_query',
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({
+            'Content-Type': 'application/json',
+            Accept: 'text/plain', // Should respect the override
+          }),
+          body: expect.stringContaining('"media_type":"text/plain"'),
+        })
+      );
+
+      expect(result).toBeDefined();
+      expect(result.conversationId).toBe(conversationId);
     });
   });
 
@@ -586,7 +633,17 @@ describe('DefaultStreamingHandler', () => {
   });
 
   describe('Handler Instantiation', () => {
-    it('should create a handler instance with required parameters', () => {
+    it('should create a handler instance with JSON media type (default)', () => {
+      const handler = new DefaultStreamingHandler(
+        mockResponse,
+        'test-conversation',
+        'application/json',
+        mockAfterChunk
+      );
+      expect(handler).toBeInstanceOf(DefaultStreamingHandler);
+    });
+
+    it('should create a handler instance with text/plain media type', () => {
       const handler = new DefaultStreamingHandler(
         mockResponse,
         'test-conversation',
@@ -631,6 +688,30 @@ describe('DefaultStreamingHandler', () => {
         expect.objectContaining({
           messageId: expect.any(String),
           answer: expect.any(String),
+          conversationId: 'test-conversation',
+        })
+      );
+    });
+
+    it('should process JSON streaming events with processChunk method', () => {
+      const handler = new DefaultStreamingHandler(
+        mockResponse,
+        'test-conversation',
+        'application/json',
+        mockAfterChunk
+      );
+
+      const tokenEvent = {
+        event: 'token' as const,
+        data: { id: 0, token: 'Hello' },
+      };
+
+      const result = handler.processChunk(tokenEvent, '', mockAfterChunk);
+
+      expect(result).toBe('Hello');
+      expect(mockAfterChunk).toHaveBeenCalledWith(
+        expect.objectContaining({
+          answer: 'Hello',
           conversationId: 'test-conversation',
         })
       );

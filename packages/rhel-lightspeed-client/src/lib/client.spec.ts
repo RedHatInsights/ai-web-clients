@@ -90,13 +90,6 @@ describe('RHELLightspeedClient', () => {
     });
   });
 
-  describe('getDefaultStreamingHandler', () => {
-    it('should return undefined for non-streaming RAG system', () => {
-      const handler = client.getDefaultStreamingHandler();
-      expect(handler).toBeUndefined();
-    });
-  });
-
   describe('healthCheck', () => {
     it('should make GET request to /health endpoint', async () => {
       const mockHealthData = { status: 'healthy' };
@@ -372,11 +365,6 @@ describe('RHELLightspeedClient', () => {
     it('should use constant conversation ID regardless of input', async () => {
       const conversation = await client.createNewConversation();
       expect(conversation.id).toBe('rhel-lightspeed-conversation');
-    });
-
-    it('should never support streaming', () => {
-      const handler = client.getDefaultStreamingHandler();
-      expect(handler).toBeUndefined();
     });
 
     it('should always return empty conversation history', async () => {
