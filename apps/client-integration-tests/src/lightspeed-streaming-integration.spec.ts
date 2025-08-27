@@ -33,7 +33,7 @@ describe('Lightspeed Client Streaming Integration', () => {
         'What is OpenShift?',
         {
           stream: true,
-          afterChunk: (chunk: IStreamChunk<any>) => {
+          handleChunk: (chunk: IStreamChunk<any>) => {
             chunks.push(chunk);
           },
         }
@@ -51,14 +51,14 @@ describe('Lightspeed Client Streaming Integration', () => {
       }
     }, 10000);
 
-    it('should process afterChunk callback during streaming', async () => {
+    it('should process handleChunk callback during streaming', async () => {
       const conversationId = crypto.randomUUID(); // Create a new conversation
       const callbackChunks: IStreamChunk<any>[] = [];
       let callbackInvoked = false;
 
       await client.sendMessage(conversationId, 'Tell me about containers', {
         stream: true,
-        afterChunk: (chunk: IStreamChunk<any>) => {
+        handleChunk: (chunk: IStreamChunk<any>) => {
           callbackInvoked = true;
           callbackChunks.push(chunk);
         },
@@ -68,7 +68,7 @@ describe('Lightspeed Client Streaming Integration', () => {
       expect(callbackChunks.length).toBeGreaterThan(0);
     }, 10000); // 10 second timeout for streaming test
 
-    it('should handle streaming with afterChunk callback', async () => {
+    it('should handle streaming with handleChunk callback', async () => {
       const conversationId = crypto.randomUUID(); // Create a new conversation
       let callbackCalled = false;
       let errorOccurred = false;
@@ -80,7 +80,7 @@ describe('Lightspeed Client Streaming Integration', () => {
           'How do I deploy applications?',
           {
             stream: true,
-            afterChunk: (chunk: IStreamChunk<any>) => {
+            handleChunk: (chunk: IStreamChunk<any>) => {
               callbackCalled = true;
               receivedChunks.push(chunk);
             },
@@ -132,7 +132,7 @@ describe('Lightspeed Client Streaming Integration', () => {
 
       await client.sendMessage(conversationId, 'Tell me more about pods', {
         stream: true,
-        afterChunk: (chunk: IStreamChunk<any>) => {
+        handleChunk: (chunk: IStreamChunk<any>) => {
           streamingChunks.push(chunk);
         },
       });
@@ -154,7 +154,7 @@ describe('Lightspeed Client Streaming Integration', () => {
         'Explain deployment strategies',
         {
           stream: true,
-          afterChunk: () => {
+          handleChunk: () => {
             chunkTimestamps.push(Date.now());
           },
         }

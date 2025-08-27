@@ -57,7 +57,7 @@ export function createRetryFetch(
 
 /**
  * Example: Simple console logging for streaming chunks
- * Uses the new decoupled afterChunk callback pattern
+ * Uses the new decoupled handleChunk callback pattern
  */
 export function createConsoleChunkHandler() {
   let messageBuffer = '';
@@ -71,7 +71,7 @@ export function createConsoleChunkHandler() {
 
 /**
  * Example: Event-based streaming for React/browser applications
- * Uses the new decoupled afterChunk callback pattern with EventTarget
+ * Uses the new decoupled handleChunk callback pattern with EventTarget
  */
 export function createEventChunkHandler() {
   const eventTarget = new EventTarget();
@@ -131,7 +131,7 @@ export async function exampleUsage() {
       'Tell me more about OpenShift features',
       {
         stream: true,
-        afterChunk: consoleHandler,
+        handleChunk: consoleHandler,
       }
     );
 
@@ -148,19 +148,19 @@ export async function exampleUsage() {
       'What are the benefits of containerization?',
       {
         stream: true,
-        afterChunk: eventHandler.chunkHandler,
+        handleChunk: eventHandler.chunkHandler,
       }
     );
 
     console.log('Final message:', eventHandler.getCompleteMessage());
 
-    // Example 4: Inline afterChunk callback
+    // Example 4: Inline handleChunk callback
     await client.sendMessage(
       conversation.conversation_id,
       'How does OpenShift handle security?',
       {
         stream: true,
-        afterChunk: (chunk: IStreamChunk<IFDAdditionalAttributes>) => {
+        handleChunk: (chunk: IStreamChunk<IFDAdditionalAttributes>) => {
           console.log('Inline handler - chunk:', chunk.answer);
           console.log(
             'Chunk additional attributes:',

@@ -461,10 +461,10 @@ export function createClientStateManager<
       };
       conversation.messages.push(botMessage);
 
-      // Always provide afterChunk callback for state updates - client handles streaming internally
+      // Always provide handleChunk callback for state updates - client handles streaming internally
       const enhancedOptions: ISendMessageOptions<T> = {
         ...options,
-        afterChunk: (chunk) => {
+        handleChunk: (chunk) => {
           botMessage.answer = chunk.answer;
           botMessage.id = chunk.messageId ?? botMessage.id;
           botMessage.additionalAttributes = chunk.additionalAttributes;

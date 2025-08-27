@@ -80,7 +80,7 @@ describe('ClientStateManager', () => {
         'conv-456',
         'Hello',
         expect.objectContaining({
-          afterChunk: expect.any(Function),
+          handleChunk: expect.any(Function),
         })
       );
       expect(response).toBeDefined();
@@ -184,7 +184,7 @@ describe('ClientStateManager', () => {
       expect(mockClient.sendMessage).toHaveBeenCalledWith(
         'conv-456',
         'Stream this',
-        { stream: true, afterChunk: expect.any(Function) }
+        { stream: true, handleChunk: expect.any(Function) }
       );
       expect(response).toBeDefined();
     });
@@ -268,7 +268,7 @@ describe('ClientStateManager', () => {
         'unlocked-conv',
         'This should work',
         expect.objectContaining({
-          afterChunk: expect.any(Function),
+          handleChunk: expect.any(Function),
         })
       );
       expect(response).toBeDefined();

@@ -88,9 +88,9 @@ describe('ARH Client Integration Tests', () => {
       expect(true).toBe(true);
     });
 
-    it('should handle streaming with afterChunk callback', async () => {
+    it('should handle streaming with handleChunk callback', async () => {
       // This test demonstrates the new decoupled streaming interface
-      // where streaming is handled by self-contained handlers with afterChunk callbacks
+      // where streaming is handled by self-contained handlers with handleChunk callbacks
 
       const chunks: IStreamChunk<any>[] = [];
 
@@ -115,12 +115,12 @@ describe('ARH Client Integration Tests', () => {
         headers: new Headers({ 'content-type': 'text/plain' }),
       } as Response);
 
-      // In the new architecture, afterChunk is passed directly to sendMessage
+      // In the new architecture, handleChunk is passed directly to sendMessage
       // and streaming is handled by self-contained handlers
       try {
         await client.sendMessage('conv-456', 'Hello AI', {
           stream: true,
-          afterChunk: (chunk: IStreamChunk<any>) => {
+          handleChunk: (chunk: IStreamChunk<any>) => {
             chunks.push(chunk);
           },
         });

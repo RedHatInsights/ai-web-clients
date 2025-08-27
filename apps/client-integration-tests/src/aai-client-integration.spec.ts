@@ -224,9 +224,9 @@ describe('AAI Client Integration Tests', () => {
       expect(history).toEqual([]);
     });
 
-    it('should support streaming with afterChunk callback', async () => {
+    it('should support streaming with handleChunk callback', async () => {
       // This test demonstrates the new decoupled streaming interface
-      // where streaming is handled via self-contained handlers with afterChunk callbacks
+      // where streaming is handled via self-contained handlers with handleChunk callbacks
 
       const chunks: any[] = [];
 
@@ -238,7 +238,7 @@ describe('AAI Client Integration Tests', () => {
             provider: 'gemini',
             query: 'Test message',
           },
-          afterChunk: (chunk: any) => {
+          handleChunk: (chunk: any) => {
             chunks.push(chunk);
           },
         });
@@ -247,7 +247,7 @@ describe('AAI Client Integration Tests', () => {
         // This test mainly verifies the interface exists
       }
 
-      // Verify the interface accepts afterChunk parameter
+      // Verify the interface accepts handleChunk parameter
       expect(typeof chunks).toBe('object');
     });
   });

@@ -138,7 +138,7 @@ describe('AAI Client + State Manager Integration Tests', () => {
     it('should handle streaming responses through state manager', async () => {
       await stateManager.init();
 
-      // Send message with streaming enabled - state manager handles afterChunk internally
+      // Send message with streaming enabled - state manager handles handleChunk internally
       await stateManager.sendMessage('Tell me about Ansible playbooks', {
         stream: true,
         requestBody: {

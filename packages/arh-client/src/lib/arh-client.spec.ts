@@ -127,7 +127,7 @@ describe('IFDClient', () => {
       });
     });
 
-    it('should handle sendMessage with afterChunk callback for non-streaming', async () => {
+    it('should handle sendMessage with handleChunk callback for non-streaming', async () => {
       const conversationId = 'conv-123';
       const message = 'Hello';
       const mockAfterChunk = jest.fn();
@@ -154,7 +154,7 @@ describe('IFDClient', () => {
         });
 
       const result = await client.sendMessage(conversationId, message, {
-        afterChunk: mockAfterChunk,
+        handleChunk: mockAfterChunk,
       });
 
       expect(result).toBeDefined();
@@ -162,7 +162,7 @@ describe('IFDClient', () => {
       expect(result.conversationId).toBe(conversationId);
       expect(result.messageId).toBe('test-message-id');
 
-      // afterChunk is not called for non-streaming (state manager handles the response)
+      // handleChunk is not called for non-streaming (state manager handles the response)
       expect(mockAfterChunk).not.toHaveBeenCalled();
     });
 
@@ -208,7 +208,7 @@ describe('IFDClient', () => {
 
       const result = await client.sendMessage(conversationId, message, {
         stream: true,
-        afterChunk: jest.fn(),
+        handleChunk: jest.fn(),
       });
 
       expect(mockFetch).toHaveBeenCalledWith(

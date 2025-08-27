@@ -250,7 +250,7 @@ export class IFDClient implements IAIClient<IFDAdditionalAttributes> {
         }
 
         // Create self-contained streaming handler
-        const handleChunk = options?.afterChunk || (() => {}); // fallback for safety
+        const handleChunk = options?.handleChunk || (() => {}); // fallback for safety
         const handler = new DefaultStreamingHandler(
           response,
           conversationId,

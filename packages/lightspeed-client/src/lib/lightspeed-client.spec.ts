@@ -166,7 +166,7 @@ describe('LightspeedClient', () => {
   });
 
   describe('Streaming Messages', () => {
-    it('should send streaming messages successfully with afterChunk callback', async () => {
+    it('should send streaming messages successfully with handleChunk callback', async () => {
       const client = new LightspeedClient({
         fetchFunction: mockFetch,
         baseUrl: 'https://test-lightspeed.example.com',
@@ -174,7 +174,7 @@ describe('LightspeedClient', () => {
 
       const conversationId = 'conv-stream-123';
       const message = 'Tell me about OpenShift networking';
-      const afterChunkCallback = jest.fn();
+      const handleChunkCallback = jest.fn();
 
       const mockResponse = {
         ok: true,
@@ -196,7 +196,7 @@ describe('LightspeedClient', () => {
 
       const result = await client.sendMessage(conversationId, message, {
         stream: true,
-        afterChunk: afterChunkCallback,
+        handleChunk: handleChunkCallback,
       });
 
       expect(mockFetch).toHaveBeenCalledWith(
@@ -221,7 +221,7 @@ describe('LightspeedClient', () => {
     it('should support text/plain streaming when explicitly specified', async () => {
       const conversationId = 'conv-text-stream';
       const message = 'Test text streaming';
-      const afterChunkCallback = jest.fn();
+      const handleChunkCallback = jest.fn();
 
       const mockResponse = {
         ok: true,
@@ -242,7 +242,7 @@ describe('LightspeedClient', () => {
       const result = await client.sendMessage(conversationId, message, {
         stream: true,
         mediaType: 'text/plain', // Explicitly override default
-        afterChunk: afterChunkCallback,
+        handleChunk: handleChunkCallback,
       });
 
       expect(mockFetch).toHaveBeenCalledWith(

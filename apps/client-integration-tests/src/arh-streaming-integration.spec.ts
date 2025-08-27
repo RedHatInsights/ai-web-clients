@@ -110,7 +110,7 @@ describe('ARH Client Streaming Integration Tests', () => {
   });
 
   describe('Direct Client Streaming', () => {
-    it('should handle streaming messages with afterChunk callback', async () => {
+    it('should handle streaming messages with handleChunk callback', async () => {
       const conversation = await client.createConversation();
       expect(conversation.conversation_id).toBeDefined();
 
@@ -121,7 +121,7 @@ describe('ARH Client Streaming Integration Tests', () => {
         'Test streaming message',
         {
           stream: true,
-          afterChunk: streamingCollector.collectChunk,
+          handleChunk: streamingCollector.collectChunk,
         }
       );
 
@@ -155,7 +155,7 @@ describe('ARH Client Streaming Integration Tests', () => {
         'Tell me about artificial intelligence and machine learning in detail',
         {
           stream: true,
-          afterChunk: (chunk: IStreamChunk<IFDAdditionalAttributes>) => {
+          handleChunk: (chunk: IStreamChunk<IFDAdditionalAttributes>) => {
             chunks.push(chunk);
           },
         }
@@ -187,7 +187,7 @@ describe('ARH Client Streaming Integration Tests', () => {
 
       await client.sendMessage(conversation.conversation_id, 'Tell me more', {
         stream: true,
-        afterChunk: (chunk: IStreamChunk<IFDAdditionalAttributes>) => {
+        handleChunk: (chunk: IStreamChunk<IFDAdditionalAttributes>) => {
           streamingChunks.push(chunk);
         },
       });
@@ -246,7 +246,7 @@ describe('ARH Client Streaming Integration Tests', () => {
       await expect(
         invalidClient.sendMessage('invalid-id', 'Test message', {
           stream: true,
-          afterChunk: () => {},
+          handleChunk: () => {},
         })
       ).rejects.toThrow();
     });

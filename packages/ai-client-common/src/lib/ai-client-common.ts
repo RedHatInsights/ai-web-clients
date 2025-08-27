@@ -197,7 +197,7 @@ export interface IStreamingHandler<TChunk = unknown> {
   /**
    * Handle a single chunk of streaming data
    */
-  onChunk(chunk: TChunk, afterChunk?: (chunk: IStreamChunk) => void): void;
+  onChunk(chunk: TChunk, handleChunk?: (chunk: IStreamChunk) => void): void;
 
   /**
    * Called when the stream starts
@@ -356,10 +356,6 @@ export interface IStreamChunk<
   additionalAttributes: T;
 }
 
-export type AfterChunkCallback<
-  T extends Record<string, unknown> = Record<string, unknown>
-> = (chunk: IStreamChunk<T>) => void;
-
 export type HandleChunkCallback<
   T extends Record<string, unknown> = Record<string, unknown>
 > = (chunk: IStreamChunk<T>) => void;
@@ -376,7 +372,7 @@ export interface ISendMessageOptions<
    * When true, the client's default streaming handler will be used
    */
   stream?: boolean;
-  afterChunk?: AfterChunkCallback<T>;
+  handleChunk?: HandleChunkCallback<T>;
   /**
    * Additional request payload data specific to the client implementation
    * Only available when R is not 'never'
