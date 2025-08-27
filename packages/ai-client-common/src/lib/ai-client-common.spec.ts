@@ -128,7 +128,7 @@ describe('ai-client-common', () => {
       expect(response.status).toBe(200);
     });
 
-    it('should validate IBaseClientConfig structure without default handler', () => {
+    it('should validate IBaseClientConfig structure with fetch function', () => {
       const mockFetch: IFetchFunction = async (input, init) => {
         void input;
         void init; // Mark parameters as used for linting
@@ -142,32 +142,15 @@ describe('ai-client-common', () => {
 
       expect(typeof config.baseUrl).toBe('string');
       expect(typeof config.fetchFunction).toBe('function');
-      expect(config.defaultStreamingHandler).toBeUndefined();
     });
 
-    it('should validate IBaseClientConfig structure with default handler', () => {
-      const mockFetch: IFetchFunction = async (input, init) => {
-        void input;
-        void init; // Mark parameters as used for linting
-        return new Response('{}', { status: 200 });
-      };
-
-      const mockHandler: IStreamingHandler<string> = {
-        onChunk: (chunk: string) => {
-          void chunk; /* process */
-        },
-      };
-
-      const config: IBaseClientConfig<string> = {
+    it('should validate minimal IBaseClientConfig structure', () => {
+      const config: IBaseClientConfig = {
         baseUrl: 'https://api.example.com',
-        fetchFunction: mockFetch,
-        defaultStreamingHandler: mockHandler,
       };
 
       expect(typeof config.baseUrl).toBe('string');
-      expect(typeof config.fetchFunction).toBe('function');
-      expect(typeof config.defaultStreamingHandler).toBe('object');
-      expect(typeof config.defaultStreamingHandler?.onChunk).toBe('function');
+      expect(config.fetchFunction).toBeUndefined();
     });
 
     it('should validate IRequestOptions structure', () => {

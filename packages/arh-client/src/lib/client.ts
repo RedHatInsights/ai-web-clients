@@ -3,7 +3,6 @@ import {
   IAIClient,
   AIClientError,
   AIClientValidationError,
-  IStreamingHandler,
   ISendMessageOptions,
   IMessageResponse,
   IFetchFunction,
@@ -29,10 +28,7 @@ import {
   MessageQuotaStatus,
   ConversationQuotaStatus,
 } from './types';
-import {
-  DefaultStreamingHandler,
-  processStreamWithHandler,
-} from './default-streaming-handler';
+import { DefaultStreamingHandler } from './default-streaming-handler';
 
 /**
  * Intelligent Front Door (IFD) API Client
@@ -40,30 +36,14 @@ import {
  * A flexible TypeScript client for the IFD API with dependency injection support
  * for custom fetch implementations and streaming handlers.
  */
-export class IFDClient
-  implements IAIClient<IFDAdditionalAttributes, MessageChunkResponse>
-{
+export class IFDClient implements IAIClient<IFDAdditionalAttributes> {
   private readonly baseUrl: string;
   private readonly fetchFunction: IFetchFunction;
-  private readonly defaultStreamingHandler?: IStreamingHandler<MessageChunkResponse>;
 
   constructor(config: IFDClientConfig) {
     this.baseUrl = config.baseUrl;
     this.fetchFunction =
       config.fetchFunction || ((input, init) => fetch(input, init));
-    this.defaultStreamingHandler =
-      config.defaultStreamingHandler || new DefaultStreamingHandler();
-  }
-
-  /**
-   * Get the default streaming handler configured for this client
-   */
-  getDefaultStreamingHandler<TChunk = MessageChunkResponse>():
-    | IStreamingHandler<TChunk>
-    | undefined {
-    return this.defaultStreamingHandler as
-      | IStreamingHandler<TChunk>
-      | undefined;
   }
 
   /**
@@ -246,27 +226,7 @@ export class IFDClient
     };
 
     if (options?.stream) {
-      // Handle streaming mode
-      if (!options.afterChunk) {
-        throw new AIClientValidationError([
-          {
-            loc: ['options', 'afterChunk'],
-            msg: 'Streaming mode requires an afterChunk handler',
-            type: 'value_error',
-          },
-        ]);
-      }
-      const handler = this.defaultStreamingHandler;
-      if (!handler) {
-        throw new AIClientValidationError([
-          {
-            loc: ['options', 'stream'],
-            msg: 'Streaming mode requires a streaming handler to be configured',
-            type: 'value_error',
-          },
-        ]);
-      }
-
+      // Handle streaming mode with self-contained handler
       const url = `${this.baseUrl}/api/ask/v1/conversation/${conversationId}/message`;
       const headers = {
         'Content-Type': 'application/json',
@@ -289,13 +249,16 @@ export class IFDClient
           throw new Error('Response body is null');
         }
 
-        return processStreamWithHandler(
+        // Create self-contained streaming handler
+        const handleChunk = options?.afterChunk || (() => {}); // fallback for safety
+        const handler = new DefaultStreamingHandler(
           response,
-          handler,
           conversationId,
-          options.afterChunk,
+          handleChunk,
           this.getMessageQuota.bind(this)
         );
+
+        return await handler.getResult();
       } catch (error) {
         throw error;
       }

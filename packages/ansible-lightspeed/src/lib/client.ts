@@ -21,15 +21,10 @@ import {
   IConversation,
   ISendMessageOptions,
   IRequestOptions,
-  IStreamingHandler,
   IInitErrorResponse,
   IAIClient,
 } from '@redhat-cloud-services/ai-client-common';
-import {
-  DefaultStreamingHandler,
-  processStreamWithHandler,
-} from './default-streaming-handler';
-import { StreamingEvent } from './streaming-types';
+import { DefaultStreamingHandler } from './default-streaming-handler';
 
 /**
  * Error class for Ansible Lightspeed API errors
@@ -49,36 +44,22 @@ export class AnsibleLightspeedError extends Error {
  * Ansible Lightspeed API client
  */
 export class AnsibleLightspeedClient
-  implements IAIClient<AnsibleLightspeedMessageAttributes, StreamingEvent>
+  implements IAIClient<AnsibleLightspeedMessageAttributes>
 {
   private config: AnsibleLightspeedConfig;
   private fetchFunction: (
     input: RequestInfo | URL,
     init?: RequestInit
   ) => Promise<Response>;
-  private defaultStreamingHandler: IStreamingHandler<StreamingEvent>;
 
   constructor(config: AnsibleLightspeedConfig) {
     this.config = config;
     this.fetchFunction =
       config.fetchFunction || ((input, init) => fetch(input, init));
-    this.defaultStreamingHandler =
-      config.defaultStreamingHandler || new DefaultStreamingHandler();
   }
 
   getConfig(): AnsibleLightspeedConfig {
     return { ...this.config };
-  }
-
-  /**
-   * Get the default streaming handler configured for this client
-   */
-  getDefaultStreamingHandler<TChunk = StreamingEvent>():
-    | IStreamingHandler<TChunk>
-    | undefined {
-    return this.defaultStreamingHandler as
-      | IStreamingHandler<TChunk>
-      | undefined;
   }
 
   private async makeRequest<T>(
@@ -302,23 +283,20 @@ export class AnsibleLightspeedClient
     };
 
     if (options?.stream) {
-      // Handle streaming mode
-      const handler = this.defaultStreamingHandler;
-      if (!handler) {
-        throw new AnsibleLightspeedError(
-          'Streaming mode requires a streaming handler to be configured'
-        );
-      }
-
+      // Handle streaming mode with self-contained handler
       try {
         const response = await this.streamingQuery(queryRequest);
-        return await processStreamWithHandler(
+
+        // Create self-contained streaming handler
+        const handleChunk = options?.afterChunk || (() => {}); // fallback for safety
+        const handler = new DefaultStreamingHandler(
           response,
-          handler,
-          options?.afterChunk
+          conversationId,
+          handleChunk
         );
+
+        return await handler.getResult();
       } catch (error) {
-        handler.onError?.(error as Error);
         throw error;
       }
     } else {

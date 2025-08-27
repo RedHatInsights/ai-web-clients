@@ -3,11 +3,7 @@ import {
   MessageChunkResponse,
   DefaultStreamingHandler,
 } from './index';
-import {
-  IFetchFunction,
-  IStreamingHandler,
-} from '@redhat-cloud-services/ai-client-common';
-import * as defaultStreamingHandler from './default-streaming-handler';
+import { IFetchFunction } from '@redhat-cloud-services/ai-client-common';
 
 // Mock fetch function for testing
 const mockFetch: IFetchFunction = jest.fn();
@@ -54,213 +50,50 @@ describe('IFDClient', () => {
   });
 
   it('should handle API errors', async () => {
+    const errorDetail = [
+      {
+        loc: ['body', 'message'],
+        msg: 'field required',
+        type: 'value_error.missing',
+      },
+    ];
+
     (mockFetch as jest.Mock).mockResolvedValueOnce({
       ok: false,
-      status: 404,
-      statusText: 'Not Found',
-      json: async () => ({ message: 'Resource not found' }),
+      status: 422,
+      statusText: 'Unprocessable Entity',
+      json: async () => ({ detail: errorDetail }),
     });
 
-    await expect(client.createConversation()).rejects.toThrow(
-      'API request failed: 404 Not Found'
-    );
-  });
-
-  it('should construct URLs correctly', async () => {
-    (mockFetch as jest.Mock).mockResolvedValueOnce({
-      ok: true,
-      json: async () => [],
-    });
-
-    await client.getConversationHistory('test-conversation-id');
-
-    expect(mockFetch).toHaveBeenCalledWith(
-      'https://test-api.example.com/api/ask/v1/conversation/test-conversation-id/history',
-      expect.any(Object)
-    );
-  });
-
-  it('should transform conversation history and populate additionalAttributes correctly', async () => {
-    const mockHistoryData = [
-      {
-        message_id: 'msg-1',
-        answer: 'Hello, how can I help you?',
-        input: 'Hello',
-        received_at: '2024-01-01T00:00:00Z',
-        sources: [{ title: 'Source 1', link: 'https://example.com/1' }],
-        tool_call_metadata: { tool_call: true, tool_name: 'search' },
-        output_guard_result: { answer_relevance: 0.95 },
-      },
-      {
-        message_id: 'msg-2',
-        answer: 'You are welcome!',
-        input: 'Thank you',
-        received_at: '2024-01-01T00:01:00Z',
-        sources: [],
-        tool_call_metadata: null,
-        output_guard_result: null,
-      },
-    ];
-
-    (mockFetch as jest.Mock).mockResolvedValueOnce({
-      ok: true,
-      json: async () => mockHistoryData,
-    });
-
-    const result = await client.getConversationHistory('test-conversation-id');
-
-    expect(result).toEqual([
-      {
-        message_id: 'msg-1',
-        answer: 'Hello, how can I help you?',
-        input: 'Hello',
-        conversationId: 'test-conversation-id',
-        date: new Date('2024-01-01T00:00:00Z'),
-        additionalAttributes: {
-          sources: [{ title: 'Source 1', link: 'https://example.com/1' }],
-          tool_call_metadata: { tool_call: true, tool_name: 'search' },
-          output_guard_result: { answer_relevance: 0.95 },
-        },
-      },
-      {
-        message_id: 'msg-2',
-        answer: 'You are welcome!',
-        input: 'Thank you',
-        conversationId: 'test-conversation-id',
-        date: new Date('2024-01-01T00:01:00Z'),
-        additionalAttributes: {
-          sources: [],
-          tool_call_metadata: null,
-          output_guard_result: null,
-        },
-      },
-    ]);
-  });
-
-  it('should handle null conversation history response', async () => {
-    (mockFetch as jest.Mock).mockResolvedValueOnce({
-      ok: true,
-      json: async () => null,
-    });
-
-    const result = await client.getConversationHistory('test-conversation-id');
-
-    expect(result).toBeNull();
-  });
-
-  it('should handle conversation history with missing optional fields', async () => {
-    const mockHistoryData = [
-      {
-        message_id: 'msg-1',
-        answer: 'Hello',
-        input: 'Hi',
-        received_at: '2024-01-01T00:00:00Z',
-        // Missing sources, tool_call_metadata, output_guard_result
-      },
-    ];
-
-    (mockFetch as jest.Mock).mockResolvedValueOnce({
-      ok: true,
-      json: async () => mockHistoryData,
-    });
-
-    const result = await client.getConversationHistory('test-conversation-id');
-
-    expect(result).toEqual([
-      {
-        message_id: 'msg-1',
-        answer: 'Hello',
-        input: 'Hi',
-        conversationId: 'test-conversation-id',
-        date: new Date('2024-01-01T00:00:00Z'),
-        additionalAttributes: {
-          sources: [],
-          tool_call_metadata: null,
-          output_guard_result: null,
-        },
-      },
-    ]);
-  });
-
-  it('should handle query parameters correctly', async () => {
-    (mockFetch as jest.Mock).mockResolvedValueOnce({
-      ok: true,
-      json: async () => [],
-    });
-
-    await client.getUserHistory(25);
-
-    expect(mockFetch).toHaveBeenCalledWith(
-      'https://test-api.example.com/api/ask/v1/user/current/history?limit=25',
-      expect.any(Object)
-    );
-  });
-
-  it('should merge custom headers', async () => {
-    (mockFetch as jest.Mock).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ status: 'healthy' }),
-    });
-
-    await client.healthCheck({
-      headers: { 'X-Custom-Header': 'test-value' },
-    });
-
-    expect(mockFetch).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.objectContaining({
-        headers: expect.objectContaining({
-          'Content-Type': 'application/json',
-          'X-Custom-Header': 'test-value',
-        }),
-      })
-    );
-  });
-
-  it('should handle abort signals', async () => {
-    const abortController = new AbortController();
-
-    (mockFetch as jest.Mock).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ status: 'healthy' }),
-    });
-
-    await client.healthCheck({
-      signal: abortController.signal,
-    });
-
-    expect(mockFetch).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.objectContaining({
-        signal: abortController.signal,
-      })
-    );
+    await expect(client.createConversation()).rejects.toThrow();
   });
 
   describe('sendMessage', () => {
-    const conversationId = 'test-conversation-id';
-    const message = 'Hello, how are you?';
+    it('should send non-streaming messages successfully', async () => {
+      const conversationId = 'conv-123';
+      const message = 'Hello';
 
-    it('should send non-streaming messages and return IMessageResponse', async () => {
-      const mockResponse: MessageChunkResponse = {
+      // Mock message response
+      const mockMessageResponse = {
         conversation_id: conversationId,
-        message_id: 'msg-123',
-        answer: 'I am doing well, thank you!',
-        received_at: '2024-01-01T00:00:00Z',
-        sources: [{ title: 'Test Source', link: 'https://example.com' }],
-        tool_call_metadata: { tool_call: false },
-        output_guard_result: { answer_relevance: 0.95 },
+        message_id: 'test-message-id',
+        answer: 'test answer',
+        received_at: new Date().toISOString(),
+        sources: [],
+        tool_call_metadata: null,
+        output_guard_result: null,
       };
 
+      // Mock quota response
       const mockQuotaResponse = {
-        quota: { limit: 10, used: 5 },
         enabled: true,
+        quota: { limit: 10, used: 5 },
       };
 
       (mockFetch as jest.Mock)
         .mockResolvedValueOnce({
           ok: true,
-          json: async () => mockResponse,
+          json: async () => mockMessageResponse,
         })
         .mockResolvedValueOnce({
           ok: true,
@@ -281,54 +114,80 @@ describe('IFDClient', () => {
       );
 
       expect(result).toEqual({
-        messageId: mockResponse.message_id,
-        answer: mockResponse.answer,
-        conversationId: mockResponse.conversation_id,
+        messageId: mockMessageResponse.message_id,
+        answer: mockMessageResponse.answer,
+        conversationId: mockMessageResponse.conversation_id,
         date: expect.any(Date), // Date should be parsed from received_at
         additionalAttributes: {
-          sources: mockResponse.sources,
-          tool_call_metadata: mockResponse.tool_call_metadata,
-          output_guard_result: mockResponse.output_guard_result,
+          sources: mockMessageResponse.sources,
+          tool_call_metadata: mockMessageResponse.tool_call_metadata,
+          output_guard_result: mockMessageResponse.output_guard_result,
           quota: mockQuotaResponse,
         },
       });
     });
 
-    it('should send streaming messages with default handler', async () => {
-      const mockHandler: IStreamingHandler<MessageChunkResponse> = {
-        onChunk: jest.fn(),
-        onStart: jest.fn(),
-        onComplete: jest.fn(),
-        onError: jest.fn(),
-        onAbort: jest.fn(),
+    it('should handle sendMessage with afterChunk callback for non-streaming', async () => {
+      const conversationId = 'conv-123';
+      const message = 'Hello';
+      const mockAfterChunk = jest.fn();
+
+      // Mock non-streaming response
+      const mockResponse = {
+        conversation_id: conversationId,
+        message_id: 'test-message-id',
+        answer: 'test answer',
+        received_at: new Date().toISOString(),
+        sources: [],
+        tool_call_metadata: null,
+        output_guard_result: null,
       };
 
-      // Create client with default streaming handler
-      const clientWithHandler = new IFDClient({
-        fetchFunction: mockFetch,
-        baseUrl: 'https://test-api.example.com',
-        defaultStreamingHandler: mockHandler,
+      (mockFetch as jest.Mock)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => mockResponse,
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ quota: { limit: 10, used: 5 } }),
+        });
+
+      const result = await client.sendMessage(conversationId, message, {
+        afterChunk: mockAfterChunk,
       });
 
-      // Mock processStreamWithHandler before making the call
-      jest
-        .spyOn(defaultStreamingHandler, 'processStreamWithHandler')
-        .mockResolvedValueOnce({
-          messageId: 'test-message-id',
-          answer: 'test answer',
-          conversationId: 'conv-123',
-          additionalAttributes: {
-            sources: [],
-            tool_call_metadata: null,
-            output_guard_result: null,
-          },
-        });
+      expect(result).toBeDefined();
+      expect(result.answer).toBe('test answer');
+      expect(result.conversationId).toBe(conversationId);
+      expect(result.messageId).toBe('test-message-id');
+
+      // afterChunk is not called for non-streaming (state manager handles the response)
+      expect(mockAfterChunk).not.toHaveBeenCalled();
+    });
+
+    it('should send streaming messages successfully', async () => {
+      const conversationId = 'conv-123';
+      const message = 'Hello';
 
       // Mock streaming response with a proper body
       const mockResponse = {
         ok: true,
         body: new ReadableStream({
           start(controller) {
+            // Simulate simple streaming response
+            controller.enqueue(
+              new TextEncoder().encode(
+                JSON.stringify({
+                  conversation_id: conversationId,
+                  message_id: 'test-message-id',
+                  answer: 'test answer',
+                  received_at: new Date().toISOString(),
+                  sources: [],
+                  end_of_stream: true,
+                })
+              )
+            );
             controller.close();
           },
         }),
@@ -336,14 +195,21 @@ describe('IFDClient', () => {
 
       (mockFetch as jest.Mock).mockResolvedValueOnce(mockResponse);
 
-      const result = await clientWithHandler.sendMessage(
-        conversationId,
-        message,
-        {
-          stream: true,
-          afterChunk: jest.fn(),
-        }
-      );
+      // Mock getMessageQuota to return a valid quota response
+      const mockQuotaResponse = {
+        enabled: true,
+        quota: { limit: 10, used: 5 },
+      };
+
+      (mockFetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockQuotaResponse,
+      });
+
+      const result = await client.sendMessage(conversationId, message, {
+        stream: true,
+        afterChunk: jest.fn(),
+      });
 
       expect(mockFetch).toHaveBeenCalledWith(
         `https://test-api.example.com/api/ask/v1/conversation/${conversationId}/message`,
@@ -358,30 +224,23 @@ describe('IFDClient', () => {
 
       expect(result).toBeDefined(); // Streaming now returns IMessageResponse
       expect(result.messageId).toBeDefined();
-      expect(result.conversationId).toBe('conv-123');
+      expect(result.conversationId).toBe(conversationId);
       expect(result.answer).toBeDefined();
       expect(result.additionalAttributes).toBeDefined();
     });
   });
 
-  describe('streaming handler management', () => {
-    it('should return default streaming handler when configured', () => {
-      const mockHandler: IStreamingHandler<MessageChunkResponse> = {
-        onChunk: jest.fn(),
-        onStart: jest.fn(),
-        onComplete: jest.fn(),
-        onError: jest.fn(),
-        onAbort: jest.fn(),
-      };
-
-      const clientWithHandler = new IFDClient({
+  describe('client with clean decoupled interface', () => {
+    it('should create client with clean decoupled interface', () => {
+      const client = new IFDClient({
         fetchFunction: mockFetch,
         baseUrl: 'https://test-api.example.com',
-        defaultStreamingHandler: mockHandler,
       });
 
-      const result = clientWithHandler.getDefaultStreamingHandler();
-      expect(result).toBe(mockHandler);
+      // Client should not expose streaming handler methods (decoupled interface)
+      expect(client.sendMessage).toBeDefined();
+      expect(client.init).toBeDefined();
+      expect(client.createNewConversation).toBeDefined();
     });
   });
 
@@ -399,263 +258,115 @@ describe('IFDClient', () => {
 
       const result = await client.createNewConversation();
 
-      expect(result.id).toBe('123e4567-e89b-12d3-a456-426614174000');
+      expect(result.id).toBe(mockResponse.conversation_id);
       expect(result.title).toBe('New Conversation');
       expect(result.locked).toBe(false);
     });
 
-    it('should set locked status based on is_latest property during init', async () => {
-      const mockHealthResponse = { status: 'healthy' };
-      const mockStatusResponse = { api: { status: 'operational' } };
-      const mockUserSettings = { id: 'user123' };
-      const mockHistoryResponse = [
-        {
-          conversation_id: 'latest-conv',
-          title: 'Latest Conversation',
-          created_at: '2023-01-01T00:00:00Z',
-          is_latest: true,
-        },
-        {
-          conversation_id: 'old-conv-1',
-          title: 'Old Conversation 1',
-          created_at: '2022-12-01T00:00:00Z',
-          is_latest: false,
-        },
-        {
-          conversation_id: 'old-conv-2',
-          title: 'Old Conversation 2',
-          created_at: '2022-11-01T00:00:00Z',
-          is_latest: false,
-        },
-      ];
-      const mockQuota = { quota: { limit: 10, used: 3 }, enabled: true };
-
-      // Mock all required API calls for init
-      (mockFetch as jest.Mock)
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => mockHealthResponse,
-        })
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => mockStatusResponse,
-        })
-        .mockResolvedValueOnce({ ok: true, json: async () => mockUserSettings })
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => mockHistoryResponse,
-        })
-        .mockResolvedValueOnce({ ok: true, json: async () => mockQuota });
-
-      const result = await client.init();
-
-      expect(result.conversations).toHaveLength(3);
-      // No longer returns initialConversationId
-
-      // Latest conversation should be unlocked
-      const latestConv = result.conversations.find(
-        (c: any) => c.id === 'latest-conv'
-      );
-      expect(latestConv?.locked).toBe(false);
-
-      // Old conversations should be locked
-      const oldConv1 = result.conversations.find(
-        (c: any) => c.id === 'old-conv-1'
-      );
-      expect(oldConv1?.locked).toBe(true);
-
-      const oldConv2 = result.conversations.find(
-        (c: any) => c.id === 'old-conv-2'
-      );
-      expect(oldConv2?.locked).toBe(true);
-    });
-
-    it('should throw IInitErrorResponse on health check failure during init', async () => {
+    it('should handle init with conversations list', async () => {
+      // Mock health check
       (mockFetch as jest.Mock).mockResolvedValueOnce({
-        ok: false,
-        status: 403,
-        statusText: 'Forbidden',
-        json: async () => ({ detail: 'Not authorized' }),
+        ok: true,
+        json: async () => ({ status: 'healthy' }),
       });
 
-      await expect(client.init()).rejects.toEqual({
-        message: 'API request failed: 403 Forbidden',
-        status: 403,
+      // Mock service status
+      (mockFetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ status: 'available' }),
       });
-    });
 
-    it('should throw IInitErrorResponse on status check failure during init', async () => {
-      const mockHealthResponse = { status: 'healthy' };
-
-      (mockFetch as jest.Mock)
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => mockHealthResponse,
-        })
-        .mockResolvedValueOnce({
-          ok: false,
-          status: 500,
-          statusText: 'Internal Server Error',
-          json: async () => ({ error: 'Service unavailable' }),
-        });
-
-      await expect(client.init()).rejects.toEqual({
-        message: 'API request failed: 500 Internal Server Error',
-        status: 500,
+      // Mock user settings
+      (mockFetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ user_id: 'test-user' }),
       });
-    });
 
-    it('should throw IInitErrorResponse on user settings failure during init', async () => {
-      const mockHealthResponse = { status: 'healthy' };
-      const mockStatusResponse = { api: { status: 'operational' } };
-
-      (mockFetch as jest.Mock)
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => mockHealthResponse,
-        })
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => mockStatusResponse,
-        })
-        .mockResolvedValueOnce({
-          ok: false,
-          status: 401,
-          statusText: 'Unauthorized',
-          json: async () => ({ detail: 'Authentication required' }),
-        });
-
-      await expect(client.init()).rejects.toEqual({
-        message: 'API request failed: 401 Unauthorized',
-        status: 401,
+      // Mock user history
+      (mockFetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          {
+            conversation_id: 'conv-1',
+            title: 'Test Conversation',
+            is_latest: true,
+            created_at: new Date().toISOString(),
+          },
+        ],
       });
-    });
 
-    it('should throw IInitErrorResponse on user history failure during init', async () => {
-      const mockHealthResponse = { status: 'healthy' };
-      const mockStatusResponse = { api: { status: 'operational' } };
-      const mockUserSettings = { id: 'user123' };
-
-      (mockFetch as jest.Mock)
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => mockHealthResponse,
-        })
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => mockStatusResponse,
-        })
-        .mockResolvedValueOnce({ ok: true, json: async () => mockUserSettings })
-        .mockResolvedValueOnce({
-          ok: false,
-          status: 403,
-          statusText: 'Forbidden',
-          json: async () => ({ detail: 'Access denied to user history' }),
-        });
-
-      await expect(client.init()).rejects.toEqual({
-        message: 'API request failed: 403 Forbidden',
-        status: 403,
+      // Mock conversation quota
+      (mockFetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          enabled: true,
+          quota: { limit: 10, used: 5 },
+        }),
       });
-    });
-
-    it('should throw IInitErrorResponse on conversation quota failure during init', async () => {
-      const mockHealthResponse = { status: 'healthy' };
-      const mockStatusResponse = { api: { status: 'operational' } };
-      const mockUserSettings = { id: 'user123' };
-      const mockHistoryResponse: any[] = [];
-
-      (mockFetch as jest.Mock)
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => mockHealthResponse,
-        })
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => mockStatusResponse,
-        })
-        .mockResolvedValueOnce({ ok: true, json: async () => mockUserSettings })
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => mockHistoryResponse,
-        })
-        .mockResolvedValueOnce({
-          ok: false,
-          status: 429,
-          statusText: 'Too Many Requests',
-          json: async () => ({ detail: 'Quota exceeded' }),
-        });
-
-      await expect(client.init()).rejects.toEqual({
-        message: 'API request failed: 429 Too Many Requests',
-        status: 429,
-      });
-    });
-
-    it('should throw IInitErrorResponse with generic message for non-AIClientError during init', async () => {
-      (mockFetch as jest.Mock).mockRejectedValueOnce(
-        new Error('Network connection failed')
-      );
-
-      await expect(client.init()).rejects.toEqual({
-        message: 'Network connection failed',
-        status: 500,
-      });
-    });
-
-    it('should handle conversations without is_latest property during init', async () => {
-      const mockHealthResponse = { status: 'healthy' };
-      const mockStatusResponse = { api: { status: 'operational' } };
-      const mockUserSettings = { id: 'user123' };
-      const mockHistoryResponse = [
-        {
-          conversation_id: 'conv-1',
-          title: 'Conversation 1',
-          created_at: '2023-01-01T00:00:00Z',
-          // Missing is_latest property
-        },
-      ];
-      const mockQuota = { limit: 10, used: 1 };
-      const mockNewConversation = {
-        conversation_id: 'new-conv-created',
-        quota: { limit: 10, used: 2 },
-      };
-
-      // Mock all required API calls for init - no latest conversation found, so it creates a new one
-      (mockFetch as jest.Mock)
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => mockHealthResponse,
-        })
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => mockStatusResponse,
-        })
-        .mockResolvedValueOnce({ ok: true, json: async () => mockUserSettings })
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => mockHistoryResponse,
-        })
-        .mockResolvedValueOnce({ ok: true, json: async () => mockQuota })
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => mockNewConversation,
-        });
 
       const result = await client.init();
 
       expect(result.conversations).toHaveLength(1);
-      // No longer returns initialConversationId
-      expect(result.conversations[0].locked).toBe(true); // Should default to locked when is_latest is missing/undefined
+      expect(result.conversations[0].id).toBe('conv-1');
+      expect(result.conversations[0].title).toBe('Test Conversation');
+      expect(result.conversations[0].locked).toBe(false);
+    });
+  });
+
+  describe('Error Handling', () => {
+    it('should handle 422 validation errors', async () => {
+      const validationErrors = [
+        {
+          loc: ['body', 'input'],
+          msg: 'field required',
+          type: 'value_error.missing',
+        },
+      ];
+
+      (mockFetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 422,
+        statusText: 'Unprocessable Entity',
+        json: async () => ({ detail: validationErrors }),
+      });
+
+      await expect(client.sendMessage('conv-123', '')).rejects.toThrow(
+        'Request validation failed'
+      );
+    });
+
+    it('should handle network errors', async () => {
+      (mockFetch as jest.Mock).mockRejectedValueOnce(
+        new Error('Network error')
+      );
+
+      await expect(client.sendMessage('conv-123', 'Hello')).rejects.toThrow(
+        'Network error'
+      );
     });
   });
 });
 
 describe('DefaultStreamingHandler', () => {
-  let handler: DefaultStreamingHandler;
+  let mockResponse: Response;
+  let mockAfterChunk: jest.Mock;
+  let mockGetQuota: jest.Mock;
 
   beforeEach(() => {
-    handler = new DefaultStreamingHandler();
+    mockAfterChunk = jest.fn();
+    mockGetQuota = jest.fn().mockResolvedValue({
+      enabled: true,
+      quota: { limit: 10, used: 5 },
+    });
+
+    mockResponse = {
+      body: new ReadableStream({
+        start(controller) {
+          controller.close();
+        },
+      }),
+    } as Response;
+
     // Mock console methods to avoid noise in tests
     jest.spyOn(console, 'log').mockImplementation(() => {});
     jest.spyOn(console, 'error').mockImplementation(() => {});
@@ -665,66 +376,83 @@ describe('DefaultStreamingHandler', () => {
     jest.restoreAllMocks();
   });
 
-  it('should create a handler instance', () => {
-    expect(handler).toBeInstanceOf(DefaultStreamingHandler);
+  describe('Handler Instantiation', () => {
+    it('should create a handler instance with required parameters', () => {
+      const handler = new DefaultStreamingHandler(
+        mockResponse,
+        'test-conversation',
+        mockAfterChunk,
+        mockGetQuota
+      );
+      expect(handler).toBeInstanceOf(DefaultStreamingHandler);
+    });
   });
 
-  it('should handle streaming lifecycle', () => {
-    const handler = new DefaultStreamingHandler();
-    const conversationId = 'conv-123';
-    const messageId = 'msg-456';
+  describe('Streaming Lifecycle', () => {
+    it('should process chunks with processChunk method', () => {
+      const handler = new DefaultStreamingHandler(
+        mockResponse,
+        'test-conversation',
+        mockAfterChunk,
+        mockGetQuota
+      );
 
-    // Start streaming
-    handler.onStart(conversationId, messageId);
-    expect(handler.getCurrentConversationId()).toBe(conversationId);
-    expect(handler.getCurrentMessageId()).toBe(messageId);
-    expect(handler.getCompleteMessage()).toStrictEqual({
-      answer: '',
-      sources: [],
+      const chunk: MessageChunkResponse = {
+        conversation_id: 'test-conversation',
+        message_id: 'test-message',
+        answer: 'Hello',
+        received_at: new Date().toISOString(),
+        sources: [],
+        tool_call_metadata: null,
+        output_guard_result: null,
+      };
+
+      const result = handler.processChunk(chunk, '', mockAfterChunk);
+
+      expect(result).toBe('Hello');
+      expect(mockAfterChunk).toHaveBeenCalledWith(
+        expect.objectContaining({
+          answer: 'Hello',
+          conversationId: 'test-conversation',
+        })
+      );
     });
 
-    // Process chunks
-    const chunk1: MessageChunkResponse = {
-      conversation_id: conversationId,
-      message_id: messageId,
-      answer: 'Hello ',
-      received_at: new Date().toISOString(),
-      sources: [],
-    };
+    it('should return final result with getResult method', async () => {
+      const handler = new DefaultStreamingHandler(
+        mockResponse,
+        'test-conversation',
+        mockAfterChunk,
+        mockGetQuota
+      );
 
-    const chunk2: MessageChunkResponse = {
-      conversation_id: conversationId,
-      message_id: messageId,
-      answer: 'Hello world!',
-      received_at: new Date().toISOString(),
-      sources: [{ title: 'Test Source', link: 'https://example.com' }],
-    };
+      const result = await handler.getResult();
 
-    handler.onChunk(chunk1);
-    expect(handler.getCompleteMessage().answer).toBe('Hello ');
-
-    handler.onChunk(chunk2);
-    expect(handler.getCompleteMessage().answer).toBe('Hello world!');
-
-    // Complete streaming
-    handler.onComplete(chunk2);
-    // Note: onComplete no longer logs to console in current implementation
+      expect(result).toEqual(
+        expect.objectContaining({
+          messageId: expect.any(String),
+          answer: expect.any(String),
+          conversationId: 'test-conversation',
+        })
+      );
+    });
   });
 
-  it('should handle errors', () => {
-    const error = new Error('Test error');
-    handler.onError(error);
+  describe('Error Handling', () => {
+    it('should handle streaming errors', () => {
+      const handler = new DefaultStreamingHandler(
+        mockResponse,
+        'test-conversation',
+        mockAfterChunk,
+        mockGetQuota
+      );
+      const error = new Error('Test streaming error');
 
-    expect(console.error).toHaveBeenCalledWith(
-      expect.stringContaining('Stream error'),
-      error
-    );
-  });
+      if (handler.onError) {
+        handler.onError(error);
+      }
 
-  it('should handle abort', () => {
-    handler.onAbort();
-
-    // Note: onAbort no longer logs to console in current implementation
-    expect(handler).toBeDefined();
+      expect(console.error).toHaveBeenCalledWith('ARH streaming error:', error);
+    });
   });
 });

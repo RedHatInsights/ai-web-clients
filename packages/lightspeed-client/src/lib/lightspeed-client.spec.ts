@@ -1,12 +1,5 @@
-import {
-  LightspeedClient,
-  MessageChunkResponse,
-  DefaultStreamingHandler,
-} from './index';
-import {
-  IFetchFunction,
-  IStreamingHandler,
-} from '@redhat-cloud-services/ai-client-common';
+import { LightspeedClient, DefaultStreamingHandler } from './index';
+import { IFetchFunction } from '@redhat-cloud-services/ai-client-common';
 import { LightspeedClientError, LightspeedValidationError } from './types';
 
 // Mock fetch function for testing
@@ -32,33 +25,16 @@ describe('LightspeedClient', () => {
       expect(client).toBeInstanceOf(LightspeedClient);
     });
 
-    it('should create client with default streaming handler', () => {
-      const clientWithDefaults = new LightspeedClient({
+    it('should create client with clean decoupled interface', () => {
+      const client = new LightspeedClient({
         fetchFunction: mockFetch,
         baseUrl: 'https://test-lightspeed.example.com',
       });
 
-      const handler = clientWithDefaults.getDefaultStreamingHandler();
-      expect(handler).toBeInstanceOf(DefaultStreamingHandler);
-    });
-
-    it('should create client with custom streaming handler', () => {
-      const mockHandler: IStreamingHandler<MessageChunkResponse> = {
-        onChunk: jest.fn(),
-        onStart: jest.fn(),
-        onComplete: jest.fn(),
-        onError: jest.fn(),
-        onAbort: jest.fn(),
-      };
-
-      const clientWithHandler = new LightspeedClient({
-        fetchFunction: mockFetch,
-        baseUrl: 'https://test-lightspeed.example.com',
-        defaultStreamingHandler: mockHandler,
-      });
-
-      const result = clientWithHandler.getDefaultStreamingHandler();
-      expect(result).toBe(mockHandler);
+      // Client should not expose streaming handler methods (decoupled interface)
+      expect(client.sendMessage).toBeDefined();
+      expect(client.init).toBeDefined();
+      expect(client.createNewConversation).toBeDefined();
     });
   });
 
@@ -190,30 +166,23 @@ describe('LightspeedClient', () => {
   });
 
   describe('Streaming Messages', () => {
-    it('should send streaming messages successfully', async () => {
-      const mockHandler: IStreamingHandler<MessageChunkResponse> = {
-        onChunk: jest.fn(),
-        onStart: jest.fn(),
-        onComplete: jest.fn(),
-        onError: jest.fn(),
-        onAbort: jest.fn(),
-      };
-
-      const clientWithHandler = new LightspeedClient({
+    it('should send streaming messages successfully with afterChunk callback', async () => {
+      const client = new LightspeedClient({
         fetchFunction: mockFetch,
         baseUrl: 'https://test-lightspeed.example.com',
-        defaultStreamingHandler: mockHandler,
       });
 
       const conversationId = 'conv-stream-123';
       const message = 'Tell me about OpenShift networking';
+      const afterChunkCallback = jest.fn();
 
       const mockResponse = {
         ok: true,
         status: 200,
-        headers: new Headers({ 'content-type': 'application/json' }),
+        headers: new Headers({ 'content-type': 'text/plain' }),
         body: new ReadableStream({
           start(controller) {
+            controller.enqueue(new TextEncoder().encode('Streaming response'));
             controller.close();
           },
         }),
@@ -221,11 +190,10 @@ describe('LightspeedClient', () => {
 
       (mockFetch as jest.Mock).mockResolvedValueOnce(mockResponse);
 
-      const result = await clientWithHandler.sendMessage(
-        conversationId,
-        message,
-        { stream: true }
-      );
+      const result = await client.sendMessage(conversationId, message, {
+        stream: true,
+        afterChunk: afterChunkCallback,
+      });
 
       expect(mockFetch).toHaveBeenCalledWith(
         'https://test-lightspeed.example.com/v1/streaming_query',
@@ -233,7 +201,7 @@ describe('LightspeedClient', () => {
           method: 'POST',
           headers: expect.objectContaining({
             'Content-Type': 'application/json',
-            Accept: 'application/json',
+            Accept: 'text/plain', // Correctly matches mediaType
           }),
           body: expect.stringContaining('"media_type":"text/plain"'),
         })
@@ -244,23 +212,6 @@ describe('LightspeedClient', () => {
       expect(result.conversationId).toBe('conv-stream-123');
       expect(result.answer).toBeDefined();
       expect(result.additionalAttributes).toBeDefined();
-    });
-
-    it('should throw error for streaming without handler', async () => {
-      // Override the defaultStreamingHandler to be undefined after construction
-      const clientNoHandler = new LightspeedClient({
-        fetchFunction: mockFetch,
-        baseUrl: 'https://test-lightspeed.example.com',
-        defaultStreamingHandler: undefined,
-      });
-
-      // Force the handler to be undefined to test the error case
-      (clientNoHandler as any).defaultStreamingHandler = undefined;
-
-      // Don't need to mock fetch since error is thrown before fetch call
-      await expect(
-        clientNoHandler.sendMessage('conv-123', 'Test', { stream: true })
-      ).rejects.toThrow(LightspeedClientError);
     });
   });
 
@@ -612,10 +563,19 @@ describe('LightspeedClient', () => {
 });
 
 describe('DefaultStreamingHandler', () => {
-  let handler: DefaultStreamingHandler;
+  let mockResponse: Response;
+  let mockAfterChunk: jest.Mock;
 
   beforeEach(() => {
-    handler = new DefaultStreamingHandler();
+    mockAfterChunk = jest.fn();
+    mockResponse = {
+      body: new ReadableStream({
+        start(controller) {
+          controller.close();
+        },
+      }),
+    } as Response;
+
     // Mock console methods to avoid noise in tests
     jest.spyOn(console, 'log').mockImplementation(() => {});
     jest.spyOn(console, 'error').mockImplementation(() => {});
@@ -626,54 +586,75 @@ describe('DefaultStreamingHandler', () => {
   });
 
   describe('Handler Instantiation', () => {
-    it('should create a handler instance', () => {
+    it('should create a handler instance with required parameters', () => {
+      const handler = new DefaultStreamingHandler(
+        mockResponse,
+        'test-conversation',
+        'text/plain',
+        mockAfterChunk
+      );
       expect(handler).toBeInstanceOf(DefaultStreamingHandler);
     });
   });
 
   describe('Streaming Lifecycle', () => {
-    it('should handle chunks with afterChunk callback', () => {
-      const afterChunkCallback = jest.fn();
-      const chunk: MessageChunkResponse = {
-        answer: 'Test content',
-        conversation_id: 'conv-123',
-      };
+    it('should process text chunks with processChunk method', () => {
+      const handler = new DefaultStreamingHandler(
+        mockResponse,
+        'test-conversation',
+        'text/plain',
+        mockAfterChunk
+      );
 
-      handler.onChunk(chunk, afterChunkCallback);
+      const result = handler.processChunk('Hello', '', mockAfterChunk);
 
-      expect(afterChunkCallback).toHaveBeenCalledWith({
-        messageId: '',
-        conversationId: '',
-        additionalAttributes: {},
-        answer: 'Test content',
-      });
+      expect(result).toBe('Hello');
+      expect(mockAfterChunk).toHaveBeenCalledWith(
+        expect.objectContaining({
+          answer: 'Hello',
+          conversationId: 'test-conversation',
+        })
+      );
     });
 
-    it('should handle error chunks', () => {
-      const errorChunk: MessageChunkResponse = {
-        answer: '',
-        error: 'Something went wrong',
-        conversation_id: 'conv-123',
-      };
+    it('should return final result with getResult method', async () => {
+      const handler = new DefaultStreamingHandler(
+        mockResponse,
+        'test-conversation',
+        'text/plain',
+        mockAfterChunk
+      );
 
-      handler.onChunk(errorChunk);
+      const result = await handler.getResult();
 
-      expect(console.error).toHaveBeenCalledWith(
-        'Streaming error:',
-        'Something went wrong'
+      expect(result).toEqual(
+        expect.objectContaining({
+          messageId: expect.any(String),
+          answer: expect.any(String),
+          conversationId: 'test-conversation',
+        })
       );
     });
   });
 
   describe('Error Handling', () => {
     it('should handle streaming errors', () => {
+      const handler = new DefaultStreamingHandler(
+        mockResponse,
+        'test-conversation',
+        'text/plain',
+        mockAfterChunk
+      );
       const error = new Error('Test streaming error');
 
       if (handler.onError) {
         handler.onError(error);
       }
 
-      expect(console.error).toHaveBeenCalledWith('Streaming error:', error);
+      expect(console.error).toHaveBeenCalledWith(
+        'Lightspeed streaming error:',
+        error
+      );
     });
   });
 });

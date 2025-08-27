@@ -6,7 +6,6 @@ import {
   IMessageResponse,
   ISendMessageOptions,
   IRequestOptions,
-  IStreamingHandler,
   ClientInitLimitation,
   AIClientError
 } from '@redhat-cloud-services/ai-client-common';
@@ -107,13 +106,6 @@ export class RHELLightspeedClient implements IAIClient<RHELLightspeedAdditionalP
     } catch (error) {
       this.handleError(error);
     }
-  }
-
-  /**
-   * RAG system doesn't support streaming, always returns undefined
-   */
-  getDefaultStreamingHandler<TChunk = unknown>(): IStreamingHandler<TChunk> | undefined {
-    return undefined;
   }
 
   /**

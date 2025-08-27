@@ -1,181 +1,226 @@
 import {
-  AfterChunkCallback,
-  IStreamingHandler,
+  HandleChunkCallback,
+  ISimpleStreamingHandler,
   IMessageResponse,
+  IStreamChunk,
 } from '@redhat-cloud-services/ai-client-common';
 import {
   LightSpeedCoreAdditionalProperties,
-  MessageChunkResponse,
+  StreamingEvent,
+  isTokenEvent,
+  isStartEvent,
+  isEndEvent,
+  isAssistantAnswerEvent,
+  isErrorEvent,
 } from './types';
 
 /**
- * Default streaming handler for Lightspeed API responses
+ * Simplified streaming handler for Lightspeed API responses
  *
- * This handler processes Server-Sent Events (SSE) from the Lightspeed streaming endpoint.
- * It follows the workspace pattern of providing sensible defaults while allowing customization.
+ * Self-contained handler that processes streams internally.
+ * Supports dual media types:
+ * - text/plain: Simple text accumulation
+ * - application/json: JSON Server-Sent Events with comprehensive event types
  */
 export class DefaultStreamingHandler
-  implements IStreamingHandler<MessageChunkResponse>
+  implements ISimpleStreamingHandler<string | StreamingEvent>
 {
-  /**
-   * Handle a single chunk of streaming data from Lightspeed
-   * @param chunk - The message chunk from the stream
-   * @param afterChunk - Optional callback to execute after processing the chunk
-   */
-  onChunk(
-    chunk: MessageChunkResponse,
-    afterChunk?: AfterChunkCallback<LightSpeedCoreAdditionalProperties>
+  private conversationId = '';
+  private additionalAttributes: LightSpeedCoreAdditionalProperties = {};
+  private messageBuffer = '';
+  private streamPromise: Promise<
+    IMessageResponse<LightSpeedCoreAdditionalProperties>
+  >;
+
+  constructor(
+    private response: Response,
+    private initialConversationId: string,
+    private mediaType: 'text/plain' | 'application/json',
+    private handleChunk: HandleChunkCallback<LightSpeedCoreAdditionalProperties>
   ) {
-    // Process the chunk (could be logged, stored, etc.)
-    if (chunk.answer) {
-      // Basic handling - in a real implementation, this might update UI, etc.
+    // Start processing immediately and store the promise
+    this.streamPromise = this.processStream();
+  }
+
+  /**
+   * Process the entire stream internally
+   */
+  private async processStream(): Promise<
+    IMessageResponse<LightSpeedCoreAdditionalProperties>
+  > {
+    if (!this.response.body) {
+      throw new Error('Response body is not available for streaming');
     }
 
-    if (chunk.error) {
-      console.error('Streaming error:', chunk.error);
-    }
+    const reader = this.response.body.getReader();
+    const decoder = new TextDecoder();
+    this.conversationId = this.initialConversationId;
 
-    // Call the optional callback
-    if (afterChunk) {
-      afterChunk({
-        messageId: chunk.messageId ?? '',
-        conversationId: '',
-        additionalAttributes: {},
-        answer: chunk.answer ?? '',
-      });
+    try {
+      if (this.mediaType === 'application/json') {
+        // Process JSON Server-Sent Events
+        let textBuffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          textBuffer += decoder.decode(value, { stream: true });
+          const lines = textBuffer.split('\n');
+          textBuffer = lines.pop() || '';
+
+          for (const line of lines) {
+            if (line.trim() && line.startsWith('data: ')) {
+              try {
+                const eventData = JSON.parse(line.slice(6));
+                this.messageBuffer = this.processChunk(
+                  eventData,
+                  this.messageBuffer,
+                  this.handleChunk
+                );
+              } catch (error) {
+                console.warn('Failed to parse JSON event:', line, error);
+              }
+            }
+          }
+        }
+      } else {
+        // Process text/plain streaming
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const textChunk = decoder.decode(value, { stream: true });
+          this.messageBuffer = this.processChunk(
+            textChunk,
+            this.messageBuffer,
+            this.handleChunk
+          );
+        }
+      }
+
+      return {
+        messageId: crypto.randomUUID(),
+        answer: this.messageBuffer,
+        conversationId: this.conversationId,
+        additionalAttributes: this.additionalAttributes,
+      };
+    } catch (error) {
+      this.onError?.(error as Error);
+      throw error;
+    } finally {
+      reader.releaseLock();
     }
   }
 
   /**
-   * Called when the stream starts
-   * @param conversationId - Optional conversation ID
-   * @param messageId - Optional message ID
+   * Get the final result (call this after stream completes)
    */
-  onStart?(): void {}
+  async getResult(): Promise<
+    IMessageResponse<LightSpeedCoreAdditionalProperties>
+  > {
+    return this.streamPromise;
+  }
 
   /**
-   * Called when the stream completes successfully
-   * @param finalChunk - The final chunk received
+   * Process a chunk and return updated message buffer
+   * Supports both text/plain and JSON SSE formats
    */
-  onComplete?(): void {}
+  processChunk(
+    chunk: string | StreamingEvent,
+    currentBuffer: string,
+    handleChunk: HandleChunkCallback<LightSpeedCoreAdditionalProperties>
+  ): string {
+    let updatedBuffer = currentBuffer;
+    let hasUpdate = false;
+
+    if (typeof chunk === 'string') {
+      // Text/plain mode - simple accumulation
+      updatedBuffer = currentBuffer + chunk;
+      hasUpdate = true;
+    } else {
+      // JSON mode - parse streaming events
+      const result = this.processJsonEvent(chunk, currentBuffer);
+      updatedBuffer = result.buffer;
+      hasUpdate = result.hasUpdate;
+
+      // Update conversation metadata
+      if (result.conversationId) {
+        this.conversationId = result.conversationId;
+      }
+      if (result.additionalAttributes) {
+        Object.assign(this.additionalAttributes, result.additionalAttributes);
+      }
+    }
+
+    // Call the callback with current complete message if there's an update
+    if (hasUpdate && updatedBuffer) {
+      const streamChunk: IStreamChunk<LightSpeedCoreAdditionalProperties> = {
+        messageId: crypto.randomUUID(),
+        answer: updatedBuffer,
+        conversationId: this.conversationId,
+        additionalAttributes: this.additionalAttributes,
+      };
+      handleChunk(streamChunk);
+    }
+
+    return updatedBuffer;
+  }
+
+  /**
+   * Process a JSON streaming event and extract relevant data
+   */
+  private processJsonEvent(
+    event: StreamingEvent,
+    currentBuffer: string
+  ): {
+    buffer: string;
+    hasUpdate: boolean;
+    conversationId?: string;
+    additionalAttributes?: LightSpeedCoreAdditionalProperties;
+  } {
+    let buffer = currentBuffer;
+    let hasUpdate = false;
+    let conversationId: string | undefined;
+    let additionalAttributes: LightSpeedCoreAdditionalProperties | undefined;
+
+    // Focus on answer-building events
+    if (isTokenEvent(event)) {
+      // Accumulate tokens
+      buffer += event.data.token;
+      hasUpdate = true;
+    } else if (isAssistantAnswerEvent(event)) {
+      // Complete answer overrides token accumulation
+      buffer = event.answer;
+      conversationId = event.conversation_id;
+      hasUpdate = true;
+    } else if (isStartEvent(event)) {
+      // Capture conversation ID
+      conversationId = event.data.conversation_id;
+    } else if (isEndEvent(event)) {
+      // Capture final metadata
+      additionalAttributes = {
+        referencedDocuments: event.data.referenced_documents,
+        truncated: event.data.truncated,
+        inputTokens: event.data.input_tokens,
+        outputTokens: event.data.output_tokens,
+        availableQuotas: event.available_quotas as Record<string, number>,
+      };
+    } else if (isErrorEvent(event)) {
+      // Handle error events
+      const error = new Error(event.data.response);
+      this.onError?.(error);
+      throw error;
+    }
+    // Ignore other events (tool_call, tool_result, user_question) for now
+
+    return { buffer, hasUpdate, conversationId, additionalAttributes };
+  }
 
   /**
    * Called when an error occurs during streaming
-   * @param error - The error that occurred
    */
   onError?(error: Error): void {
-    console.error('Streaming error:', error);
+    console.error('Lightspeed streaming error:', error);
   }
-
-  /**
-   * Called when the stream is aborted
-   */
-  onAbort?(): void {}
-}
-
-/**
- * Process a streaming response with a given handler
- *
- * @param response - The fetch Response object containing the stream
- * @param handler - The streaming handler to process chunks
- * @param afterChunk - Optional callback to execute after each chunk
- * @returns Promise that resolves when the stream is complete
- */
-export async function processStreamWithHandler(
-  response: Response,
-  handler: IStreamingHandler<MessageChunkResponse>,
-  conversationId: string,
-  afterChunk?: AfterChunkCallback<LightSpeedCoreAdditionalProperties>
-): Promise<IMessageResponse<LightSpeedCoreAdditionalProperties>> {
-  if (!response.body) {
-    throw new Error('Response body is not available for streaming');
-  }
-
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-
-  let finalMessageId = '';
-  let finalAnswer = '';
-  let finalConversationId = conversationId;
-
-  try {
-    // Call onStart if available
-    if (handler.onStart) {
-      handler.onStart();
-    }
-
-    let fullMessage = '';
-
-    while (true) {
-      const { done, value } = await reader.read();
-
-      if (done) {
-        break;
-      }
-
-      // Decode the chunk as plain text
-      const textChunk = decoder.decode(value, { stream: true });
-      fullMessage += textChunk;
-      finalAnswer = fullMessage;
-
-      // Create a chunk response for this text piece
-      const chunkResponse: MessageChunkResponse = {
-        answer: fullMessage, // Send the accumulated message so far
-        finished: false,
-        conversation_id: conversationId,
-        messageId: finalMessageId || crypto.randomUUID(),
-      };
-
-      // Update final values
-      if (chunkResponse.messageId) {
-        finalMessageId = chunkResponse.messageId;
-      }
-      if (chunkResponse.conversation_id) {
-        finalConversationId = chunkResponse.conversation_id;
-      }
-
-      // Process the chunk with the handler
-      handler.onChunk(chunkResponse, afterChunk);
-    }
-
-    // Create and send the final chunk with finished: true
-    if (fullMessage) {
-      const finalChunk: MessageChunkResponse = {
-        answer: fullMessage,
-        finished: true,
-        conversation_id: finalConversationId,
-        messageId: finalMessageId || crypto.randomUUID(),
-      };
-
-      // Update final values one more time
-      if (finalChunk.messageId) {
-        finalMessageId = finalChunk.messageId;
-      }
-      finalAnswer = finalChunk.answer ?? '';
-
-      // Process the final chunk
-      handler.onChunk(finalChunk, afterChunk);
-
-      // Call onComplete if available
-      if (handler.onComplete) {
-        handler.onComplete(finalChunk);
-      }
-    }
-  } catch (error) {
-    // Call onError if available
-    if (handler.onError) {
-      handler.onError(error as Error);
-    }
-    throw error;
-  } finally {
-    reader.releaseLock();
-  }
-
-  // Return the final message response
-  return {
-    messageId: finalMessageId || crypto.randomUUID(),
-    answer: finalAnswer,
-    conversationId: finalConversationId,
-    additionalAttributes: {},
-  };
 }

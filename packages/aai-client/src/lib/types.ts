@@ -15,6 +15,7 @@ export type AAIAdditionalAttributes = {
     role?: 'inference' | 'tool_execution';
     token?: string;
   };
+  tool_call_events?: Array<Record<string, unknown>>;
   turn_complete_event?: {
     id?: number;
     token?: string;
@@ -28,6 +29,13 @@ export type AAIAdditionalAttributes = {
     output_tokens?: number;
     available_quotas?: Record<string, unknown>;
   };
+  referenced_documents?: Array<{
+    doc_url: string;
+    doc_title: string;
+  }>;
+  input_tokens?: number;
+  output_tokens?: number;
+  available_quotas?: Record<string, unknown>;
   // Allow for additional dynamic attributes
   [key: string]: unknown;
 };

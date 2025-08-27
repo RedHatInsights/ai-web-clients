@@ -6,10 +6,7 @@ export * from './types';
 export * from './interfaces';
 
 // Default streaming handler
-export {
-  DefaultStreamingHandler,
-  processStreamWithHandler,
-} from './default-streaming-handler';
+export { DefaultStreamingHandler } from './default-streaming-handler';
 
 // Version
 export const VERSION = '1.0.0';

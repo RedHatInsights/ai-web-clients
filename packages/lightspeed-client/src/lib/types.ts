@@ -232,3 +232,136 @@ export type LightSpeedCoreAdditionalProperties = {
   toolCalls?: unknown[];
   toolResults?: unknown[];
 };
+
+// ====================
+// JSON Streaming Event Types
+// ====================
+
+/**
+ * Base streaming event structure for JSON responses
+ * Based on actual server event analysis
+ */
+export interface BaseStreamingEvent {
+  event: string;
+  data?: any;
+  [key: string]: any; // Allow additional fields
+}
+
+/**
+ * Start event data structure
+ */
+export interface StartEventData {
+  conversation_id: string;
+}
+
+/**
+ * Token event data structure
+ */
+export interface TokenEventData {
+  id: number;
+  token: string;
+}
+
+/**
+ * End event data structure
+ */
+export interface EndEventData {
+  referenced_documents: ReferencedDocument[];
+  truncated: boolean;
+  input_tokens: number;
+  output_tokens: number;
+}
+
+/**
+ * Specific streaming events with typed data
+ */
+export interface StartEvent {
+  event: 'start';
+  data: StartEventData;
+}
+
+export interface TokenEvent {
+  event: 'token';
+  data: TokenEventData;
+}
+
+export interface EndEvent {
+  event: 'end';
+  data: EndEventData;
+  available_quotas: Record<string, unknown>;
+}
+
+export interface AssistantAnswerEvent {
+  event: 'assistant_answer';
+  answer: string;
+  conversation_id: string;
+  user: string;
+}
+
+export interface ToolCallEvent {
+  event: 'tool_call';
+  tool_name: string;
+  arguments: Record<string, unknown>;
+  tool_id: string;
+}
+
+export interface ToolResultEvent {
+  event: 'tool_result';
+  tool_id: string;
+  status: string;
+  output_snippet: string;
+}
+
+export interface UserQuestionEvent {
+  event: 'user_question';
+  question: string;
+  user: string;
+  conversation_id: string;
+}
+
+export interface ErrorEvent {
+  event: 'error';
+  data: {
+    status_code: number;
+    response: string;
+    cause: string;
+  };
+}
+
+/**
+ * Union type for all streaming events
+ */
+export type StreamingEvent =
+  | StartEvent
+  | TokenEvent
+  | EndEvent
+  | AssistantAnswerEvent
+  | ToolCallEvent
+  | ToolResultEvent
+  | UserQuestionEvent
+  | ErrorEvent;
+
+/**
+ * Type guards for streaming events
+ */
+export function isTokenEvent(event: BaseStreamingEvent): event is TokenEvent {
+  return event.event === 'token';
+}
+
+export function isStartEvent(event: BaseStreamingEvent): event is StartEvent {
+  return event.event === 'start';
+}
+
+export function isEndEvent(event: BaseStreamingEvent): event is EndEvent {
+  return event.event === 'end';
+}
+
+export function isAssistantAnswerEvent(
+  event: BaseStreamingEvent
+): event is AssistantAnswerEvent {
+  return event.event === 'assistant_answer';
+}
+
+export function isErrorEvent(event: BaseStreamingEvent): event is ErrorEvent {
+  return event.event === 'error';
+}

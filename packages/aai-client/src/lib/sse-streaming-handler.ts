@@ -1,39 +1,54 @@
 import {
-  IStreamingHandler,
-  AfterChunkCallback,
+  ISimpleStreamingHandler,
+  HandleChunkCallback,
+  IMessageResponse,
   IStreamChunk,
 } from '@redhat-cloud-services/ai-client-common';
 import { AAIAdditionalAttributes, AAISSEEvent } from './types';
 
 /**
- * Default streaming handler for AAI Server-Sent Events
+ * Self-contained streaming handler for AAI Server-Sent Events
+ *
+ * Processes streams internally and provides final result via getResult()
  */
-export class AAIDefaultStreamingHandler implements IStreamingHandler<AAISSEEvent> {
-
+export class AAIDefaultStreamingHandler
+  implements ISimpleStreamingHandler<AAISSEEvent>
+{
   private messageBuffer: IStreamChunk<AAIAdditionalAttributes> = {
     messageId: '',
     conversationId: '',
     answer: '',
-    additionalAttributes: {
-    },
+    additionalAttributes: {},
   };
+  private streamPromise: Promise<IMessageResponse<AAIAdditionalAttributes>>;
 
   constructor(
-    private afterChunk?: AfterChunkCallback<Record<string, unknown>>
-  ) {}
-
-  onStart?(conversationId?: string, messageId?: string): void {
-    this.messageBuffer.conversationId = conversationId || '';
-    this.messageBuffer.messageId = messageId || '';
-    this.messageBuffer.answer = '';
-    this.messageBuffer.additionalAttributes = {
-      start_event: {},
-      tool_call_events: [],
-    };
+    private response: Response,
+    private initialConversationId: string,
+    private handleChunk: HandleChunkCallback<AAIAdditionalAttributes>
+  ) {
+    this.messageBuffer.conversationId = this.initialConversationId;
+    // Start processing immediately and store the promise
+    this.streamPromise = this.processStream();
   }
 
-  onChunk(chunk: AAISSEEvent, afterChunk?: AfterChunkCallback<Record<string, unknown>>): void {
-    const callback = afterChunk || this.afterChunk;
+  /**
+   * Get the final result (call this after stream completes)
+   */
+  async getResult(): Promise<IMessageResponse<AAIAdditionalAttributes>> {
+    return this.streamPromise;
+  }
+
+  /**
+   * Process a chunk and return updated message buffer
+   * Updates internal state and calls handleChunk callback
+   */
+  processChunk(
+    chunk: AAISSEEvent,
+    currentBuffer: string,
+    handleChunk: HandleChunkCallback<AAIAdditionalAttributes>
+  ): string {
+    let updatedBuffer = currentBuffer;
 
     switch (chunk.event) {
       case 'start':
@@ -41,135 +56,183 @@ export class AAIDefaultStreamingHandler implements IStreamingHandler<AAISSEEvent
         this.messageBuffer.messageId = crypto.randomUUID(); // Generate if not provided
         // Store start event in additional attributes
         this.messageBuffer.additionalAttributes.start_event = chunk.data;
-        callback?.({
-          ...this.messageBuffer
-        });
         break;
 
       case 'token':
         // Only token events build the answer
-        const token = chunk.data['token'] as string;
+        const token = this.extractString(chunk.data, 'token');
         if (token && chunk.data['role'] === 'inference') {
           this.messageBuffer.answer += token;
+          updatedBuffer = this.messageBuffer.answer;
         }
-        callback?.({
-          ...this.messageBuffer
-        });
         break;
 
       case 'tool_call':
-        // not needed for now
+        // Store tool call events
+        if (!this.messageBuffer.additionalAttributes.tool_call_events) {
+          this.messageBuffer.additionalAttributes.tool_call_events = [];
+        }
+        this.messageBuffer.additionalAttributes.tool_call_events.push(chunk.data);
         break;
+
       case 'turn_complete':
         // Use turn_complete token as final answer if available
-        const completeToken = chunk.data['token'] as string;
+        const completeToken = this.extractString(chunk.data, 'token');
         if (completeToken) {
           this.messageBuffer.answer = completeToken;
+          updatedBuffer = this.messageBuffer.answer;
         }
         this.messageBuffer.additionalAttributes.turn_complete_event = chunk.data;
-        callback?.({
-          ...this.messageBuffer
-        });
         break;
 
       case 'end':
         this.messageBuffer.additionalAttributes = {
+          ...this.messageBuffer.additionalAttributes,
           end_event: chunk.data,
-          referenced_documents: chunk.data['referenced_documents'],
-          input_tokens: chunk.data['input_tokens'],
-          output_tokens: chunk.data['output_tokens'],
-          available_quotas: chunk.data['available_quotas'],
+          referenced_documents: this.extractReferencedDocuments(chunk.data),
+          input_tokens: this.extractNumber(chunk.data, 'input_tokens'),
+          output_tokens: this.extractNumber(chunk.data, 'output_tokens'),
+          available_quotas: this.extractRecord(chunk.data, 'available_quotas'),
         };
-        // End event metadata goes into additional attributes
-        callback?.({
-          ...this.messageBuffer
-        });
         break;
 
       case 'error':
         // Handle error events from the server
-        const errorMessage = chunk.data['error'] as string || 'Unknown streaming error';
-        const errorStatus = chunk.data['status'] as number || 500;
+        const errorMessage = this.extractString(chunk.data, 'error') || 'Unknown streaming error';
+        const errorStatus = this.extractNumber(chunk.data, 'status') || 500;
         throw new Error(`Streaming error: ${errorMessage} (status: ${errorStatus})`);
     }
+
+    // Call the callback with current complete message
+    const streamChunk: IStreamChunk<AAIAdditionalAttributes> = {
+      messageId: this.messageBuffer.messageId,
+      answer: this.messageBuffer.answer,
+      conversationId: this.messageBuffer.conversationId,
+      additionalAttributes: this.messageBuffer.additionalAttributes,
+    };
+    handleChunk(streamChunk);
+
+    return updatedBuffer;
   }
 
-  onComplete() {
-    return this.messageBuffer;
-  }
+  /**
+   * Process the entire stream internally
+   */
+  private async processStream(): Promise<IMessageResponse<AAIAdditionalAttributes>> {
+    if (!this.response.body) {
+      throw new Error('Response body is null');
+    }
 
-  onError?(error: Error): void {
-    console.error('SSE Stream error:', error);
-  }
+    const reader = this.response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let messageBuffer = '';
 
-  onAbort?(): void {
-    // Stream was aborted
-  }
+    try {
+      // Initialize message buffer
+      this.messageBuffer = {
+        messageId: '',
+        conversationId: this.initialConversationId,
+        answer: '',
+        additionalAttributes: {
+          start_event: {},
+          tool_call_events: [],
+        },
+      };
 
-  getMessageBuffer(): IStreamChunk<AAIAdditionalAttributes> {
-    return this.messageBuffer;
-  }
-}
+      let shouldContinue = true;
+      while (shouldContinue) {
+        const { done, value } = await reader.read();
+        
+        if (done) break;
 
-/**
- * Parse Server-Sent Events from a ReadableStream
- */
-export async function parseSSEStream(
-  response: Response,
-  handler: IStreamingHandler<AAISSEEvent>
-): Promise<IStreamChunk<AAIAdditionalAttributes>> {
-  if (!response.body) {
-    throw new Error('Response body is null');
-  }
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        
+        // Keep the last incomplete line in the buffer
+        buffer = lines.pop() || '';
 
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-
-  let finalMessage: IStreamChunk<AAIAdditionalAttributes>
-  try {
-    handler.onStart?.();
-
-    let shouldContinue = true;
-    while (shouldContinue) {
-      const { done, value } = await reader.read();
-      
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      
-      // Keep the last incomplete line in the buffer
-      buffer = lines.pop() || '';
-
-      for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          try {
-            const jsonData = line.replace(/^data: /, ''); // Remove 'data: ' prefix
-            const eventData = JSON.parse(jsonData) as AAISSEEvent;
-            handler.onChunk(eventData);
-            
-            if (eventData.event === 'end') {
-              handler.onComplete?.(eventData);
-              shouldContinue = false;
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const jsonData = line.replace(/^data: /, ''); // Remove 'data: ' prefix
+              const eventData = JSON.parse(jsonData) as AAISSEEvent;
+              
+              messageBuffer = this.processChunk(
+                eventData,
+                messageBuffer,
+                this.handleChunk
+              );
+              
+              if (eventData.event === 'end') {
+                shouldContinue = false;
+              }
+            } catch (error) {
+              // Always throw SSE parsing errors - if we can't parse JSON, we can't interpret messages
+              throw new Error(`Failed to parse SSE data: ${line}. ${error instanceof Error ? error.message : String(error)}`);
             }
-          } catch (error) {
-            // Always throw SSE parsing errors - if we can't parse JSON, we can't interpret messages
-            throw new Error(`Failed to parse SSE data: ${line}. ${error instanceof Error ? error.message : String(error)}`);
           }
         }
       }
+    } catch (error) {
+      this.onError?.(error as Error);
+      throw error;
+    } finally {
+      reader.releaseLock();
     }
-    if (handler instanceof AAIDefaultStreamingHandler) {
-      finalMessage = handler.getMessageBuffer();
-    } else {
-      throw new Error('Unknown streaming handler');
+
+    // Return the final message response
+    return {
+      messageId: this.messageBuffer.messageId,
+      answer: this.messageBuffer.answer,
+      conversationId: this.messageBuffer.conversationId,
+      additionalAttributes: this.messageBuffer.additionalAttributes,
+    };
+  }
+
+  /**
+   * Called when an error occurs during streaming
+   */
+  onError?(error: Error): void {
+    console.error('AAI SSE Stream error:', error);
+  }
+
+  /**
+   * Safely extract referenced documents from chunk data
+   */
+  private extractReferencedDocuments(data: Record<string, unknown>): Array<{doc_url: string; doc_title: string}> | undefined {
+    const docs = data['referenced_documents'];
+    if (Array.isArray(docs)) {
+      return docs.filter(doc => 
+        doc && typeof doc === 'object' && 
+        'doc_url' in doc && 'doc_title' in doc &&
+        typeof doc.doc_url === 'string' && typeof doc.doc_title === 'string'
+      );
     }
-    return finalMessage;
-  } catch (error) {
-    handler.onError?.(error instanceof Error ? error : new Error(String(error)));
-    throw error;
-  } finally {
-    reader.releaseLock();
+    return undefined;
+  }
+
+  /**
+   * Safely extract a number from chunk data
+   */
+  private extractNumber(data: Record<string, unknown>, key: string): number | undefined {
+    const value = data[key];
+    return typeof value === 'number' ? value : undefined;
+  }
+
+  /**
+   * Safely extract a string from chunk data
+   */
+  private extractString(data: Record<string, unknown>, key: string): string | undefined {
+    const value = data[key];
+    return typeof value === 'string' ? value : undefined;
+  }
+
+  /**
+   * Safely extract a record from chunk data
+   */
+  private extractRecord(data: Record<string, unknown>, key: string): Record<string, unknown> | undefined {
+    const value = data[key];
+    return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : undefined;
   }
 }

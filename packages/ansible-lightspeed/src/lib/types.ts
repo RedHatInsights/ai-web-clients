@@ -1,5 +1,5 @@
 import { IBaseClientConfig } from '@redhat-cloud-services/ai-client-common';
-import { ReferencedDocument, StreamingEvent } from './streaming-types';
+import { ReferencedDocument } from './streaming-types';
 
 /**
  * Additional attributes specific to Ansible Lightspeed responses
@@ -44,8 +44,7 @@ export type AnsibleLightspeedMessageAttributes = {
 /**
  * Configuration options for the Ansible Lightspeed client
  */
-export interface AnsibleLightspeedConfig
-  extends IBaseClientConfig<StreamingEvent> {
+export interface AnsibleLightspeedConfig extends IBaseClientConfig {
   /**
    * Base URL for the Ansible Lightspeed API
    */

@@ -15,7 +15,6 @@ describe('ClientStateManager', () => {
       }),
       sendMessage: jest.fn(),
       healthCheck: jest.fn(),
-      getDefaultStreamingHandler: jest.fn(),
       getConversationHistory: jest.fn().mockResolvedValue([]),
       createNewConversation: jest.fn().mockResolvedValue({
         id: 'new-conv',
@@ -80,7 +79,9 @@ describe('ClientStateManager', () => {
       expect(mockClient.sendMessage).toHaveBeenCalledWith(
         'conv-456',
         'Hello',
-        undefined
+        expect.objectContaining({
+          afterChunk: expect.any(Function),
+        })
       );
       expect(response).toBeDefined();
       expect(response.messageId).toBe('bot-msg-1');
@@ -168,15 +169,6 @@ describe('ClientStateManager', () => {
     });
 
     it('should handle streaming messages', async () => {
-      const mockHandler = {
-        onChunk: jest.fn(),
-        onStart: jest.fn(),
-        onComplete: jest.fn(),
-      };
-
-      (mockClient.getDefaultStreamingHandler as jest.Mock).mockReturnValue(
-        mockHandler
-      );
       mockClient.sendMessage.mockResolvedValue({
         messageId: 'streaming-msg',
         answer: 'Streaming response',
@@ -195,23 +187,6 @@ describe('ClientStateManager', () => {
         { stream: true, afterChunk: expect.any(Function) }
       );
       expect(response).toBeDefined();
-    });
-
-    it('should throw error when streaming without handler', async () => {
-      (mockClient.getDefaultStreamingHandler as jest.Mock).mockReturnValue(
-        undefined
-      );
-
-      const userMessage: UserQuery = 'This should fail';
-
-      await expect(
-        stateManager.sendMessage(userMessage, { stream: true })
-      ).rejects.toThrow(
-        'Streaming requested but no default streaming handler available in client'
-      );
-
-      // Progress flag should be reset
-      expect(stateManager.getMessageInProgress()).toBe(false);
     });
   });
 
@@ -292,7 +267,9 @@ describe('ClientStateManager', () => {
       expect(mockClient.sendMessage).toHaveBeenCalledWith(
         'unlocked-conv',
         'This should work',
-        undefined
+        expect.objectContaining({
+          afterChunk: expect.any(Function),
+        })
       );
       expect(response).toBeDefined();
       expect(response.messageId).toBe('bot-msg-1');
@@ -309,16 +286,6 @@ describe('ClientStateManager', () => {
       await stateManager.setActiveConversationId('locked-stream-conv');
       const state = stateManager.getState();
       state.conversations['locked-stream-conv'].locked = true;
-
-      const mockHandler = {
-        onStart: jest.fn(),
-        onChunk: jest.fn(),
-        onComplete: jest.fn(),
-        onError: jest.fn(),
-      };
-      (mockClient.getDefaultStreamingHandler as jest.Mock).mockReturnValue(
-        mockHandler
-      );
 
       const userMessage: UserQuery = 'Stream this to locked conversation';
 
@@ -1044,16 +1011,6 @@ describe('ClientStateManager', () => {
     });
 
     it('should work with streaming in temporary conversations', async () => {
-      const mockHandler = {
-        onChunk: jest.fn(),
-        onStart: jest.fn(),
-        onComplete: jest.fn(),
-      };
-
-      mockClient.getDefaultStreamingHandler = jest
-        .fn()
-        .mockReturnValue(mockHandler);
-
       await stateManager.sendMessage('Hello', { stream: true });
 
       // Should promote and work with streaming

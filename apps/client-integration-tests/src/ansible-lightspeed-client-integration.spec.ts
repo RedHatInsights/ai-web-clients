@@ -3,7 +3,7 @@ import type {
   AnsibleLightspeedConfig,
   QueryRequest,
 } from '@redhat-cloud-services/ansible-lightspeed';
-import { processStreamWithHandler } from '@redhat-cloud-services/ansible-lightspeed';
+// processStreamWithHandler removed in decoupled interface
 
 // Import state manager components
 import {
@@ -329,7 +329,8 @@ describe('Ansible Lightspeed Client Integration Tests', () => {
       // - end: { referenced_documents, input_tokens, output_tokens }
 
       expect(typeof client.streamingQuery).toBe('function');
-      expect(typeof processStreamWithHandler).toBe('function');
+      // processStreamWithHandler removed in decoupled interface
+      expect(typeof client.sendMessage).toBe('function');
     });
   });
 

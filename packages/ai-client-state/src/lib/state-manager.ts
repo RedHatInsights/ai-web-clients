@@ -461,103 +461,48 @@ export function createClientStateManager<
       };
       conversation.messages.push(botMessage);
 
-      if (options?.stream) {
-        // Get the client's default streaming handler
-        const originalHandler = client.getDefaultStreamingHandler();
-        if (originalHandler) {
-          const enhancedOptions: ISendMessageOptions<T> = {
-            ...options,
-            afterChunk: (chunk) => {
-              botMessage.answer = chunk.answer;
-              botMessage.id = chunk.messageId ?? botMessage.id;
-              botMessage.additionalAttributes = chunk.additionalAttributes;
-              notify(Events.MESSAGE);
-            },
-          };
+      // Always provide afterChunk callback for state updates - client handles streaming internally
+      const enhancedOptions: ISendMessageOptions<T> = {
+        ...options,
+        afterChunk: (chunk) => {
+          botMessage.answer = chunk.answer;
+          botMessage.id = chunk.messageId ?? botMessage.id;
+          botMessage.additionalAttributes = chunk.additionalAttributes;
+          notify(Events.MESSAGE);
+        },
+      };
 
-          const originalConversationId = conversation.id;
-          return client
-            .sendMessage(originalConversationId, query, enhancedOptions)
-            .catch((error) => {
-              removeMessageFromConversation(
-                botMessage.id,
-                originalConversationId
-              );
-              notify(Events.MESSAGE);
-              throw error;
-            })
-            .then((response) => {
-              // Check if conversation ID changed and handle promotion
-              if (response && response.conversationId) {
-                handleConversationPromotion(
-                  originalConversationId,
-                  response.conversationId
-                );
-              }
-              return response;
-            })
-            .finally(() => {
-              state.messageInProgress = false;
-              notify(Events.IN_PROGRESS);
-            });
-        } else {
-          // No streaming handler available but stream was requested
-          throw new Error(
-            'Streaming requested but no default streaming handler available in client'
-          );
-        }
-      } else {
-        // Non-streaming: update bot message after response
-        const originalConversationId = conversation.id;
-        return client
-          .sendMessage(originalConversationId, query, options)
-          .catch((error) => {
-            removeMessageFromConversation(
-              botMessage.id,
-              originalConversationId
+      const originalConversationId = conversation.id;
+      return client
+        .sendMessage(originalConversationId, query, enhancedOptions)
+        .catch((error) => {
+          removeMessageFromConversation(botMessage.id, originalConversationId);
+          notify(Events.MESSAGE);
+          throw error;
+        })
+        .then((response) => {
+          // Update final bot message from response (handles both streaming and non-streaming)
+          botMessage.answer = response.answer;
+          botMessage.id = response.messageId || botMessage.id;
+          if (response.additionalAttributes) {
+            botMessage.additionalAttributes = response.additionalAttributes;
+          }
+
+          // Check if conversation ID changed and handle promotion
+          if (response.conversationId) {
+            handleConversationPromotion(
+              originalConversationId,
+              response.conversationId
             );
-            throw error;
-          })
-          .then((response) => {
-            if (response) {
-              if (
-                typeof response === 'object' &&
-                response &&
-                'answer' in response &&
-                'messageId' in response
-              ) {
-                const typedResponse = response as {
-                  answer: string;
-                  messageId: string;
-                  conversationId?: string;
-                  additionalAttributes?: T;
-                };
-                botMessage.answer = typedResponse.answer;
-                botMessage.id = typedResponse.messageId || botMessage.id;
-                if (typedResponse.additionalAttributes) {
-                  botMessage.additionalAttributes =
-                    typedResponse.additionalAttributes;
-                }
+          }
 
-                // Check if conversation ID changed and handle promotion
-                if (typedResponse.conversationId) {
-                  handleConversationPromotion(
-                    originalConversationId,
-                    typedResponse.conversationId
-                  );
-                }
-              } else if (typeof response === 'string') {
-                botMessage.answer = response as string;
-              }
-            }
-            return response;
-          })
-          .finally(() => {
-            state.messageInProgress = false;
-            notify(Events.IN_PROGRESS);
-            notify(Events.MESSAGE);
-          });
-      }
+          notify(Events.MESSAGE); // Final message update
+          return response;
+        })
+        .finally(() => {
+          state.messageInProgress = false;
+          notify(Events.IN_PROGRESS);
+        });
     } catch (error) {
       // Make sure to reset progress flag on any error
       state.messageInProgress = false;

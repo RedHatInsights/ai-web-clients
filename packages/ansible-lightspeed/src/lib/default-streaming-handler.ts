@@ -1,8 +1,8 @@
 import {
-  AfterChunkCallback,
+  HandleChunkCallback,
+  ISimpleStreamingHandler,
   IMessageResponse,
   IStreamChunk,
-  IStreamingHandler,
 } from '@redhat-cloud-services/ai-client-common';
 import {
   isEndEvent,
@@ -13,10 +13,12 @@ import {
 import { AnsibleLightspeedMessageAttributes } from './types';
 
 /**
- * Default streaming handler for processing Server-Sent Events from Ansible Lightspeed API
+ * Self-contained streaming handler for processing Server-Sent Events from Ansible Lightspeed API
+ *
+ * Processes streams internally and provides final result via getResult()
  */
 export class DefaultStreamingHandler
-  implements IStreamingHandler<StreamingEvent>
+  implements ISimpleStreamingHandler<StreamingEvent>
 {
   private messageBuffer: MessageEvent = {
     data: {
@@ -31,33 +33,46 @@ export class DefaultStreamingHandler
     },
     event: 'message',
   };
+  private conversationId = '';
+  private streamPromise: Promise<
+    IMessageResponse<AnsibleLightspeedMessageAttributes>
+  >;
 
-  onStart(): void {
-    this.messageBuffer = {
-      data: {
-        id: 0,
-        role: '',
-        token: '',
-        referenced_documents: [],
-        truncated: false,
-        input_tokens: 0,
-        output_tokens: 0,
-        available_quotas: {},
-      },
-      event: 'message',
-    };
+  constructor(
+    private response: Response,
+    private initialConversationId: string,
+    private handleChunk: HandleChunkCallback<AnsibleLightspeedMessageAttributes>
+  ) {
+    this.conversationId = this.initialConversationId;
+    // Start processing immediately and store the promise
+    this.streamPromise = this.processStream();
   }
 
-  onChunk(
+  /**
+   * Get the final result (call this after stream completes)
+   */
+  async getResult(): Promise<
+    IMessageResponse<AnsibleLightspeedMessageAttributes>
+  > {
+    return this.streamPromise;
+  }
+
+  /**
+   * Process a chunk and return updated message buffer
+   * Updates internal state and calls handleChunk callback
+   */
+  processChunk(
     chunk: StreamingEvent,
-    afterChunk?: (
-      chunk: IStreamChunk<AnsibleLightspeedMessageAttributes>
-    ) => void
-  ): void {
+    currentBuffer: string,
+    handleChunk: HandleChunkCallback<AnsibleLightspeedMessageAttributes>
+  ): string {
+    let updatedBuffer = currentBuffer;
+
     if (isTokenEvent(chunk)) {
       this.messageBuffer.data.id = chunk.data.id;
       this.messageBuffer.data.role = chunk.data.role;
       this.messageBuffer.data.token += chunk.data.token;
+      updatedBuffer = this.messageBuffer.data.token;
     }
 
     if (isEndEvent(chunk)) {
@@ -70,11 +85,12 @@ export class DefaultStreamingHandler
         chunk.data.available_quotas || {};
     }
 
-    if (afterChunk) {
-      const commonChunk: IStreamChunk<AnsibleLightspeedMessageAttributes> = {
+    // Call the callback with current complete message
+    if (updatedBuffer) {
+      const streamChunk: IStreamChunk<AnsibleLightspeedMessageAttributes> = {
         messageId: this.messageBuffer.data.id.toString(),
         answer: this.messageBuffer.data.token,
-        conversationId: '',
+        conversationId: this.conversationId,
         additionalAttributes: {
           referenced_documents: this.messageBuffer.data.referenced_documents,
           truncated: this.messageBuffer.data.truncated,
@@ -83,11 +99,19 @@ export class DefaultStreamingHandler
           available_quotas: this.messageBuffer.data.available_quotas,
         },
       };
-      afterChunk?.(commonChunk);
+      handleChunk(streamChunk);
     }
+
+    return updatedBuffer;
   }
 
-  onComplete(_finalChunk: StreamingEvent): void {
+  /**
+   * Process the entire stream internally
+   */
+  private async processStream(): Promise<
+    IMessageResponse<AnsibleLightspeedMessageAttributes>
+  > {
+    // Initialize message buffer
     this.messageBuffer = {
       data: {
         id: 0,
@@ -101,21 +125,16 @@ export class DefaultStreamingHandler
       },
       event: 'message',
     };
-  }
-  /**
-   * Process a streaming response from the API
-   */
-  async processStream(
-    response: Response,
-    afterChunk?: AfterChunkCallback<AnsibleLightspeedMessageAttributes>
-  ): Promise<IMessageResponse<AnsibleLightspeedMessageAttributes>> {
-    this.onStart();
-    if (!response.body) {
+
+    if (!this.response.body) {
       throw new Error('Response body is null');
     }
-    const reader = response.body.getReader();
+
+    const reader = this.response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
+    let messageBuffer = '';
+
     try {
       while (true) {
         const { done, value } = await reader.read();
@@ -133,21 +152,29 @@ export class DefaultStreamingHandler
         for (const line of lines) {
           const chunk = await this.processLine(line.trim());
           if (chunk) {
-            this.onChunk(chunk, afterChunk);
+            messageBuffer = this.processChunk(
+              chunk,
+              messageBuffer,
+              this.handleChunk
+            );
           }
         }
       }
 
       // Process any remaining data in buffer
       if (buffer.trim()) {
-        await this.processLine(buffer.trim());
+        const chunk = await this.processLine(buffer.trim());
+        if (chunk) {
+          messageBuffer = this.processChunk(
+            chunk,
+            messageBuffer,
+            this.handleChunk
+          );
+        }
       }
-
-      this.onComplete(this.messageBuffer);
     } catch (error) {
-      const errorObj =
-        error instanceof Error ? error : new Error(String(error));
-      errorObj;
+      this.onError?.(error as Error);
+      throw error;
     } finally {
       reader.releaseLock();
     }
@@ -156,7 +183,7 @@ export class DefaultStreamingHandler
     return {
       messageId: this.messageBuffer.data.id.toString() || crypto.randomUUID(),
       answer: this.messageBuffer.data.token,
-      conversationId: '', // Ansible Lightspeed doesn't use conversationId in the same way
+      conversationId: this.conversationId,
       additionalAttributes: {
         provider: undefined,
         model: undefined,
@@ -178,21 +205,11 @@ export class DefaultStreamingHandler
     const event: StreamingEvent = JSON.parse(jsonData);
     return event;
   }
-}
 
-/**
- * Process a stream with a handler function
- */
-export async function processStreamWithHandler(
-  response: Response,
-  handler: IStreamingHandler<StreamingEvent>,
-  afterChunk?: AfterChunkCallback<AnsibleLightspeedMessageAttributes>
-): Promise<IMessageResponse<AnsibleLightspeedMessageAttributes>> {
-  if (handler instanceof DefaultStreamingHandler) {
-    return handler.processStream(response, afterChunk);
+  /**
+   * Called when an error occurs during streaming
+   */
+  onError?(error: Error): void {
+    console.error('Ansible Lightspeed streaming error:', error);
   }
-
-  throw new Error(
-    'Unsupported streaming handler type. Use DefaultStreamingHandler for Ansible Lightspeed.'
-  );
 }

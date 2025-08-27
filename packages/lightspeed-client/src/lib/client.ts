@@ -1,8 +1,9 @@
-import { LightspeedClientConfig } from './interfaces';
+import {
+  LightspeedClientConfig,
+  LightspeedSendMessageOptions,
+} from './interfaces';
 import {
   IAIClient,
-  IStreamingHandler,
-  ISendMessageOptions,
   IMessageResponse,
   IFetchFunction,
   IRequestOptions,
@@ -12,7 +13,6 @@ import {
 import {
   LLMRequest,
   LLMResponse,
-  MessageChunkResponse,
   FeedbackRequest,
   FeedbackResponse,
   StatusResponse,
@@ -24,10 +24,7 @@ import {
   LightspeedValidationError,
   LightSpeedCoreAdditionalProperties,
 } from './types';
-import {
-  DefaultStreamingHandler,
-  processStreamWithHandler,
-} from './default-streaming-handler';
+import { DefaultStreamingHandler } from './default-streaming-handler';
 
 /**
  * OpenShift Lightspeed API Client
@@ -38,19 +35,15 @@ import {
  * Implements the exact OpenAPI specification for Lightspeed v1.0.1
  */
 export class LightspeedClient
-  implements
-    IAIClient<LightSpeedCoreAdditionalProperties, MessageChunkResponse>
+  implements IAIClient<LightSpeedCoreAdditionalProperties>
 {
   private readonly baseUrl: string;
   private readonly fetchFunction: IFetchFunction;
-  private readonly defaultStreamingHandler?: IStreamingHandler<MessageChunkResponse>;
 
   constructor(config: LightspeedClientConfig) {
     this.baseUrl = config.baseUrl.replace(/\/$/, ''); // Remove trailing slash
     this.fetchFunction =
       config.fetchFunction || ((input, init) => fetch(input, init));
-    this.defaultStreamingHandler =
-      config.defaultStreamingHandler || new DefaultStreamingHandler();
   }
 
   // ====================
@@ -70,58 +63,56 @@ export class LightspeedClient
 
   /**
    * Send a message to the Lightspeed API
-   * Supports both streaming and non-streaming modes
+   * Supports both streaming and non-streaming modes with dual media types
    * @param conversationId - The conversation ID to send the message to
    * @param message - The message content to send
-   * @param options - Optional configuration for the request including user_id
+   * @param options - Optional configuration for the request including media type
    * @returns Promise that resolves to the AI's response
    */
-  async sendMessage<TChunk = MessageChunkResponse>(
+  async sendMessage(
     conversationId: string,
     message: string,
-    options?: ISendMessageOptions<LightSpeedCoreAdditionalProperties> & {
+    options?: LightspeedSendMessageOptions & {
       userId?: string;
     }
   ): Promise<IMessageResponse<LightSpeedCoreAdditionalProperties>> {
+    // Determine media type from options, defaulting to text/plain for backward compatibility
+    const mediaType = options?.mediaType || 'text/plain';
+
     const request: LLMRequest = {
       query: message,
       conversation_id: conversationId,
-      media_type: 'text/plain', // API only accepts 'text/plain' or 'application/json'
+      media_type: mediaType,
     };
 
-    // Add optional fields if provided in options (these would need to be passed via custom options)
-    // The standard ISendMessageOptions doesn't include these fields
-
     if (options?.stream) {
-      // Streaming request
-      const handler = this.defaultStreamingHandler as IStreamingHandler<TChunk>;
-      if (!handler) {
-        throw new LightspeedClientError(
-          500,
-          'Configuration Error',
-          'No streaming handler configured'
-        );
-      }
-
+      // Streaming request - use self-contained handler approach
       const url = this.buildUrl('/v1/streaming_query', options?.userId);
       const response = await this.makeRequest<Response>(url, {
         method: 'POST',
         body: JSON.stringify(request),
         headers: {
           'Content-Type': 'application/json',
-          Accept: 'application/json', // API spec shows streaming returns application/json
+          Accept:
+            mediaType === 'application/json'
+              ? 'application/json'
+              : 'text/plain',
           ...options?.headers,
         },
         signal: options?.signal,
       });
 
-      // Process the streaming response
-      return await processStreamWithHandler(
+      // Create self-contained streaming handler
+      // Always provide handleChunk callback (state manager should provide this)
+      const handleChunk = options?.afterChunk || (() => {}); // fallback for safety
+      const handler = new DefaultStreamingHandler(
         response,
-        handler as IStreamingHandler<MessageChunkResponse>,
         conversationId,
-        options?.afterChunk
+        mediaType,
+        handleChunk
       );
+
+      return await handler.getResult();
     } else {
       // Non-streaming request
       const url = this.buildUrl('/v1/query', options?.userId);
@@ -140,7 +131,6 @@ export class LightspeedClient
       const messageResponse: IMessageResponse<LightSpeedCoreAdditionalProperties> =
         {
           messageId: this.generateMessageId(),
-          // LC returns response.response as 'answer' in the latest spec
           answer: response.response,
           date: new Date(),
           conversationId: response.conversation_id,
@@ -171,18 +161,6 @@ export class LightspeedClient
     // In a real implementation, you would likely want to store this conversation
     // in some state management or database. Here we just return it.
     return newConversation;
-  }
-
-  /**
-   * Get the default streaming handler for this client
-   * @returns The default streaming handler or undefined if not configured
-   */
-  getDefaultStreamingHandler<TChunk = MessageChunkResponse>():
-    | IStreamingHandler<TChunk>
-    | undefined {
-    return this.defaultStreamingHandler as
-      | IStreamingHandler<TChunk>
-      | undefined;
   }
 
   /**

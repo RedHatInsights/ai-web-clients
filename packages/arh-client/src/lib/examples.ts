@@ -3,15 +3,12 @@
  * These demonstrate how to use the client with custom fetch and streaming handlers
  */
 
-import {
-  IFDClient,
-  MessageChunkResponse,
-  DefaultStreamingHandler,
-} from './index';
+import { IFDClient } from './index';
 import {
   IFetchFunction,
-  IStreamingHandler,
+  IStreamChunk,
 } from '@redhat-cloud-services/ai-client-common';
+import type { IFDAdditionalAttributes } from './types';
 
 /**
  * Example: Custom fetch function with Bearer token authentication
@@ -59,118 +56,55 @@ export function createRetryFetch(
 }
 
 /**
- * Example: Simple console logging streaming handler
- * Implements the common IStreamingHandler interface
+ * Example: Simple console logging for streaming chunks
+ * Uses the new decoupled afterChunk callback pattern
  */
-export class ConsoleStreamingHandler
-  implements IStreamingHandler<MessageChunkResponse>
-{
-  private messageBuffer: string = '';
+export function createConsoleChunkHandler() {
+  let messageBuffer = '';
 
-  onStart(conversationId?: string, messageId?: string): void {
-    console.log(
-      `Starting stream for conversation ${conversationId}, message ${messageId}`
-    );
-    this.messageBuffer = '';
-  }
-
-  onChunk(chunk: MessageChunkResponse): void {
-    this.messageBuffer = chunk.answer || '';
+  return (chunk: IStreamChunk<IFDAdditionalAttributes>) => {
+    messageBuffer = chunk.answer || '';
     console.log('Chunk received:', chunk.answer);
-  }
-
-  onComplete(): void {
-    console.log('Stream completed. Final message:', this.messageBuffer);
-  }
-
-  onError(error: Error): void {
-    console.error('Stream error:', error);
-  }
-
-  onAbort(): void {
-    console.log('Stream aborted');
-  }
-
-  getCompleteMessage(): string {
-    return this.messageBuffer;
-  }
+    console.log('Complete message so far:', messageBuffer);
+  };
 }
 
 /**
- * Example: Event-based streaming handler for React/browser applications
- * Implements the common IStreamingHandler interface
+ * Example: Event-based streaming for React/browser applications
+ * Uses the new decoupled afterChunk callback pattern with EventTarget
  */
-export class EventStreamingHandler
-  implements IStreamingHandler<MessageChunkResponse>
-{
-  private eventTarget = new EventTarget();
-  private messageBuffer: string = '';
+export function createEventChunkHandler() {
+  const eventTarget = new EventTarget();
+  let messageBuffer = '';
 
-  onStart(conversationId?: string, messageId?: string): void {
-    this.messageBuffer = '';
-    this.eventTarget.dispatchEvent(
-      new CustomEvent('stream:start', {
-        detail: { conversationId, messageId },
-      })
-    );
-  }
-
-  onChunk(chunk: MessageChunkResponse): void {
-    this.messageBuffer = chunk.answer || '';
-    this.eventTarget.dispatchEvent(
+  const chunkHandler = (chunk: IStreamChunk<IFDAdditionalAttributes>) => {
+    messageBuffer = chunk.answer || '';
+    eventTarget.dispatchEvent(
       new CustomEvent('stream:chunk', {
-        detail: { chunk, completeMessage: this.messageBuffer },
+        detail: { chunk, completeMessage: messageBuffer },
       })
     );
-  }
+  };
 
-  onComplete(finalChunk?: MessageChunkResponse): void {
-    this.eventTarget.dispatchEvent(
-      new CustomEvent('stream:complete', {
-        detail: { finalChunk, completeMessage: this.messageBuffer },
-      })
-    );
-  }
-
-  onError(error: Error): void {
-    this.eventTarget.dispatchEvent(
-      new CustomEvent('stream:error', {
-        detail: { error },
-      })
-    );
-  }
-
-  onAbort(): void {
-    this.eventTarget.dispatchEvent(new CustomEvent('stream:abort'));
-  }
-
-  addEventListener(type: string, listener: EventListener): void {
-    this.eventTarget.addEventListener(type, listener);
-  }
-
-  removeEventListener(type: string, listener: EventListener): void {
-    this.eventTarget.removeEventListener(type, listener);
-  }
-
-  getCompleteMessage(): string {
-    return this.messageBuffer;
-  }
+  return {
+    chunkHandler,
+    addEventListener: (type: string, listener: EventListener) => {
+      eventTarget.addEventListener(type, listener);
+    },
+    removeEventListener: (type: string, listener: EventListener) => {
+      eventTarget.removeEventListener(type, listener);
+    },
+    getCompleteMessage: () => messageBuffer,
+  };
 }
 
 /**
- * Example: Complete usage demonstration of the new unified API
+ * Example: Complete usage demonstration of the new decoupled API
  */
 export async function exampleUsage() {
   const bearerToken = 'your-jwt-token-here';
 
-  // Example 1: Client with default streaming handler
-  const clientWithDefaultHandler = new IFDClient({
-    baseUrl: 'https://your-ifd-api.com',
-    fetchFunction: createAuthenticatedFetch(bearerToken),
-    defaultStreamingHandler: new DefaultStreamingHandler(), // Configure default handler
-  });
-
-  // Example 2: Client without default streaming handler
+  // Create client with the new decoupled interface
   const client = new IFDClient({
     baseUrl: 'https://your-ifd-api.com',
     fetchFunction: createAuthenticatedFetch(bearerToken),
@@ -181,7 +115,7 @@ export async function exampleUsage() {
     const conversation = await client.createConversation();
     console.log('New conversation created:', conversation.conversation_id);
 
-    // Example 3: Send a non-streaming message (returns IMessageResponse)
+    // Example 1: Send a non-streaming message (returns IMessageResponse)
     const response = await client.sendMessage(
       conversation.conversation_id,
       'What is Red Hat OpenShift?'
@@ -190,44 +124,50 @@ export async function exampleUsage() {
     console.log('Message ID:', response?.messageId);
     console.log('Additional attributes:', response?.additionalAttributes);
 
-    // Example 4: Send streaming message using client with default handler
-    await clientWithDefaultHandler.sendMessage(
+    // Example 2: Send streaming message with console logging
+    const consoleHandler = createConsoleChunkHandler();
+    await client.sendMessage(
       conversation.conversation_id,
       'Tell me more about OpenShift features',
-      { stream: true } // Uses the default handler configured in client
+      {
+        stream: true,
+        afterChunk: consoleHandler,
+      }
     );
 
-    // Example 5: Send streaming message with client that has no default handler
-    // This will fail because no handler is configured
-    try {
-      await client.sendMessage(
-        conversation.conversation_id,
-        'This will fail - no handler configured',
-        { stream: true }
-      );
-    } catch (error) {
-      console.log('Expected error for missing handler:', error);
-    }
+    // Example 3: Send streaming message with event-based handling
+    const eventHandler = createEventChunkHandler();
 
-    // Example 7: Access the default streaming handler for inspection
-    const defaultHandler =
-      clientWithDefaultHandler.getDefaultStreamingHandler();
-    if (defaultHandler) {
-      console.log('Client has a default streaming handler configured');
-      // You could inspect or extend it with additional functionality here
-    }
-
-    // Example 6: Create a client specifically for a custom handler when needed
-    const clientWithCustomHandler = new IFDClient({
-      baseUrl: 'https://your-ifd-api.com',
-      fetchFunction: createAuthenticatedFetch(bearerToken),
-      defaultStreamingHandler: new ConsoleStreamingHandler(), // Use custom handler
+    // Set up event listeners
+    eventHandler.addEventListener('stream:chunk', (event: any) => {
+      console.log('Event received:', event.detail.completeMessage);
     });
 
-    await clientWithCustomHandler.sendMessage(
+    await client.sendMessage(
       conversation.conversation_id,
       'What are the benefits of containerization?',
-      { stream: true } // Uses the ConsoleStreamingHandler
+      {
+        stream: true,
+        afterChunk: eventHandler.chunkHandler,
+      }
+    );
+
+    console.log('Final message:', eventHandler.getCompleteMessage());
+
+    // Example 4: Inline afterChunk callback
+    await client.sendMessage(
+      conversation.conversation_id,
+      'How does OpenShift handle security?',
+      {
+        stream: true,
+        afterChunk: (chunk: IStreamChunk<IFDAdditionalAttributes>) => {
+          console.log('Inline handler - chunk:', chunk.answer);
+          console.log(
+            'Chunk additional attributes:',
+            chunk.additionalAttributes
+          );
+        },
+      }
     );
 
     // Get conversation history

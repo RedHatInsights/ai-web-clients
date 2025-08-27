@@ -6,15 +6,11 @@ import {
   IMessageResponse,
   IConversationHistoryResponse,
   IConversation,
-  IStreamingHandler,
   ClientInitLimitation,
   IInitErrorResponse,
   IFetchFunction,
 } from '@redhat-cloud-services/ai-client-common';
-import { 
-  AAIDefaultStreamingHandler, 
-  parseSSEStream
-} from './sse-streaming-handler';
+import { AAIDefaultStreamingHandler } from './sse-streaming-handler';
 import {
   AAIAdditionalAttributes,
   AAIRequestBody,
@@ -24,8 +20,8 @@ import {
 /**
  * Configuration options for the AAI client
  */
-export interface AAIClientConfig extends IBaseClientConfig<AAISSEEvent> {
-  // Inherits baseUrl, fetchFunction, and defaultStreamingHandler from IBaseClientConfig
+export interface AAIClientConfig extends IBaseClientConfig {
+  // Inherits baseUrl and fetchFunction from IBaseClientConfig
 }
 
 // Extended send message options for AAI
@@ -38,15 +34,13 @@ export interface AAISendMessageOptions extends ISendMessageOptions<Record<string
  *
  * A TypeScript client for the AAI API with Server-Sent Events streaming support.
  */
-export class AAIClient implements IAIClient<AAIAdditionalAttributes, AAISSEEvent> {
+export class AAIClient implements IAIClient<AAIAdditionalAttributes> {
   private readonly baseUrl: string;
   private readonly fetchFunction: IFetchFunction;
-  private readonly defaultStreamingHandler?: IStreamingHandler<AAISSEEvent>;
 
   constructor(config: AAIClientConfig) {
     this.baseUrl = config.baseUrl;
     this.fetchFunction = config.fetchFunction || ((input, init) => fetch(input, init));
-    this.defaultStreamingHandler = config.defaultStreamingHandler || new AAIDefaultStreamingHandler();
   }
 
   /**
@@ -108,44 +102,21 @@ export class AAIClient implements IAIClient<AAIAdditionalAttributes, AAISSEEvent
     }
 
     if (options?.stream) {
-      // For streaming mode with afterChunk, collect final response data
-      let finalAnswer = '';
-      let messageId = '';
-      let conversationId_from_stream = '';
-      const additionalAttributes: Record<string, unknown> = {};
-
-      const handler = new AAIDefaultStreamingHandler((chunk) => {
-        finalAnswer = chunk.answer;
-        messageId = chunk.messageId;
-        Object.assign(additionalAttributes, chunk.additionalAttributes);
-        
-        // Also call the user's afterChunk callback
-        options.afterChunk?.({
-          answer: chunk.answer,
-          messageId: chunk.messageId,
-          conversationId: chunk.conversationId,
-          additionalAttributes: chunk.additionalAttributes,
-        });
-      });
+      // Create self-contained streaming handler
+      const handleChunk = options?.afterChunk || (() => {}); // fallback for safety
+      const handler = new AAIDefaultStreamingHandler(
+        response,
+        conversationId,
+        handleChunk
+      );
       
-      
-      const finalMessage = await parseSSEStream(response, handler);
-      conversationId_from_stream = finalMessage.conversationId || conversationId;
-      
-      // Always return a response for streaming mode
-      return finalMessage;
+      return await handler.getResult();
     }
 
     // There is no non streaming variant
     throw new Error('Non-streaming sendMessage is not supported in AAI client');
   }
 
-  /**
-   * Get the default streaming handler for this client
-   */
-  getDefaultStreamingHandler<TChunk = AAISSEEvent>(): IStreamingHandler<TChunk> | undefined {
-    return this.defaultStreamingHandler as IStreamingHandler<TChunk> | undefined;
-  }
 
   /**
    * Get the conversation history for a specific conversation

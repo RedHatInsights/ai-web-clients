@@ -9,7 +9,7 @@ export interface IFetchFunction {
 /**
  * Base configuration interface for all AI clients
  */
-export interface IBaseClientConfig<TChunk = unknown> {
+export interface IBaseClientConfig {
   /**
    * The base URL for the API
    */
@@ -20,13 +20,6 @@ export interface IBaseClientConfig<TChunk = unknown> {
    * Must include authentication headers (Bearer token) if needed
    */
   fetchFunction?: IFetchFunction;
-
-  /**
-   * Default streaming handler for the client
-   * Used when sendMessage is called with stream=true but no streamingHandler provided
-   * Individual requests can override this by providing their own streamingHandler
-   */
-  defaultStreamingHandler?: IStreamingHandler<TChunk>;
 }
 
 /**
@@ -70,10 +63,9 @@ export type ClientInitLimitation = {
  * Provides a standardized way to interact with different AI services
  */
 declare class IAIClient<
-  AP extends Record<string, unknown> = Record<string, unknown>,
-  TChunk = unknown
+  AP extends Record<string, unknown> = Record<string, unknown>
 > {
-  constructor(config: IBaseClientConfig<TChunk>);
+  constructor(config: IBaseClientConfig);
   /**
    * Initialize the client and return existing conversations
    * This method is called once when the client is first used by a state manager
@@ -113,15 +105,6 @@ declare class IAIClient<
     message: string,
     options?: ISendMessageOptions<T, R>
   ): Promise<IMessageResponse<AP>>;
-
-  /**
-   * Get the default streaming handler for this client
-   * All AI clients must implement this method to provide consistent streaming behavior
-   * @returns The default streaming handler or undefined if not configured
-   */
-  getDefaultStreamingHandler<TChunk = unknown>():
-    | IStreamingHandler<TChunk>
-    | undefined;
 
   /**
    * Get the conversation history for a specific conversation
@@ -251,13 +234,13 @@ declare class ISimpleStreamingHandler<TChunk = unknown> {
    * Process a chunk and return updated message buffer
    * @param chunk - The chunk data (text string or parsed JSON object)
    * @param currentBuffer - The current accumulated message content
-   * @param handleChunk - Optional callback to execute with current complete message
+   * @param handleChunk - Mandatory callback to execute with current complete message
    * @returns Updated message buffer after processing this chunk
    */
   processChunk(
     chunk: TChunk,
     currentBuffer: string,
-    handleChunk?: HandleChunkCallback
+    handleChunk: HandleChunkCallback
   ): string;
 
   /**

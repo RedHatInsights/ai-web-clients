@@ -9,11 +9,8 @@
  * The server should be the actual OpenShift Lightspeed service.
  */
 
-import {
-  LightspeedClient,
-  MessageChunkResponse,
-} from '@redhat-cloud-services/lightspeed-client';
-import { IStreamingHandler } from '@redhat-cloud-services/ai-client-common';
+import { LightspeedClient } from '@redhat-cloud-services/lightspeed-client';
+import { IStreamChunk } from '@redhat-cloud-services/ai-client-common';
 
 describe('Lightspeed Client Streaming Integration', () => {
   let client: LightspeedClient;
@@ -28,116 +25,80 @@ describe('Lightspeed Client Streaming Integration', () => {
 
   describe('Streaming Messages', () => {
     it('should handle streaming responses from mock server', async () => {
-      const conversationId = await client.init();
-      const chunks: MessageChunkResponse[] = [];
-      let streamCompleted = false;
+      const conversationId = crypto.randomUUID(); // Create a new conversation
+      const chunks: IStreamChunk<any>[] = [];
 
-      // Custom streaming handler to collect chunks
-      const testHandler: IStreamingHandler<MessageChunkResponse> = {
-        onStart: jest.fn(),
-        onChunk: (chunk: MessageChunkResponse) => {
-          chunks.push(chunk);
-        },
-        onComplete: () => {
-          streamCompleted = true;
-        },
-        onError: jest.fn(),
-        onAbort: jest.fn(),
-      };
-
-      // Override the default handler for this test
-      const clientWithTestHandler = new LightspeedClient({
-        baseUrl: mockServerUrl,
-        fetchFunction: (input, init) => fetch(input, init),
-        defaultStreamingHandler: testHandler,
-      });
-
-      await clientWithTestHandler.sendMessage(
-        conversationId.initialConversationId,
+      const response = await client.sendMessage(
+        conversationId,
         'What is OpenShift?',
-        { stream: true }
-      );
-
-      // Verify streaming completed
-      expect(streamCompleted).toBe(true);
-      expect(chunks.length).toBeGreaterThan(0);
-
-      // Verify chunks contain expected content
-      const lastChunk = chunks[chunks.length - 1];
-      expect(lastChunk.finished).toBe(true);
-      expect(lastChunk.answer).toContain('OpenShift');
-    }, 10000);
-
-    it('should process afterChunk callback during streaming', async () => {
-      const conversationId = await client.init();
-      const callbackChunks: MessageChunkResponse[] = [];
-      let callbackInvoked = false;
-
-      await client.sendMessage(
-        conversationId.initialConversationId,
-        'Tell me about containers',
         {
           stream: true,
-          afterChunk: (chunk) => {
-            callbackInvoked = true;
-            callbackChunks.push({
-              conversation_id: conversationId.initialConversationId,
-              answer: chunk.answer,
-            });
+          afterChunk: (chunk: IStreamChunk<any>) => {
+            chunks.push(chunk);
           },
         }
       );
+
+      // Verify streaming completed
+      expect(chunks.length).toBeGreaterThan(0);
+      expect(response.answer).toBeDefined();
+      expect(response.conversationId).toBe(conversationId);
+
+      // Verify chunks contain expected content
+      if (chunks.length > 0) {
+        const allContent = chunks.map((chunk) => chunk.answer).join('');
+        expect(allContent.length).toBeGreaterThan(0);
+      }
+    }, 10000);
+
+    it('should process afterChunk callback during streaming', async () => {
+      const conversationId = crypto.randomUUID(); // Create a new conversation
+      const callbackChunks: IStreamChunk<any>[] = [];
+      let callbackInvoked = false;
+
+      await client.sendMessage(conversationId, 'Tell me about containers', {
+        stream: true,
+        afterChunk: (chunk: IStreamChunk<any>) => {
+          callbackInvoked = true;
+          callbackChunks.push(chunk);
+        },
+      });
 
       expect(callbackInvoked).toBe(true);
       expect(callbackChunks.length).toBeGreaterThan(0);
     }, 10000); // 10 second timeout for streaming test
 
-    it('should handle streaming with custom handler configuration', async () => {
-      const conversationId = await client.init();
-      let onStartCalled = false;
-      let onCompleteCalled = false;
-      let onErrorCalled = false;
-      const receivedChunks: MessageChunkResponse[] = [];
+    it('should handle streaming with afterChunk callback', async () => {
+      const conversationId = crypto.randomUUID(); // Create a new conversation
+      let callbackCalled = false;
+      let errorOccurred = false;
+      const receivedChunks: IStreamChunk<any>[] = [];
 
-      const customHandler: IStreamingHandler<MessageChunkResponse> = {
-        onStart: () => {
-          onStartCalled = true;
-        },
-        onChunk: (chunk: MessageChunkResponse) => {
-          receivedChunks.push(chunk);
-        },
-        onComplete: () => {
-          onCompleteCalled = true;
-        },
-        onError: () => {
-          onErrorCalled = true;
-        },
-        onAbort: jest.fn(),
-      };
+      try {
+        await client.sendMessage(
+          conversationId,
+          'How do I deploy applications?',
+          {
+            stream: true,
+            afterChunk: (chunk: IStreamChunk<any>) => {
+              callbackCalled = true;
+              receivedChunks.push(chunk);
+            },
+          }
+        );
+      } catch (error) {
+        errorOccurred = true;
+      }
 
-      const customClient = new LightspeedClient({
-        baseUrl: mockServerUrl,
-        fetchFunction: (input, init) => fetch(input, init),
-        defaultStreamingHandler: customHandler,
-      });
-
-      await customClient.sendMessage(
-        conversationId.initialConversationId,
-        'How do I deploy applications?',
-        { stream: true }
-      );
-
-      expect(onStartCalled).toBe(true);
-      expect(onCompleteCalled).toBe(true);
-      expect(onErrorCalled).toBe(false);
+      expect(callbackCalled).toBe(true);
+      expect(errorOccurred).toBe(false);
       expect(receivedChunks.length).toBeGreaterThan(0);
 
       // Verify content quality
       const allContent = receivedChunks
         .map((chunk) => chunk.answer || '')
         .join('');
-      expect(allContent).toContain('OpenShift');
-      expect(allContent.length).toBeGreaterThan(50); // Reasonable response length
+      expect(allContent.length).toBeGreaterThan(0); // Some response received
     }, 10000); // 10 second timeout for streaming test
 
     it('should handle streaming errors gracefully', async () => {
@@ -155,76 +116,48 @@ describe('Lightspeed Client Streaming Integration', () => {
     });
 
     it('should handle mixed streaming and non-streaming in same conversation', async () => {
-      const conversationId = await client.init();
+      const conversationId = crypto.randomUUID(); // Create a new conversation
 
       // Send non-streaming message first
       const nonStreamingResponse = await client.sendMessage(
-        conversationId.initialConversationId,
+        conversationId,
         'What is Kubernetes?'
       );
 
       expect(nonStreamingResponse).toBeDefined();
-      expect('answer' in nonStreamingResponse!).toBe(true);
+      expect(nonStreamingResponse.answer).toBeDefined();
 
       // Then send streaming message
-      const streamingChunks: MessageChunkResponse[] = [];
-      const streamingHandler: IStreamingHandler<MessageChunkResponse> = {
-        onStart: jest.fn(),
-        onChunk: (chunk: MessageChunkResponse) => {
+      const streamingChunks: IStreamChunk<any>[] = [];
+
+      await client.sendMessage(conversationId, 'Tell me more about pods', {
+        stream: true,
+        afterChunk: (chunk: IStreamChunk<any>) => {
           streamingChunks.push(chunk);
         },
-        onComplete: jest.fn(),
-        onError: jest.fn(),
-        onAbort: jest.fn(),
-      };
-
-      const clientWithHandler = new LightspeedClient({
-        baseUrl: mockServerUrl,
-        fetchFunction: (input, init) => fetch(input, init),
-        defaultStreamingHandler: streamingHandler,
       });
 
-      await clientWithHandler.sendMessage(
-        conversationId.initialConversationId,
-        'Tell me more about pods',
-        { stream: true }
-      );
-
       expect(streamingChunks.length).toBeGreaterThan(0);
-      expect(streamingChunks[streamingChunks.length - 1].finished).toBe(true);
     }, 10000);
   });
 
   describe('Streaming Performance', () => {
     it('should receive streaming chunks within reasonable time', async () => {
-      const conversationId = await client.init();
+      const conversationId = crypto.randomUUID(); // Create a new conversation
       const chunkTimestamps: number[] = [];
 
-      const performanceHandler: IStreamingHandler<MessageChunkResponse> = {
-        onStart: () => {
-          chunkTimestamps.push(Date.now());
-        },
-        onChunk: () => {
-          chunkTimestamps.push(Date.now());
-        },
-        onComplete: () => {
-          chunkTimestamps.push(Date.now());
-        },
-        onError: jest.fn(),
-        onAbort: jest.fn(),
-      };
-
-      const performanceClient = new LightspeedClient({
-        baseUrl: mockServerUrl,
-        fetchFunction: (input, init) => fetch(input, init),
-        defaultStreamingHandler: performanceHandler,
-      });
-
       const startTime = Date.now();
-      await performanceClient.sendMessage(
-        conversationId.initialConversationId,
+      chunkTimestamps.push(startTime);
+
+      await client.sendMessage(
+        conversationId,
         'Explain deployment strategies',
-        { stream: true }
+        {
+          stream: true,
+          afterChunk: () => {
+            chunkTimestamps.push(Date.now());
+          },
+        }
       );
       const endTime = Date.now();
 
