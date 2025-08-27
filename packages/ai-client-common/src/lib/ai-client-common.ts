@@ -238,6 +238,37 @@ export interface IStreamingHandler<TChunk = unknown> {
 }
 
 /**
+ * Simplified streaming handler interface for cleaner implementation
+ * This will eventually replace IStreamingHandler across all clients
+ *
+ * The simplified approach focuses on:
+ * - Processing chunks and building message buffer
+ * - Calling callback with current complete message
+ * - Simple error handling
+ */
+declare class ISimpleStreamingHandler<TChunk = unknown> {
+  /**
+   * Process a chunk and return updated message buffer
+   * @param chunk - The chunk data (text string or parsed JSON object)
+   * @param currentBuffer - The current accumulated message content
+   * @param handleChunk - Optional callback to execute with current complete message
+   * @returns Updated message buffer after processing this chunk
+   */
+  processChunk(
+    chunk: TChunk,
+    currentBuffer: string,
+    handleChunk?: HandleChunkCallback
+  ): string;
+
+  /**
+   * Called when an error occurs during streaming
+   */
+  onError?(error: Error): void;
+}
+
+export { ISimpleStreamingHandler };
+
+/**
  * Streaming request options for clients that support streaming
  */
 export interface IStreamingRequestOptions<TChunk = unknown>
@@ -343,6 +374,10 @@ export interface IStreamChunk<
 }
 
 export type AfterChunkCallback<
+  T extends Record<string, unknown> = Record<string, unknown>
+> = (chunk: IStreamChunk<T>) => void;
+
+export type HandleChunkCallback<
   T extends Record<string, unknown> = Record<string, unknown>
 > = (chunk: IStreamChunk<T>) => void;
 
