@@ -21,7 +21,8 @@ npm install @redhat-cloud-services/aai-client
 ## Quick Start
 
 ```typescript
-import { AAIClient } from '@redhat-cloud-services/aai-client';
+import { AAIClient, AAIAdditionalAttributes } from '@redhat-cloud-services/aai-client';
+import { IStreamChunk } from '@redhat-cloud-services/ai-client-common';
 
 // Initialize the client
 const client = new AAIClient({
@@ -44,8 +45,9 @@ const response = await client.sendMessage(conversation.id, 'Help me install Open
     query: 'Help me install OpenShift'
   },
   stream: true,
-  afterChunk: (chunk) => {
+  handleChunk: (chunk: IStreamChunk<AAIAdditionalAttributes>) => {
     console.log('Streaming response:', chunk.answer);
+    console.log('Conversation ID:', chunk.conversationId);
   }
 });
 
@@ -56,7 +58,7 @@ console.log('Final response:', response);
 
 ### Streaming-Only Support
 
-The AAI client only supports streaming responses via Server-Sent Events. All message sending must include `stream: true` and an `afterChunk` callback.
+The AAI client only supports streaming responses via Server-Sent Events. All message sending must include `stream: true` and an `handleChunk` callback.
 
 ### Temporary Conversations
 
@@ -75,7 +77,6 @@ new AAIClient(config: AAIClientConfig)
 **Parameters:**
 - `config.baseUrl` (string): The base URL of the AAI API
 - `config.fetchFunction` (optional): Custom fetch implementation
-- `config.defaultStreamingHandler` (optional): Custom streaming handler
 
 #### Methods
 
@@ -96,7 +97,7 @@ sendMessage(
 - `message`: The message text to send
 - `options.requestBody`: Required request body with model, provider, and query
 - `options.stream`: Must be `true` for streaming
-- `options.afterChunk`: Callback function for streaming responses
+- `options.handleChunk`: Callback function for streaming responses
 
 **Required requestBody fields:**
 - `model` (string): The AI model to use
@@ -133,23 +134,15 @@ Performs a basic health check.
 healthCheck(): Promise<{ status: string }>
 ```
 
-##### `getDefaultStreamingHandler()`
-
-Gets the default streaming handler for the client.
-
-```typescript
-getDefaultStreamingHandler<TChunk>(): IStreamingHandler<TChunk> | undefined
-```
 
 ## Types and Interfaces
 
 ### AAIClientConfig
 
 ```typescript
-interface AAIClientConfig extends IBaseClientConfig<AAISSEEvent> {
+interface AAIClientConfig extends IBaseClientConfig {
   baseUrl: string;
   fetchFunction?: IFetchFunction;
-  defaultStreamingHandler?: IStreamingHandler<AAISSEEvent>;
 }
 ```
 
@@ -185,6 +178,9 @@ Response attributes specific to AAI, including:
 ## Error Handling
 
 ```typescript
+import { IStreamChunk } from '@redhat-cloud-services/ai-client-common';
+import { AAIAdditionalAttributes } from '@redhat-cloud-services/aai-client';
+
 try {
   const response = await client.sendMessage(conversationId, message, {
     requestBody: {
@@ -193,8 +189,9 @@ try {
       query: message
     },
     stream: true,
-    afterChunk: (chunk) => {
+    handleChunk: (chunk: IStreamChunk<AAIAdditionalAttributes>) => {
       console.log('Chunk:', chunk.answer);
+      console.log('Conversation ID:', chunk.conversationId);
     }
   });
 } catch (error) {

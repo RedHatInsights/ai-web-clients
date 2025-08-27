@@ -29,8 +29,12 @@ const client = new LightspeedClient({
 ### Sending Messages
 
 ```typescript
-// Start a conversation
-const conversationId = await client.init();
+// Initialize client and get conversations
+const initResult = await client.init();
+
+// Create a new conversation
+const conversation = await client.createNewConversation();
+const conversationId = conversation.id;
 
 // Send a non-streaming message
 const response = await client.sendMessage(
@@ -49,33 +53,12 @@ console.log('Referenced Documents:', response.additionalAttributes?.referencedDo
 
 ```typescript
 import { 
-  LightspeedClient, 
-  DefaultStreamingHandler,
-  MessageChunkResponse 
+  LightspeedClient
 } from '@redhat-cloud-services/lightspeed-client';
-
-// Custom streaming handler
-class CustomStreamingHandler implements IStreamingHandler<MessageChunkResponse> {
-  onChunk(chunk: MessageChunkResponse): void {
-    // Custom chunk processing
-    if (chunk.content) {
-      console.log('Received:', chunk.content);
-    }
-  }
-  
-  onComplete(finalChunk: MessageChunkResponse): void {
-    console.log('Stream completed');
-  }
-  
-  onError(error: Error): void {
-    console.error('Stream error:', error);
-  }
-}
 
 const client = new LightspeedClient({
   baseUrl: process.env.LIGHTSPEED_API_URL,
-  fetchFunction: (input, init) => fetch(input, init),
-  defaultStreamingHandler: new CustomStreamingHandler()
+  fetchFunction: (input, init) => fetch(input, init)
 });
 ```
 
@@ -84,23 +67,35 @@ const client = new LightspeedClient({
 ### Basic Streaming
 
 ```typescript
-// Enable streaming mode
-await client.sendMessage(conversationId, 'Explain OpenShift networking', {
-  stream: true
-});
+import { IStreamChunk } from '@redhat-cloud-services/ai-client-common';
+import { LightSpeedCoreAdditionalProperties } from '@redhat-cloud-services/lightspeed-client';
 
-// The default streaming handler will process chunks automatically
+// Enable streaming mode with required handleChunk callback
+await client.sendMessage(conversationId, 'Explain OpenShift networking', {
+  stream: true,
+  handleChunk: (chunk: IStreamChunk<LightSpeedCoreAdditionalProperties>) => {
+    console.log('Received chunk:', chunk.answer);
+    // Update your UI with the streaming content
+  }
+});
 ```
 
 ### Custom Streaming Processing
 
 ```typescript
+import { IStreamChunk } from '@redhat-cloud-services/ai-client-common';
+import { LightSpeedCoreAdditionalProperties } from '@redhat-cloud-services/lightspeed-client';
+
 await client.sendMessage(conversationId, 'Tell me about pods', {
   stream: true,
-  afterChunk: (chunk) => {
+  handleChunk: (chunk: IStreamChunk<LightSpeedCoreAdditionalProperties>) => {
     // Process each chunk as it arrives
-    if (chunk.finished) {
-      console.log('Streaming completed');
+    console.log('Answer so far:', chunk.answer);
+    console.log('Conversation ID:', chunk.conversationId);
+    
+    // Access additional attributes like referenced documents
+    if (chunk.additionalAttributes?.referencedDocuments) {
+      console.log('Referenced docs:', chunk.additionalAttributes.referencedDocuments);
     }
   }
 });
@@ -273,6 +268,8 @@ function ChatComponent() {
 ### With Authentication
 
 ```typescript
+import { IFetchFunction } from '@redhat-cloud-services/ai-client-common';
+
 const authenticatedFetch: IFetchFunction = async (input, init) => {
   const token = await getAuthToken(); // Your auth logic
   
@@ -295,6 +292,8 @@ const client = new LightspeedClient({
 ### With Request Logging
 
 ```typescript
+import { IFetchFunction } from '@redhat-cloud-services/ai-client-common';
+
 const loggingFetch: IFetchFunction = async (input, init) => {
   console.log('Making request:', input, init);
   
@@ -315,9 +314,9 @@ const client = new LightspeedClient({
 
 ### Core Methods
 
-- `init(): Promise<string>` - Initialize client and get conversation ID
-- `sendMessage<TChunk>(conversationId, message, options?): Promise<TChunk | IMessageResponse | void>` - Send message
-- `getConversationHistory(conversationId, options?): Promise<IConversationHistoryResponse>` - Get history (stubbed)
+- `init(): Promise<{ conversations: IConversation[] }>` - Initialize client and get conversations list
+- `createNewConversation(): Promise<IConversation>` - Create a new conversation
+- `sendMessage(conversationId, message, options?): Promise<IMessageResponse<LightSpeedCoreAdditionalProperties>>` - Send message
 - `healthCheck(options?): Promise<HealthCheck>` - Check service health
 - `getServiceStatus(options?): Promise<StatusResponse>` - Get service status
 
@@ -333,8 +332,10 @@ All types are fully exported and documented with TypeScript. Key interfaces incl
 
 - `LightspeedClientConfig` - Client configuration
 - `LLMRequest` / `LLMResponse` - API request/response types
-- `MessageChunkResponse` - Streaming chunk format
+- `LightSpeedCoreAdditionalProperties` - Additional metadata in responses
+- `LightspeedSendMessageOptions` - Extended send message options with media type support
 - `LightspeedClientError` / `LightspeedValidationError` - Error types
+- `StreamingEvent` - JSON streaming event types (TokenEvent, StartEvent, EndEvent, etc.)
 
 ## Best Practices
 

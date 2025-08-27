@@ -33,14 +33,14 @@ const client = new IFDClient({
 const conversation = await client.createNewConversation();
 
 // Send a message
-const response = await client.sendMessage(conversation.conversation_id, 'What is Red Hat OpenShift?');
+const response = await client.sendMessage(conversation.id, 'What is Red Hat OpenShift?');
 console.log('Response:', response.answer);
 
-// Send a streaming message (requires afterChunk callback)
-await client.sendMessage(conversation.conversation_id, 'Tell me more about OpenShift features', {
+// Send a streaming message (requires handleChunk callback)
+await client.sendMessage(conversation.id, 'Tell me more about OpenShift features', {
   stream: true,
-  afterChunk: (response) => {
-    console.log('Streaming response:', response.answer);
+  handleChunk: (chunk) => {
+    console.log('Streaming response:', chunk.answer);
   }
 });
 ```
@@ -90,7 +90,7 @@ const client = new IFDClient({
 **Note**: Do NOT set `'Content-Type'` headers in your fetchFunction - the client handles these internally based on endpoint requirements.
 
 ```typescript
-import { IFetchFunction } from '@redhat-cloud-services/arh-client';
+import { IFetchFunction } from '@redhat-cloud-services/ai-client-common';
 
 const customFetch: IFetchFunction = async (input, init) => {
   // Add custom authentication
@@ -122,10 +122,10 @@ const client = new IFDClient({
 const conversation = await client.createNewConversation();
 
 // Send a non-streaming message
-const response = await client.sendMessage(conversation.conversation_id, 'What is Red Hat OpenShift?');
+const response = await client.sendMessage(conversation.id, 'What is Red Hat OpenShift?');
 
 // Get conversation history
-const history = await client.getConversationHistory(conversation.conversation_id);
+const history = await client.getConversationHistory(conversation.id);
 ```
 
 ### Conversation Locking
@@ -172,18 +172,17 @@ await stateManager.sendMessage('This will be blocked'); // Shows "conversation i
 ```typescript
 import { DefaultStreamingHandler } from '@redhat-cloud-services/arh-client';
 
-// Create client with default streaming handler
+// Create client with custom fetch function
 const client = new IFDClient({
   baseUrl: 'https://your-api.com',
-  fetchFunction: (input, init) => fetch(input, init),
-  defaultStreamingHandler: new DefaultStreamingHandler()
+  fetchFunction: (input, init) => fetch(input, init)
 });
 
-// Streaming requires an afterChunk callback
-await client.sendMessage(conversation.conversation_id, 'Tell me about OpenShift features', {
+// Streaming requires an handleChunk callback
+await client.sendMessage(conversation.id, 'Tell me about OpenShift features', {
   stream: true,
-  afterChunk: (response) => {
-    console.log('Received chunk:', response.answer);
+  handleChunk: (chunk) => {
+    console.log('Received chunk:', chunk.answer);
   }
 });
 ```
@@ -239,61 +238,41 @@ The built-in `DefaultStreamingHandler` provides:
 - Source extraction from responses
 
 ```typescript
-import { DefaultStreamingHandler } from '@redhat-cloud-services/arh-client';
-
-const streamHandler = new DefaultStreamingHandler();
-
-// Streaming requires an afterChunk callback
+// Streaming requires an handleChunk callback
 await client.sendMessage(conversationId, 'Your question', { 
   stream: true,
-  afterChunk: (response) => {
+  handleChunk: (chunk) => {
     // Process the streaming response
-    console.log('Answer:', response.answer);
-    console.log('Sources:', response.additionalAttributes?.sources);
+    console.log('Answer:', chunk.answer);
+    console.log('Sources:', chunk.additionalAttributes?.sources);
   }
 });
 ```
 
-### Custom Streaming Handler
+### Streaming Implementation
+
+The ARH client uses self-contained streaming handlers internally. You only need to provide a `handleChunk` callback to process streaming responses. The client handles all the complexity of stream processing internally.
 
 ```typescript
-import { IStreamingHandler, AfterChunkCallback } from '@redhat-cloud-services/ai-client-common';
-import { MessageChunkResponse, IFDAdditionalAttributes } from '@redhat-cloud-services/arh-client';
+import { IStreamChunk } from '@redhat-cloud-services/ai-client-common';
+import { IFDAdditionalAttributes } from '@redhat-cloud-services/arh-client';
 
-class CustomStreamingHandler implements IStreamingHandler<MessageChunkResponse> {
-  private messageBuffer = '';
-
-  onStart(conversationId: string, messageId: string): void {
-    console.log('Stream started:', { conversationId, messageId });
-    this.messageBuffer = '';
-  }
-
-  onChunk(chunk: MessageChunkResponse, afterChunk?: AfterChunkCallback<IFDAdditionalAttributes>): void {
-    this.messageBuffer = chunk.output;
-    // Update UI with complete response so far
-    updateUI(this.messageBuffer);
+// Simple streaming example - just provide handleChunk callback
+await client.sendMessage(conversationId, 'Tell me about OpenShift', {
+  stream: true,
+  handleChunk: (chunk: IStreamChunk<IFDAdditionalAttributes>) => {
+    // Receives IStreamChunk<IFDAdditionalAttributes> with processed data
+    console.log('Current answer:', chunk.answer);
+    console.log('Message ID:', chunk.messageId);
+    console.log('Conversation ID:', chunk.conversationId);
+    console.log('Sources:', chunk.additionalAttributes.sources);
+    console.log('Tool calls:', chunk.additionalAttributes.tool_call_metadata);
+    console.log('Quota info:', chunk.additionalAttributes.quota);
     
-    // Call afterChunk with standardized format
-    afterChunk?.({
-      answer: chunk.answer,
-      additionalAttributes: {
-        sources: chunk.sources,
-        tool_call_metadata: chunk.tool_call_metadata,
-        output_guard_result: chunk.output_guard_result,
-      }
-    });
+    // Update your UI with the incremental response
+    updateUIWithAnswer(chunk.answer);
   }
-
-  onComplete(finalChunk: MessageChunkResponse): void {
-    console.log('Stream completed');
-    console.log('Sources:', finalChunk.sources);
-  }
-
-  onError(error: Error): void {
-    console.error('Stream error:', error);
-    showErrorToUser(error.message);
-  }
-}
+});
 ```
 
 ## Error Handling
@@ -324,7 +303,7 @@ try {
 
 ```typescript
 import { useState, useCallback } from 'react';
-import { IFDClient, DefaultStreamingHandler } from '@redhat-cloud-services/arh-client';
+import { IFDClient } from '@redhat-cloud-services/arh-client';
 
 export function useIFDStreaming(client: IFDClient) {
   const [isStreaming, setIsStreaming] = useState(false);
@@ -332,43 +311,19 @@ export function useIFDStreaming(client: IFDClient) {
   const [error, setError] = useState<Error | null>(null);
 
   const sendStreamingMessage = useCallback(async (conversationId: string, input: string) => {
-    const handler = new DefaultStreamingHandler();
-    
-    // Override methods for React state updates
-    const originalOnStart = handler.onStart;
-    handler.onStart = (convId, msgId) => {
+    try {
       setIsStreaming(true);
       setMessage('');
       setError(null);
-      originalOnStart.call(handler, convId, msgId);
-    };
-    
-    const originalOnChunk = handler.onChunk;
-    handler.onChunk = (chunk, afterChunk) => {
-      setMessage(chunk.output);
-      originalOnChunk.call(handler, chunk, afterChunk);
-    };
-    
-    const originalOnComplete = handler.onComplete;
-    handler.onComplete = (finalChunk) => {
-      setIsStreaming(false);
-      originalOnComplete.call(handler, finalChunk);
-    };
-    
-    const originalOnError = handler.onError;
-    handler.onError = (err) => {
-      setError(err);
-      setIsStreaming(false);
-      originalOnError.call(handler, err);
-    };
-
-    try {
+      
       await client.sendMessage(conversationId, input, { 
         stream: true,
-        afterChunk: (response) => {
-          setMessage(response.answer);
+        handleChunk: (chunk) => {
+          setMessage(chunk.answer);
         }
       });
+      
+      setIsStreaming(false);
     } catch (err) {
       setError(err as Error);
       setIsStreaming(false);
@@ -389,8 +344,8 @@ await client.createNewConversation();
 await client.sendMessage(conversationId, 'your message');
 await client.sendMessage(conversationId, 'streaming message', { 
   stream: true,
-  afterChunk: (response) => {
-    console.log('Streaming:', response.answer);
+  handleChunk: (chunk) => {
+    console.log('Streaming:', chunk.answer);
   }
 });
 await client.getConversationHistory(conversationId);
@@ -419,11 +374,8 @@ interface IFDClientConfig {
   // Required: The base URL for the API
   baseUrl: string;
   
-  // Required: Custom fetch implementation (use arrow function)
-  fetchFunction: IFetchFunction;
-  
-  // Optional: Default streaming handler for stream: true requests
-  defaultStreamingHandler?: IStreamingHandler<MessageChunkResponse>;
+  // Optional: Custom fetch implementation (use arrow function, defaults to native fetch)
+  fetchFunction?: IFetchFunction;
 }
 ```
 
@@ -486,7 +438,6 @@ import {
   
   // Handlers and utilities
   DefaultStreamingHandler,
-  processStreamWithHandler,
   isEmpty,
   isString,
   isObject,

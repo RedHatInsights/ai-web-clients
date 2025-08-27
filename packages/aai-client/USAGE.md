@@ -59,7 +59,7 @@ const response = await client.sendMessage(
       query: 'How do I configure Ansible Automation Platform?'
     },
     stream: true,
-    afterChunk: (chunk) => {
+    handleChunk: (chunk) => {
       // Handle streaming response chunks
       console.log('Received chunk:', chunk.answer);
       
@@ -150,7 +150,7 @@ async function sendMessageWithErrorHandling(
         query: message
       },
       stream: true,
-      afterChunk: (chunk) => {
+      handleChunk: (chunk) => {
         console.log('Chunk:', chunk.answer);
       }
     });
@@ -206,7 +206,7 @@ await client.sendMessage(conversationId, message, {
     query: message
   },
   stream: true,
-  afterChunk: (chunk) => {
+  handleChunk: (chunk) => {
     const attrs = chunk.additionalAttributes;
     
     // Handle different event types
@@ -282,7 +282,7 @@ const response = await client.sendMessage(tempConversation.id, 'Hello', {
     query: 'Hello'
   },
   stream: true,
-  afterChunk: (chunk) => {
+  handleChunk: (chunk) => {
     // Monitor for conversation ID changes
     if (chunk.additionalAttributes?.start_event?.conversation_id) {
       console.log('Real conversation created:', 
@@ -316,7 +316,7 @@ class ConversationTracker {
         query: message
       },
       stream: true,
-      afterChunk: (chunk) => {
+      handleChunk: (chunk) => {
         console.log('Streaming:', chunk.answer);
       }
     });

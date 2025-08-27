@@ -29,6 +29,20 @@ Ansible Lightspeed API TypeScript client with dependency injection support.
 - **Status**: Production ready
 - **Usage**: `npm install @redhat-cloud-services/ansible-lightspeed`
 
+#### [@redhat-cloud-services/aai-client](packages/aai-client/)
+Ansible Assisted Installer (AAI) API TypeScript client with Server-Sent Events streaming support.
+
+- **Features**: Full AAI API coverage, SSE streaming, temporary conversations, health checks
+- **Status**: Production ready  
+- **Usage**: `npm install @redhat-cloud-services/aai-client`
+
+#### [@redhat-cloud-services/rhel-lightspeed-client](packages/rhel-lightspeed-client/)
+RHEL Lightspeed API TypeScript client for Red Hat Enterprise Linux assistance.
+
+- **Features**: RHEL-specific AI assistance, conversation management, health checks
+- **Status**: Production ready
+- **Usage**: `npm install @redhat-cloud-services/rhel-lightspeed-client`
+
 ### 🧠 State Management
 
 #### [@redhat-cloud-services/ai-client-common](packages/ai-client-common/)
@@ -89,12 +103,12 @@ const client = new IFDClient({
 
 await client.init();
 const conversation = await client.createNewConversation();
-const response = await client.sendMessage(conversation.conversation_id, 'Hello AI!');
+const response = await client.sendMessage(conversation.id, 'Hello AI!');
 
-// Streaming usage (requires afterChunk callback)
-await client.sendMessage(conversation.conversation_id, 'Tell me about containers', {
+// Streaming usage (requires handleChunk callback)
+await client.sendMessage(conversation.id, 'Tell me about containers', {
   stream: true,
-  afterChunk: (response) => {
+  handleChunk: (response) => {
     console.log('Streaming response:', response.answer);
   }
 });
@@ -340,6 +354,8 @@ function ChatInterface() {
 | **AI Clients** | `arh-client` | Intelligent Front Door (IFD) API client |
 | | `lightspeed-client` | OpenShift Lightspeed API client |
 | | `ansible-lightspeed` | Ansible Lightspeed API client |
+| | `aai-client` | Ansible Assisted Installer (AAI) API client |
+| | `rhel-lightspeed-client` | RHEL Lightspeed API client |
 | **Foundation** | `ai-client-common` | `IAIClient` interface, error classes, shared types |
 
 ## Key Benefits
@@ -360,6 +376,8 @@ ai-client-common (foundation)
 ├── arh-client
 ├── lightspeed-client
 ├── ansible-lightspeed
+├── aai-client
+├── rhel-lightspeed-client
 ├── ai-client-state
 │   └── ai-react-state
 └── [your-custom-client]

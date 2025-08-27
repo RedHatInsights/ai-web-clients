@@ -28,8 +28,8 @@ All AI clients in this workspace implement the `IAIClient` interface:
 ```typescript
 import { IAIClient, ClientInitLimitation, IInitErrorResponse } from '@redhat-cloud-services/ai-client-common';
 
-declare class IAIClient<AP extends Record<string, unknown> = Record<string, unknown>, TChunk = unknown> {
-  constructor(config: IBaseClientConfig<TChunk>);
+declare class IAIClient<AP extends Record<string, unknown> = Record<string, unknown>> {
+  constructor(config: IBaseClientConfig);
   
   init(): Promise<{
     conversations: IConversation[];
@@ -53,8 +53,6 @@ declare class IAIClient<AP extends Record<string, unknown> = Record<string, unkn
     message: string, 
     options?: ISendMessageOptions<T, R>
   ): Promise<IMessageResponse<AP>>;
-  
-  getDefaultStreamingHandler<TChunk = unknown>(): IStreamingHandler<TChunk> | undefined;
   
   getConversationHistory(conversationId: string, options?: IRequestOptions): Promise<IConversationHistoryResponse<AP>>;
   
@@ -97,8 +95,7 @@ import { IBaseClientConfig } from '@redhat-cloud-services/ai-client-common';
 
 const config: IBaseClientConfig = {
   baseUrl: 'https://your-ai-service.com',
-  fetchFunction: customFetch, // Optional - defaults to native fetch
-  defaultStreamingHandler: new CustomStreamingHandler() // Optional
+  fetchFunction: customFetch // Optional - defaults to native fetch
 };
 ```
 
@@ -143,7 +140,7 @@ function isInitErrorResponse(obj: unknown): obj is IInitErrorResponse;
 
 ### Streaming Support
 
-The streaming interface has been updated to standardize chunk handling across all AI clients. The `afterChunk` callback now receives an `IStreamChunk` object with standardized structure.
+The streaming interface has been updated to standardize chunk handling across all AI clients. The `handleChunk` callback now receives an `IStreamChunk` object with standardized structure.
 
 #### IStreamChunk Interface
 
@@ -153,6 +150,7 @@ import { IStreamChunk } from '@redhat-cloud-services/ai-client-common';
 interface IStreamChunk<T extends Record<string, unknown> = Record<string, unknown>> {
   answer: string;
   messageId: string;
+  conversationId: string;
   additionalAttributes: T;
 }
 ```
@@ -160,15 +158,15 @@ interface IStreamChunk<T extends Record<string, unknown> = Record<string, unknow
 #### Implementing a Custom Streaming Handler
 
 ```typescript
-import { IStreamingHandler, AfterChunkCallback, IStreamChunk } from '@redhat-cloud-services/ai-client-common';
+import { IStreamingHandler, HandleChunkCallback, IStreamChunk } from '@redhat-cloud-services/ai-client-common';
 
 class CustomStreamingHandler<TChunk = unknown> implements IStreamingHandler<TChunk> {
-  onChunk(chunk: TChunk, afterChunk?: AfterChunkCallback): void {
+  onChunk(chunk: TChunk, handleChunk?: HandleChunkCallback): void {
     console.log('Received chunk:', chunk);
     
-    // Process the chunk and call afterChunk with standardized format
-    if (afterChunk) {
-      afterChunk({
+    // Process the chunk and call handleChunk with standardized format
+    if (handleChunk) {
+      handleChunk({
         answer: extractAnswer(chunk), // Extract answer from chunk
         additionalAttributes: extractAttributes(chunk) // Extract additional data
       });
@@ -203,9 +201,11 @@ const streamingOptions: ISendMessageOptions = {
   stream: true,
   headers: { 'Custom-Header': 'value' },
   signal: abortController.signal,
-  afterChunk: (chunk: IStreamChunk) => {
+  handleChunk: (chunk: IStreamChunk) => {
     // Process each standardized chunk as it arrives
     console.log('Answer:', chunk.answer);
+    console.log('Message ID:', chunk.messageId);
+    console.log('Conversation ID:', chunk.conversationId);
     console.log('Additional data:', chunk.additionalAttributes);
     updateUI(chunk.answer);
   }
@@ -234,7 +234,7 @@ export interface ISendMessageOptions<
   R extends Record<string, unknown> = never
 > extends IRequestOptions {
   stream?: boolean;
-  afterChunk?: AfterChunkCallback<T>;
+  handleChunk?: HandleChunkCallback<T>;
   requestPayload?: R extends never ? never : R;
 }
 

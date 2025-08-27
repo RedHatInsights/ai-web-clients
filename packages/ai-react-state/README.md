@@ -114,6 +114,7 @@ function App() {
 Hook for sending messages to the AI service. Returns the `sendMessage` function that takes a string message.
 
 ```tsx
+import React, { useState } from 'react';
 import { useSendMessage } from '@redhat-cloud-services/ai-react-state';
 
 function ChatInput() {
@@ -170,6 +171,7 @@ function StreamingChatInput() {
 Hook that automatically enables streaming for all messages. This is a convenience wrapper around `useSendMessage`.
 
 ```tsx
+import React, { useState } from 'react';
 import { useSendStreamMessage } from '@redhat-cloud-services/ai-react-state';
 
 function StreamingChatInput() {
@@ -679,6 +681,7 @@ function MultiClientApp() {
 ## Error Handling
 
 ```tsx
+import React, { useState } from 'react';
 import { useSendMessage } from '@redhat-cloud-services/ai-react-state';
 
 function ChatWithErrorHandling() {

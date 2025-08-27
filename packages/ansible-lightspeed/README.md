@@ -40,11 +40,15 @@ const conversation = await client.createNewConversation();
 const response = await client.sendMessage(conversation.id, 'Help me write an Ansible playbook');
 console.log(response.answer);
 
-// Stream a response (requires afterChunk callback)
+// Stream a response (requires handleChunk callback)
+import { IStreamChunk } from '@redhat-cloud-services/ai-client-common';
+import { AnsibleLightspeedMessageAttributes } from '@redhat-cloud-services/ansible-lightspeed';
+
 await client.sendMessage(conversation.id, 'Show me best practices for Ansible', {
   stream: true,
-  afterChunk: (response) => {
-    console.log('Streaming response:', response.answer);
+  handleChunk: (chunk: IStreamChunk<AnsibleLightspeedMessageAttributes>) => {
+    console.log('Streaming response:', chunk.answer);
+    console.log('Conversation ID:', chunk.conversationId);
   }
 });
 ```
@@ -61,8 +65,8 @@ This client implements the `IAIClient` interface from `@redhat-cloud-services/ai
 The client requires a configuration object with dependency injection support:
 
 ```typescript
-interface AnsibleLightspeedConfig extends IBaseClientConfig<StreamingEvent> {
-  // Inherits baseUrl, fetchFunction, and defaultStreamingHandler from IBaseClientConfig
+interface AnsibleLightspeedConfig extends IBaseClientConfig {
+  // Inherits baseUrl and fetchFunction from IBaseClientConfig
   // fetchFunction is optional with native fetch as default
 }
 ```
@@ -95,20 +99,21 @@ const history = await client.getConversationHistory(conversation.id);
 ### Streaming Messages
 
 ```typescript
-import { DefaultStreamingHandler } from '@redhat-cloud-services/ansible-lightspeed';
+import { IStreamChunk } from '@redhat-cloud-services/ai-client-common';
+import { AnsibleLightspeedMessageAttributes } from '@redhat-cloud-services/ansible-lightspeed';
 
-// Create client with default streaming handler
+// Create client
 const client = new AnsibleLightspeedClient({
   baseUrl: 'https://your-api.com',
-  fetchFunction: (input, init) => fetch(input, init),
-  defaultStreamingHandler: new DefaultStreamingHandler()
+  fetchFunction: (input, init) => fetch(input, init)
 });
 
 await client.sendMessage(conversationId, 'Tell me about Ansible best practices', {
   stream: true,
-  afterChunk: (response) => {
-    console.log('Answer:', response.answer);
-    console.log('Provider:', response.additionalAttributes?.provider);
+  handleChunk: (chunk: IStreamChunk<AnsibleLightspeedMessageAttributes>) => {
+    console.log('Answer:', chunk.answer);
+    console.log('Conversation ID:', chunk.conversationId);
+    console.log('Provider:', chunk.additionalAttributes?.provider);
   }
 });
 ```
@@ -224,7 +229,6 @@ import {
   
   // Handlers
   DefaultStreamingHandler,
-  processStreamWithHandler,
   
   // Configuration
   AnsibleLightspeedConfig

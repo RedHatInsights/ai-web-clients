@@ -40,10 +40,10 @@ const conversation = await client.createNewConversation();
 const response = await client.sendMessage(conversation.id, 'How do I deploy a pod in OpenShift?');
 console.log(response.answer);
 
-// Stream a response (requires afterChunk callback)
+// Stream a response (requires handleChunk callback)
 await client.sendMessage(conversation.id, 'Tell me about OpenShift networking', {
   stream: true,
-  afterChunk: (response) => {
+  handleChunk: (response) => {
     console.log('Streaming response:', response.answer);
   }
 });
@@ -61,7 +61,7 @@ This client implements the `IAIClient` interface from `@redhat-cloud-services/ai
 The client requires a configuration object with dependency injection support:
 
 ```typescript
-interface LightspeedClientConfig extends IBaseClientConfig<MessageChunkResponse> {
+interface LightspeedClientConfig extends IBaseClientConfig {
   // Inherits baseUrl, fetchFunction, and defaultStreamingHandler from IBaseClientConfig
   // All inherited properties are optional except baseUrl which is required
 }
@@ -88,10 +88,10 @@ const conversation = await client.createNewConversation();
 // Send non-streaming message
 const response = await client.sendMessage(conversation.id, 'How do I deploy a pod in OpenShift?');
 
-// Send streaming message (requires afterChunk callback)
+// Send streaming message (requires handleChunk callback)
 await client.sendMessage(conversation.id, 'Tell me about OpenShift networking', { 
   stream: true,
-  afterChunk: (response) => {
+  handleChunk: (response) => {
     console.log('Answer:', response.answer);
   }
 });
@@ -209,7 +209,6 @@ import {
   
   // Handlers
   DefaultStreamingHandler,
-  processStreamWithHandler,
   
   // Configuration
   LightspeedClientConfig,

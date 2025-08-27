@@ -493,17 +493,43 @@ await stateManager.init();
 ### Custom Client Integration
 
 ```typescript
-import { IAIClient } from '@redhat-cloud-services/ai-client-common';
+import { 
+  IAIClient, 
+  IConversation, 
+  IMessageResponse, 
+  ClientInitLimitation, 
+  IInitErrorResponse 
+} from '@redhat-cloud-services/ai-client-common';
 import { createClientStateManager } from '@redhat-cloud-services/ai-client-state';
 
 class CustomClient implements IAIClient {
-  async init(): Promise<string> {
-    return 'initial-conversation-id';
+  async init(): Promise<{
+    conversations: IConversation[];
+    limitation?: ClientInitLimitation;
+    error?: IInitErrorResponse;
+  }> {
+    return {
+      conversations: []
+    };
   }
 
-  async sendMessage(conversationId: string, message: string): Promise<any> {
+  async createNewConversation(): Promise<IConversation> {
+    return {
+      id: crypto.randomUUID(),
+      title: 'New Conversation',
+      locked: false,
+      createdAt: new Date()
+    };
+  }
+
+  async sendMessage(conversationId: string, message: string): Promise<IMessageResponse<Record<string, unknown>>> {
     // Your custom implementation
-    return { answer: 'Custom response', conversationId };
+    return { 
+      messageId: crypto.randomUUID(),
+      answer: 'Custom response', 
+      conversationId,
+      additionalAttributes: {}
+    };
   }
 
   // ... implement other IAIClient methods

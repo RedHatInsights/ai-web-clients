@@ -117,20 +117,21 @@ Returns the constant conversation object for RAG system.
 ##### `getConversationHistory(conversationId: string): Promise<[]>`
 Always returns empty array for RAG system (no server-side persistence).
 
-##### `getDefaultStreamingHandler(): undefined`
-Always returns undefined (RAG system doesn't support streaming).
 
 ##### `healthCheck(): Promise<unknown>`
 Check the health status of the RHEL LightSpeed API.
+
+##### `getServiceStatus(): Promise<unknown>`
+Get service status via metrics endpoint.
 
 ## Type Definitions
 
 ### Configuration
 
 ```typescript
-interface RHELLightspeedClientConfig {
+interface RHELLightspeedClientConfig extends IBaseClientConfig {
   baseUrl: string;
-  fetchFunction?: typeof fetch;
+  fetchFunction?: IFetchFunction;
 }
 ```
 
@@ -157,26 +158,26 @@ interface RHELLightspeedRequestPayload {
 
 ```typescript
 interface RHELLightspeedAdditionalProperties {
-  rag_metadata: {
+  rag_metadata?: {
     skip_rag: boolean;
     sources_consulted: number;
     knowledge_base_version: string;
     confidence_score: number;
   };
-  context_metadata: {
+  context_metadata?: {
     has_systeminfo: boolean;
     has_terminal_output: boolean;
     has_attachments: boolean;
     has_stdin: boolean;
     has_cla_info: boolean;
   } | null;
-  sources: Array<{
+  sources?: Array<{
     title: string;
     link: string;
     score: number;
     snippet: string;
   }>;
-  original_question: string;
+  original_question?: string;
 }
 ```
 
