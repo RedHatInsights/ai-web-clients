@@ -7,7 +7,7 @@
  * @redhat-cloud-services/lightspeed-client package and its integration with
  * the state management system.
  *
- * Based on Lightspeed OpenAPI spec version 1.0.1
+ * Based on Lightspeed OpenAPI spec version 0.2.0 (Lightspeed Core Service)
  */
 
 const express = require('express');
@@ -37,6 +37,98 @@ const userInfo = {
   username: 'testuser',
   skip_user_id_check: false,
 };
+
+// Service configuration matching OpenAPI spec
+const serviceConfig = {
+  name: 'Lightspeed Core Service',
+  service: {
+    host: 'localhost',
+    port: 8080,
+    auth_enabled: false,
+    workers: 1,
+    color_log: true,
+    access_log: true,
+    tls_config: {
+      tls_certificate_path: 'config/certificate.crt',
+      tls_key_path: 'config/private.key',
+    },
+    cors: {
+      allow_origins: ['*'],
+      allow_credentials: false,
+      allow_methods: ['*'],
+      allow_headers: ['*'],
+    },
+  },
+  llama_stack: {
+    url: 'http://localhost:8321',
+    api_key: 'test-api-key',
+    use_as_library_client: false,
+  },
+  user_data_collection: {
+    feedback_enabled: true,
+    feedback_storage: '/tmp/data/feedback',
+    transcripts_enabled: false,
+  },
+  database: {
+    sqlite: {
+      db_path: '/tmp/lightspeed-stack.db',
+    },
+  },
+  mcp_servers: [
+    {
+      name: 'server1',
+      provider_id: 'provider1',
+      url: 'http://url.com:1',
+    },
+    {
+      name: 'server2',
+      provider_id: 'provider2',
+      url: 'http://url.com:2',
+    },
+  ],
+  authentication: {
+    module: 'noop',
+    skip_tls_verification: false,
+  },
+  inference: {
+    default_model: 'llama3.2:3b-instruct-fp16',
+    default_provider: 'ollama',
+  },
+};
+
+// Available models matching OpenAPI spec
+const availableModels = [
+  {
+    identifier: 'all-MiniLM-L6-v2',
+    metadata: {
+      embedding_dimension: 384,
+    },
+    api_model_type: 'embedding',
+    provider_id: 'ollama',
+    provider_resource_id: 'all-minilm:latest',
+    type: 'model',
+    model_type: 'embedding',
+  },
+  {
+    identifier: 'llama3.2:3b-instruct-fp16',
+    metadata: {},
+    api_model_type: 'llm',
+    provider_id: 'ollama',
+    provider_resource_id: 'llama3.2:3b-instruct-fp16',
+    type: 'model',
+    model_type: 'llm',
+  },
+];
+
+// Service info matching OpenAPI spec
+const serviceInfo = {
+  name: 'Lightspeed Core Service',
+  service_version: '0.2.0',
+  llama_stack_version: '0.2.18',
+};
+
+// Feedback status state
+let feedbackEnabled = true;
 
 // Helper function to generate realistic AI responses
 function generateAIResponse(input) {
@@ -80,6 +172,126 @@ function createStreamingChunks(fullResponse) {
 
   return chunks;
 }
+
+// GET / - Root endpoint
+app.get('/', (req, res) => {
+  res.setHeader('Content-Type', 'text/html');
+  res.send(`
+    <html>
+      <head><title>Lightspeed Core Service</title></head>
+      <body>
+        <h1>Lightspeed Core Service</h1>
+        <p>Version: ${serviceInfo.service_version}</p>
+        <p>Llama Stack Version: ${serviceInfo.llama_stack_version}</p>
+        <ul>
+          <li><a href="/v1/info">Service Info</a></li>
+          <li><a href="/v1/models">Available Models</a></li>
+          <li><a href="/v1/config">Configuration</a></li>
+          <li><a href="/v1/conversations">Conversations</a></li>
+          <li><a href="/v1/feedback/status">Feedback Status</a></li>
+          <li><a href="/readiness">Readiness</a></li>
+          <li><a href="/liveness">Liveness</a></li>
+          <li><a href="/metrics">Metrics</a></li>
+        </ul>
+      </body>
+    </html>
+  `);
+});
+
+// GET /v1/info - Service information
+app.get('/v1/info', (req, res) => {
+  res.json(serviceInfo);
+});
+
+// GET /v1/models - Available models
+app.get('/v1/models', (req, res) => {
+  res.json({
+    models: availableModels,
+  });
+});
+
+// GET /v1/config - Service configuration
+app.get('/v1/config', (req, res) => {
+  res.json(serviceConfig);
+});
+
+// GET /v1/conversations - List conversations
+app.get('/v1/conversations', (req, res) => {
+  const conversationList = Array.from(conversations.values()).map((conv) => ({
+    conversation_id: conv.id,
+    created_at: conv.created_at,
+    last_message_at:
+      conv.messages.length > 0
+        ? conv.messages[conv.messages.length - 1].timestamp
+        : conv.created_at,
+    message_count: conv.messages.length,
+    last_used_model: 'llama3.2:3b-instruct-fp16',
+    last_used_provider: 'ollama',
+  }));
+
+  res.json({
+    conversations: conversationList,
+  });
+});
+
+// GET /v1/conversations/:conversation_id - Get specific conversation
+app.get('/v1/conversations/:conversation_id', (req, res) => {
+  const { conversation_id } = req.params;
+
+  if (!conversations.has(conversation_id)) {
+    return res.status(404).json({
+      detail: {
+        response: 'Conversation not found',
+        cause: 'The specified conversation ID does not exist.',
+      },
+    });
+  }
+
+  const conversation = conversations.get(conversation_id);
+  const chatHistory = conversation.messages.map((msg) => ({
+    messages: [
+      {
+        content: msg.query,
+        type: 'user',
+      },
+      {
+        content: msg.response,
+        type: 'assistant',
+      },
+    ],
+    started_at: msg.timestamp,
+    completed_at: new Date(
+      new Date(msg.timestamp).getTime() + 5000
+    ).toISOString(),
+  }));
+
+  res.json({
+    conversation_id: conversation_id,
+    chat_history: chatHistory,
+  });
+});
+
+// DELETE /v1/conversations/:conversation_id - Delete conversation
+app.delete('/v1/conversations/:conversation_id', (req, res) => {
+  const { conversation_id } = req.params;
+
+  if (!conversations.has(conversation_id)) {
+    return res.status(404).json({
+      detail: {
+        response: 'Conversation not found',
+        cause: 'The specified conversation ID does not exist.',
+      },
+    });
+  }
+
+  conversations.delete(conversation_id);
+
+  res.json({
+    conversation_id: conversation_id,
+    success: true,
+    response: 'Conversation deleted successfully',
+  });
+});
 
 // POST /v1/query - Non-streaming conversation request
 app.post('/v1/query', (req, res) => {
@@ -285,9 +497,38 @@ app.get('/v1/feedback/status', (req, res) => {
   res.json({
     functionality: 'feedback',
     status: {
-      enabled: true,
+      enabled: feedbackEnabled,
       storage_available: true,
       rate_limit: 100,
+    },
+  });
+});
+
+// PUT /v1/feedback/status - Update feedback status
+app.put('/v1/feedback/status', (req, res) => {
+  const { status } = req.body;
+
+  if (typeof status !== 'boolean') {
+    return res.status(422).json({
+      detail: [
+        {
+          loc: ['body', 'status'],
+          msg: 'Status must be a boolean value',
+          type: 'type_error',
+        },
+      ],
+    });
+  }
+
+  const previousStatus = feedbackEnabled;
+  feedbackEnabled = status;
+
+  res.json({
+    status: {
+      previous_status: previousStatus,
+      updated_status: feedbackEnabled,
+      updated_by: 'user/test',
+      timestamp: new Date().toISOString(),
     },
   });
 });
@@ -300,6 +541,7 @@ app.post('/v1/feedback', (req, res) => {
     llm_response,
     sentiment,
     user_feedback,
+    categories,
   } = req.body;
 
   // Validate required fields
@@ -323,6 +565,7 @@ app.post('/v1/feedback', (req, res) => {
     llm_response,
     sentiment: sentiment || null,
     user_feedback: user_feedback || null,
+    categories: categories || null,
     created_at: new Date().toISOString(),
   });
 
@@ -335,7 +578,8 @@ app.post('/v1/feedback', (req, res) => {
 app.get('/readiness', (_req, res) => {
   res.json({
     ready: true,
-    reason: 'service is ready',
+    reason: 'Service is ready',
+    providers: [],
   });
 });
 
@@ -432,9 +676,17 @@ app.use((req, res) => {
 // Start server
 const server = app.listen(port, () => {
   logServerStart('LightSpeed', port, [
+    { method: 'GET', path: '/' },
+    { method: 'GET', path: '/v1/info' },
+    { method: 'GET', path: '/v1/models' },
+    { method: 'GET', path: '/v1/config' },
     { method: 'POST', path: '/v1/query' },
     { method: 'POST', path: '/v1/streaming_query' },
+    { method: 'GET', path: '/v1/conversations' },
+    { method: 'GET', path: '/v1/conversations/:id' },
+    { method: 'DELETE', path: '/v1/conversations/:id' },
     { method: 'GET', path: '/v1/feedback/status' },
+    { method: 'PUT', path: '/v1/feedback/status' },
     { method: 'POST', path: '/v1/feedback' },
     { method: 'GET', path: '/readiness' },
     { method: 'GET', path: '/liveness' },

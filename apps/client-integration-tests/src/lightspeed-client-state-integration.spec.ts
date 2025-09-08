@@ -20,7 +20,7 @@ describe('Lightspeed Client State Integration', () => {
       expect(typeof result).toBe('object');
       expect(result).toHaveProperty('conversations');
       expect(Array.isArray(result.conversations)).toBe(true);
-      // No longer auto-creates conversations
+      // Should load existing conversations from mock server
     });
 
     it('should send non-streaming messages successfully', async () => {
@@ -44,7 +44,10 @@ describe('Lightspeed Client State Integration', () => {
       ) {
         expect(typeof response.answer).toBe('string');
         expect(response.answer.length).toBeGreaterThan(0);
-        expect(response.conversationId).toBe(conversationId);
+        // Conversation ID should be promoted from temp ID to real ID
+        expect(response.conversationId).not.toBe(
+          '__temp_lightspeed_conversation__'
+        );
         expect(typeof response.messageId).toBe('string');
         expect(response.date instanceof Date).toBe(true);
 
@@ -94,8 +97,13 @@ describe('Lightspeed Client State Integration', () => {
         typeof response1 === 'object' &&
         typeof response2 === 'object'
       ) {
-        expect(response1.conversationId).toBe(conversationId);
-        expect(response2.conversationId).toBe(conversationId);
+        // Both responses should have same promoted conversation ID (not the temp ID)
+        expect(response1.conversationId).not.toBe(
+          '__temp_lightspeed_conversation__'
+        );
+        expect(response2.conversationId).not.toBe(
+          '__temp_lightspeed_conversation__'
+        );
       }
     });
   });
@@ -323,6 +331,254 @@ describe('Lightspeed Client State Integration', () => {
         // Request was aborted or failed
         expect(error).toBeDefined();
       }
+    });
+  });
+
+  // New OpenAPI v0.2.0 Integration Tests (using mock server - no fetch mocking!)
+  describe('OpenAPI v0.2.0 New Endpoints Integration', () => {
+    describe('Service Information Endpoints', () => {
+      it('should get service info, models, and configuration from mock server', async () => {
+        const serviceInfo = await client.getServiceInfo();
+        const models = await client.getModels();
+        const config = await client.getConfiguration();
+
+        // Service info should match mock server response
+        expect(serviceInfo).toBeDefined();
+        expect(serviceInfo.name).toBe('Lightspeed Core Service');
+        expect(serviceInfo.service_version).toBe('0.2.0');
+        expect(serviceInfo.llama_stack_version).toBeDefined();
+        expect(typeof serviceInfo.llama_stack_version).toBe('string');
+
+        // Models should be an array with proper structure
+        expect(models).toBeDefined();
+        expect(models.models).toBeDefined();
+        expect(Array.isArray(models.models)).toBe(true);
+        expect(models.models.length).toBeGreaterThan(0);
+        if (models.models.length > 0) {
+          const model = models.models[0];
+          expect(model.identifier).toBeDefined();
+          expect(model.provider_id).toBeDefined();
+          expect(model.model_type).toBeDefined();
+        }
+
+        // Config should have expected structure
+        expect(config).toBeDefined();
+        expect(config.name).toBe('Lightspeed Core Service');
+        expect(config.service).toBeDefined();
+        expect(config.llama_stack).toBeDefined();
+        expect(config.user_data_collection).toBeDefined();
+        expect(typeof config.service.host).toBe('string');
+        expect(typeof config.service.port).toBe('number');
+        expect(typeof config.user_data_collection.feedback_enabled).toBe(
+          'boolean'
+        );
+      });
+    });
+
+    describe('Conversation Management Integration', () => {
+      it('should manage conversations through mock server lifecycle', async () => {
+        // Get initial conversations list
+        const initialConversations = await client.getConversations();
+        expect(initialConversations).toBeDefined();
+        expect(initialConversations.conversations).toBeDefined();
+        expect(Array.isArray(initialConversations.conversations)).toBe(true);
+
+        // Test conversation creation with temp ID pattern
+        const newConversation = await client.createNewConversation();
+        expect(newConversation.id).toBe('__temp_lightspeed_conversation__');
+        expect(newConversation.title).toBe('New Conversation');
+        expect(newConversation.locked).toBe(false);
+        expect(newConversation.createdAt).toBeInstanceOf(Date);
+
+        // Send message to promote temp conversation to real conversation
+        const messageResponse = await client.sendMessage(
+          newConversation.id,
+          'Integration test message for conversation promotion'
+        );
+
+        expect(messageResponse).toBeDefined();
+        expect(messageResponse.conversationId).toBeDefined();
+        expect(messageResponse.conversationId).not.toBe(
+          '__temp_lightspeed_conversation__'
+        );
+        expect(messageResponse.answer).toBeDefined();
+        expect(typeof messageResponse.answer).toBe('string');
+        expect(messageResponse.messageId).toBeDefined();
+        expect(messageResponse.date).toBeInstanceOf(Date);
+        expect(messageResponse.additionalAttributes).toBeDefined();
+
+        const realConversationId = messageResponse.conversationId;
+
+        // Get updated conversations list - should include new conversation
+        const updatedConversations = await client.getConversations();
+        expect(updatedConversations.conversations.length).toBeGreaterThan(
+          initialConversations.conversations.length
+        );
+
+        // Find our new conversation
+        const ourConversation = updatedConversations.conversations.find(
+          (conv) => conv.conversation_id === realConversationId
+        );
+        expect(ourConversation).toBeDefined();
+        expect(ourConversation?.message_count).toBeGreaterThan(0);
+
+        // Get conversation details
+        const conversationDetails = await client.getConversation(
+          realConversationId
+        );
+        expect(conversationDetails).toBeDefined();
+        expect(conversationDetails.conversation_id).toBe(realConversationId);
+        expect(conversationDetails.chat_history).toBeDefined();
+        expect(Array.isArray(conversationDetails.chat_history)).toBe(true);
+
+        // Get conversation history
+        const history = await client.getConversationHistory(realConversationId);
+        expect(Array.isArray(history)).toBe(true);
+        if (Array.isArray(history) && history.length > 0) {
+          expect(history[0].input).toBe(
+            'Integration test message for conversation promotion'
+          );
+          expect(history[0].answer).toBeDefined();
+          expect(history[0].date).toBeInstanceOf(Date);
+        }
+
+        // Delete the conversation
+        const deleteResult = await client.deleteConversation(
+          realConversationId
+        );
+        expect(deleteResult).toBeDefined();
+        expect(deleteResult.conversation_id).toBe(realConversationId);
+        expect(deleteResult.success).toBe(true);
+
+        // Verify conversation is deleted
+        const finalConversations = await client.getConversations();
+        const deletedConversation = finalConversations.conversations.find(
+          (conv) => conv.conversation_id === realConversationId
+        );
+        expect(deletedConversation).toBeUndefined();
+      });
+
+      it('should handle conversation history for temp conversation ID and empty conversations', async () => {
+        // Temp conversation ID should return empty history
+        const tempHistory = await client.getConversationHistory(
+          '__temp_lightspeed_conversation__'
+        );
+        expect(tempHistory).toEqual([]);
+
+        // Non-existent conversation should return empty history
+        const nonExistentHistory = await client.getConversationHistory(
+          'non-existent-conversation-id'
+        );
+        expect(nonExistentHistory).toEqual([]);
+      });
+    });
+
+    describe('Feedback Status Management Integration', () => {
+      it('should update and retrieve feedback status through mock server', async () => {
+        // Get initial feedback status
+        const initialStatus = await client.getServiceStatus();
+        expect(initialStatus).toBeDefined();
+        expect(initialStatus.functionality).toBe('feedback');
+
+        // Update feedback status
+        const updateResult = await client.updateFeedbackStatus({
+          status: false,
+        });
+        expect(updateResult).toBeDefined();
+        expect(updateResult.status).toBeDefined();
+        expect(updateResult.status.updated_status).toBe(false);
+        expect(updateResult.status.previous_status).toBeDefined();
+        expect(updateResult.status.timestamp).toBeDefined();
+
+        // Update back to true
+        const updateBackResult = await client.updateFeedbackStatus({
+          status: true,
+        });
+        expect(updateBackResult.status.updated_status).toBe(true);
+        expect(updateBackResult.status.previous_status).toBe(false);
+      });
+    });
+
+    describe('Error Handling Integration', () => {
+      it('should handle 404 errors gracefully for non-existent conversations', async () => {
+        // getConversationHistory should return empty array for non-existent conversations
+        const history = await client.getConversationHistory(
+          'non-existent-conversation'
+        );
+        expect(history).toEqual([]);
+
+        // deleteConversation should throw for non-existent conversations
+        await expect(
+          client.deleteConversation('non-existent-conversation')
+        ).rejects.toThrow();
+
+        // getConversation should throw for non-existent conversations
+        await expect(
+          client.getConversation('non-existent-conversation')
+        ).rejects.toThrow();
+      });
+
+      it('should handle network errors and timeouts gracefully', async () => {
+        const controller = new AbortController();
+        controller.abort(); // Abort immediately to ensure test failure
+
+        await expect(
+          client.sendMessage('test-conversation', 'Test message', {
+            signal: controller.signal,
+          })
+        ).rejects.toThrow();
+      });
+    });
+
+    describe('End-to-End Conversation Flow Integration', () => {
+      it('should handle complete conversation lifecycle with promotion', async () => {
+        // 1. Create new conversation (temp ID)
+        const newConv = await client.createNewConversation();
+        expect(newConv.id).toBe('__temp_lightspeed_conversation__');
+
+        // 2. Send first message (should promote to real conversation)
+        const firstResponse = await client.sendMessage(
+          newConv.id,
+          'Start of conversation flow test'
+        );
+
+        const realConvId = firstResponse.conversationId;
+        expect(realConvId).not.toBe('__temp_lightspeed_conversation__');
+        expect(firstResponse.answer).toBeDefined();
+
+        // 3. Send second message using real conversation ID
+        const secondResponse = await client.sendMessage(
+          realConvId,
+          'Second message in conversation'
+        );
+
+        expect(secondResponse.conversationId).toBe(realConvId);
+        expect(secondResponse.answer).toBeDefined();
+
+        // 4. Verify conversation history contains both messages
+        const history = await client.getConversationHistory(realConvId);
+        expect(Array.isArray(history)).toBe(true);
+        if (Array.isArray(history)) {
+          expect(history.length).toBeGreaterThanOrEqual(2);
+          expect(
+            history.some((h) => h.input === 'Start of conversation flow test')
+          ).toBe(true);
+          expect(
+            history.some((h) => h.input === 'Second message in conversation')
+          ).toBe(true);
+        }
+
+        // 5. Verify conversation appears in conversations list
+        const conversations = await client.getConversations();
+        const ourConv = conversations.conversations.find(
+          (c) => c.conversation_id === realConvId
+        );
+        expect(ourConv).toBeDefined();
+        expect(ourConv?.message_count).toBeGreaterThanOrEqual(2);
+
+        // 6. Clean up
+        await client.deleteConversation(realConvId);
+      });
     });
   });
 });

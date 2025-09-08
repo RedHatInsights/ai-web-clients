@@ -598,13 +598,432 @@ describe('LightspeedClient', () => {
       expect(result.conversations).toEqual([]);
     });
 
-    it('should create conversations with proper locked property', async () => {
+    it('should create conversations with proper locked property and temp ID', async () => {
       const conversation1 = await client.createNewConversation();
       const conversation2 = await client.createNewConversation();
 
+      // Both should have locked=false
       expect(conversation1.locked).toBe(false);
       expect(conversation2.locked).toBe(false);
-      expect(conversation1.id).not.toBe(conversation2.id);
+
+      // Both should return the same temp ID (this is expected behavior)
+      expect(conversation1.id).toBe('__temp_lightspeed_conversation__');
+      expect(conversation2.id).toBe('__temp_lightspeed_conversation__');
+      expect(conversation1.id).toBe(conversation2.id);
+
+      // Should have proper title and recent date
+      expect(conversation1.title).toBe('New Conversation');
+      expect(conversation2.title).toBe('New Conversation');
+      expect(conversation1.createdAt).toBeInstanceOf(Date);
+      expect(conversation2.createdAt).toBeInstanceOf(Date);
+    });
+  });
+
+  // New API Endpoints (OpenAPI v0.2.0)
+  describe('New API Endpoints', () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    describe('Service Information', () => {
+      it('should get service info, models, and configuration', async () => {
+        const mockServiceInfo = {
+          name: 'Lightspeed Core Service (LCS)',
+          service_version: '0.2.0',
+          llama_stack_version: '0.2.18',
+        };
+
+        const mockModels = {
+          models: [
+            {
+              identifier: 'gpt-oss-local',
+              metadata: {},
+              api_model_type: 'llm',
+              provider_id: 'ollama-local',
+              provider_resource_id: 'gpt-oss:latest',
+              type: 'model',
+              model_type: 'llm',
+            },
+          ],
+        };
+
+        const mockConfig = {
+          name: 'Lightspeed Core Service (LCS)',
+          service: {
+            host: '0.0.0.0',
+            port: 8080,
+            auth_enabled: false,
+            workers: 1,
+            color_log: true,
+            access_log: true,
+            tls_config: {
+              tls_certificate_path: null,
+              tls_key_path: null,
+              tls_key_password: null,
+            },
+            cors: {
+              allow_origins: ['*'],
+              allow_credentials: false,
+              allow_methods: ['*'],
+              allow_headers: ['*'],
+            },
+          },
+          llama_stack: {
+            url: 'http://localhost:8321',
+            api_key: '**********',
+            use_as_library_client: false,
+            library_client_config_path: null,
+          },
+          user_data_collection: {
+            feedback_enabled: true,
+            feedback_storage: '/tmp/data/feedback',
+            transcripts_enabled: true,
+            transcripts_storage: '/tmp/data/transcripts',
+          },
+          database: {
+            sqlite: { db_path: '/tmp/lightspeed-stack.db' },
+            postgres: null,
+          },
+          mcp_servers: [],
+          authentication: {
+            module: 'noop',
+            skip_tls_verification: false,
+            k8s_cluster_api: null,
+            k8s_ca_cert_path: null,
+            jwk_config: null,
+          },
+          authorization: null,
+          customization: null,
+          inference: { default_model: null, default_provider: null },
+        };
+
+        (mockFetch as jest.Mock)
+          .mockResolvedValueOnce({
+            ok: true,
+            json: () => Promise.resolve(mockServiceInfo),
+          })
+          .mockResolvedValueOnce({
+            ok: true,
+            json: () => Promise.resolve(mockModels),
+          })
+          .mockResolvedValueOnce({
+            ok: true,
+            json: () => Promise.resolve(mockConfig),
+          });
+
+        const serviceInfo = await client.getServiceInfo();
+        const models = await client.getModels();
+        const config = await client.getConfiguration();
+
+        expect(serviceInfo).toEqual(mockServiceInfo);
+        expect(models).toEqual(mockModels);
+        expect(config).toEqual(mockConfig);
+
+        expect(mockFetch).toHaveBeenCalledWith(
+          'https://test-lightspeed.example.com/v1/info',
+          expect.objectContaining({ method: 'GET' })
+        );
+        expect(mockFetch).toHaveBeenCalledWith(
+          'https://test-lightspeed.example.com/v1/models',
+          expect.objectContaining({ method: 'GET' })
+        );
+        expect(mockFetch).toHaveBeenCalledWith(
+          'https://test-lightspeed.example.com/v1/config',
+          expect.objectContaining({ method: 'GET' })
+        );
+      });
+    });
+
+    describe('Conversation Management', () => {
+      it('should get conversations list, specific conversation, and delete conversation', async () => {
+        const mockConversationsList = {
+          conversations: [
+            {
+              conversation_id: 'conv-123',
+              created_at: '2025-09-08T09:33:51',
+              last_message_at: '2025-09-08T09:33:51',
+              message_count: 1,
+              last_used_model: 'gpt-oss-local',
+              last_used_provider: 'ollama-local',
+            },
+          ],
+        };
+
+        const mockConversationDetails = {
+          conversation_id: 'conv-123',
+          chat_history: [
+            {
+              messages: [
+                { content: 'Hello', type: 'user' },
+                { content: 'Hi there!', type: 'assistant' },
+              ],
+              started_at: '2025-09-08T09:33:47.237393Z',
+              completed_at: '2025-09-08T09:33:50.927128Z',
+            },
+          ],
+        };
+
+        const mockDeleteResponse = {
+          conversation_id: 'conv-123',
+          success: true,
+          response: 'Conversation deleted successfully',
+        };
+
+        (mockFetch as jest.Mock)
+          .mockResolvedValueOnce({
+            ok: true,
+            json: () => Promise.resolve(mockConversationsList),
+          })
+          .mockResolvedValueOnce({
+            ok: true,
+            json: () => Promise.resolve(mockConversationDetails),
+          })
+          .mockResolvedValueOnce({
+            ok: true,
+            json: () => Promise.resolve(mockDeleteResponse),
+          });
+
+        const conversations = await client.getConversations();
+        const conversation = await client.getConversation('conv-123');
+        const deleteResult = await client.deleteConversation('conv-123');
+
+        expect(conversations).toEqual(mockConversationsList);
+        expect(conversation).toEqual(mockConversationDetails);
+        expect(deleteResult).toEqual(mockDeleteResponse);
+
+        expect(mockFetch).toHaveBeenCalledWith(
+          'https://test-lightspeed.example.com/v1/conversations',
+          expect.objectContaining({ method: 'GET' })
+        );
+        expect(mockFetch).toHaveBeenCalledWith(
+          'https://test-lightspeed.example.com/v1/conversations/conv-123',
+          expect.objectContaining({ method: 'GET' })
+        );
+        expect(mockFetch).toHaveBeenCalledWith(
+          'https://test-lightspeed.example.com/v1/conversations/conv-123',
+          expect.objectContaining({ method: 'DELETE' })
+        );
+      });
+    });
+
+    describe('Feedback Status Management', () => {
+      it('should update feedback status', async () => {
+        const mockUpdateResponse = {
+          status: {
+            previous_status: true,
+            updated_status: false,
+            updated_by: 'user/test',
+            timestamp: '2025-09-08T10:00:00Z',
+          },
+        };
+
+        (mockFetch as jest.Mock).mockResolvedValue({
+          ok: true,
+          json: () => Promise.resolve(mockUpdateResponse),
+        });
+
+        const result = await client.updateFeedbackStatus({ status: false });
+
+        expect(result).toEqual(mockUpdateResponse);
+        expect(mockFetch).toHaveBeenCalledWith(
+          'https://test-lightspeed.example.com/v1/feedback/status',
+          expect.objectContaining({
+            method: 'PUT',
+            body: JSON.stringify({ status: false }),
+            headers: expect.objectContaining({
+              'Content-Type': 'application/json',
+            }),
+          })
+        );
+      });
+    });
+  });
+
+  describe('Updated init() Method', () => {
+    it('should load existing conversations and handle errors gracefully', async () => {
+      const mockConversationsList = {
+        conversations: [
+          {
+            conversation_id: 'conv-123',
+            created_at: '2025-09-08T09:33:51',
+            message_count: 5,
+            last_message_at: '2025-09-08T09:33:51',
+            last_used_model: 'gpt-oss-local',
+            last_used_provider: 'ollama-local',
+          },
+          {
+            conversation_id: 'conv-456',
+            created_at: '2025-09-07T08:20:30',
+            message_count: 2,
+            last_message_at: '2025-09-07T08:25:10',
+            last_used_model: 'llama3.2:latest',
+            last_used_provider: 'ollama-local',
+          },
+        ],
+      };
+
+      (mockFetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(mockConversationsList),
+      });
+
+      const result = await client.init();
+
+      expect(result.conversations).toHaveLength(2);
+      expect(result.conversations[0].id).toBe('conv-123');
+      expect(result.conversations[0].title).toBe('Conversation (5 messages)');
+      expect(result.conversations[0].locked).toBe(false);
+      expect(result.conversations[0].createdAt).toBeInstanceOf(Date);
+
+      expect(result.conversations[1].id).toBe('conv-456');
+      expect(result.conversations[1].title).toBe('Conversation (2 messages)');
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://test-lightspeed.example.com/v1/conversations',
+        expect.objectContaining({ method: 'GET' })
+      );
+    });
+
+    it('should handle init() errors gracefully', async () => {
+      (mockFetch as jest.Mock).mockRejectedValue(new Error('Network error'));
+
+      const result = await client.init();
+
+      expect(result.conversations).toEqual([]);
+    });
+  });
+
+  describe('Conversation History with Message Details', () => {
+    it('should get conversation history for specific conversation and handle temp ID', async () => {
+      const mockConversationDetails = {
+        conversation_id: 'conv-123',
+        chat_history: [
+          {
+            messages: [
+              { content: 'What is Docker?', type: 'user' },
+              {
+                content: 'Docker is a containerization platform...',
+                type: 'assistant',
+              },
+            ],
+            started_at: '2025-09-08T09:33:47.237393Z',
+            completed_at: '2025-09-08T09:33:50.927128Z',
+          },
+          {
+            messages: [
+              { content: 'How do I install it?', type: 'user' },
+              { content: 'You can install Docker by...', type: 'assistant' },
+            ],
+            started_at: '2025-09-08T09:35:12.123456Z',
+            completed_at: '2025-09-08T09:35:18.654321Z',
+          },
+        ],
+      };
+
+      (mockFetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(mockConversationDetails),
+      });
+
+      const history = await client.getConversationHistory('conv-123');
+
+      expect(history).toHaveLength(2);
+      expect(Array.isArray(history)).toBe(true);
+
+      if (Array.isArray(history)) {
+        expect(history[0].input).toBe('What is Docker?');
+        expect(history[0].answer).toBe(
+          'Docker is a containerization platform...'
+        );
+        expect(history[0].date).toBeInstanceOf(Date);
+        expect(history[0].additionalAttributes).toBeDefined();
+
+        expect(history[1].input).toBe('How do I install it?');
+        expect(history[1].answer).toBe('You can install Docker by...');
+      }
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://test-lightspeed.example.com/v1/conversations/conv-123',
+        expect.objectContaining({ method: 'GET' })
+      );
+    });
+
+    it('should return empty history for temp conversation ID', async () => {
+      const history = await client.getConversationHistory(
+        '__temp_lightspeed_conversation__'
+      );
+
+      expect(history).toEqual([]);
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it('should handle 404 errors gracefully', async () => {
+      const mockResponse = {
+        ok: false,
+        status: 404,
+        statusText: 'Not Found',
+        json: () => Promise.resolve({ detail: 'Conversation not found' }),
+      };
+
+      (mockFetch as jest.Mock).mockResolvedValue(mockResponse);
+
+      const history = await client.getConversationHistory('nonexistent-conv');
+
+      expect(history).toEqual([]);
+    });
+  });
+
+  describe('Temporary Conversation ID Behavior', () => {
+    it('should omit conversation_id in sendMessage when using temp ID', async () => {
+      const mockResponse = {
+        conversation_id: 'real-conv-123',
+        response: 'Hello! How can I help you?',
+      };
+
+      (mockFetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(mockResponse),
+      });
+
+      await client.sendMessage('__temp_lightspeed_conversation__', 'Hello');
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://test-lightspeed.example.com/v1/query',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({
+            query: 'Hello',
+            // conversation_id should be undefined (omitted)
+            media_type: 'application/json',
+          }),
+        })
+      );
+    });
+
+    it('should include conversation_id in sendMessage when using real ID', async () => {
+      const mockResponse = {
+        conversation_id: 'real-conv-123',
+        response: 'Hello! How can I help you?',
+      };
+
+      (mockFetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(mockResponse),
+      });
+
+      await client.sendMessage('real-conv-123', 'Hello');
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://test-lightspeed.example.com/v1/query',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({
+            query: 'Hello',
+            conversation_id: 'real-conv-123',
+            media_type: 'application/json',
+          }),
+        })
+      );
     });
   });
 });

@@ -35,7 +35,7 @@ export class LightspeedValidationError extends AIClientValidationError {
 }
 
 // ====================
-// Based on Lightspeed OpenAPI Spec - Exact Match
+// Based on Lightspeed OpenAPI Spec v0.2.0 - Updated with Real API Testing
 // ====================
 
 /**
@@ -49,8 +49,8 @@ export interface Attachment {
 }
 
 /**
- * LLM Request payload for Lightspeed API
- * Matches OpenAPI spec exactly
+ * LLM Request payload for Lightspeed API (Query Request)
+ * Updated with new OpenAPI spec v0.2.0 fields
  */
 export interface LLMRequest {
   query: string;
@@ -59,6 +59,7 @@ export interface LLMRequest {
   model?: string | null;
   system_prompt?: string | null;
   attachments?: Attachment[] | null;
+  no_tools?: boolean | null;
   media_type?: string | null;
 }
 
@@ -88,8 +89,20 @@ export interface LLMResponse {
 }
 
 /**
+ * Feedback categories enum from OpenAPI spec
+ */
+export enum FeedbackCategory {
+  INCORRECT = 'incorrect',
+  NOT_RELEVANT = 'not_relevant',
+  INCOMPLETE = 'incomplete',
+  OUTDATED_INFORMATION = 'outdated_information',
+  UNSAFE = 'unsafe',
+  OTHER = 'other',
+}
+
+/**
  * Feedback request for user feedback
- * Matches OpenAPI spec exactly
+ * Updated with categories field from OpenAPI spec v0.2.0
  */
 export interface FeedbackRequest {
   conversation_id: string;
@@ -97,6 +110,7 @@ export interface FeedbackRequest {
   llm_response: string;
   sentiment?: number | null;
   user_feedback?: string | null;
+  categories?: FeedbackCategory[] | null;
 }
 
 /**
@@ -231,6 +245,12 @@ export type LightSpeedCoreAdditionalProperties = {
   availableQuotas?: Record<string, number>;
   toolCalls?: unknown[];
   toolResults?: unknown[];
+  // Conversation metadata fields for conversation history
+  conversationId?: string;
+  messageCount?: number;
+  lastUsedModel?: string;
+  lastUsedProvider?: string;
+  lastMessageAt?: string;
 };
 
 // ====================
@@ -365,3 +385,232 @@ export function isAssistantAnswerEvent(
 export function isErrorEvent(event: BaseStreamingEvent): event is ErrorEvent {
   return event.event === 'error';
 }
+
+// ====================
+// New API Endpoints Types (OpenAPI v0.2.0)
+// ====================
+
+/**
+ * Service information response (/v1/info)
+ */
+export interface InfoResponse {
+  name: string;
+  service_version: string;
+  llama_stack_version: string;
+}
+
+/**
+ * Model information structure
+ */
+export interface Model {
+  identifier: string;
+  metadata: Record<string, unknown>;
+  api_model_type: string;
+  provider_id: string;
+  provider_resource_id: string;
+  type: string;
+  model_type: string;
+}
+
+/**
+ * Models response (/v1/models)
+ */
+export interface ModelsResponse {
+  models: Model[];
+}
+
+/**
+ * Service configuration structures
+ */
+export interface TLSConfiguration {
+  tls_certificate_path: string | null;
+  tls_key_path: string | null;
+  tls_key_password: string | null;
+}
+
+export interface CORSConfiguration {
+  allow_origins: string[];
+  allow_credentials: boolean;
+  allow_methods: string[];
+  allow_headers: string[];
+}
+
+export interface ServiceConfiguration {
+  host: string;
+  port: number;
+  auth_enabled: boolean;
+  workers: number;
+  color_log: boolean;
+  access_log: boolean;
+  tls_config: TLSConfiguration;
+  cors: CORSConfiguration;
+}
+
+export interface LlamaStackConfiguration {
+  url: string | null;
+  api_key: string | null;
+  use_as_library_client: boolean | null;
+  library_client_config_path: string | null;
+}
+
+export interface UserDataCollection {
+  feedback_enabled: boolean;
+  feedback_storage: string | null;
+  transcripts_enabled: boolean;
+  transcripts_storage: string | null;
+}
+
+export interface SQLiteDatabaseConfiguration {
+  db_path: string;
+}
+
+export interface PostgreSQLDatabaseConfiguration {
+  host: string;
+  port: number;
+  db: string;
+  user: string;
+  password: string;
+  namespace: string | null;
+  ssl_mode: string;
+  gss_encmode: string;
+  ca_cert_path: string | null;
+}
+
+export interface DatabaseConfiguration {
+  sqlite: SQLiteDatabaseConfiguration | null;
+  postgres: PostgreSQLDatabaseConfiguration | null;
+}
+
+export interface AuthenticationConfiguration {
+  module: string;
+  skip_tls_verification: boolean;
+  k8s_cluster_api: string | null;
+  k8s_ca_cert_path: string | null;
+  jwk_config: unknown | null;
+}
+
+export interface InferenceConfiguration {
+  default_model: string | null;
+  default_provider: string | null;
+}
+
+export interface ModelContextProtocolServer {
+  name: string;
+  provider_id: string;
+  url: string;
+}
+
+/**
+ * Configuration response (/v1/config)
+ */
+export interface Configuration {
+  name: string;
+  service: ServiceConfiguration;
+  llama_stack: LlamaStackConfiguration;
+  user_data_collection: UserDataCollection;
+  database: DatabaseConfiguration;
+  mcp_servers: ModelContextProtocolServer[];
+  authentication: AuthenticationConfiguration;
+  authorization: unknown | null;
+  customization: unknown | null;
+  inference: InferenceConfiguration;
+}
+
+/**
+ * Conversation details structure
+ */
+export interface ConversationDetails {
+  conversation_id: string;
+  created_at: string | null;
+  last_message_at: string | null;
+  message_count: number | null;
+  last_used_model: string | null;
+  last_used_provider: string | null;
+}
+
+/**
+ * Conversations list response (/v1/conversations)
+ */
+export interface ConversationsListResponse {
+  conversations: ConversationDetails[];
+}
+
+/**
+ * Chat message structure
+ */
+export interface ChatMessage {
+  content: string;
+  type: 'user' | 'assistant';
+}
+
+/**
+ * Chat turn structure
+ */
+export interface ChatTurn {
+  messages: ChatMessage[];
+  started_at: string;
+  completed_at: string;
+}
+
+/**
+ * Conversation response (/v1/conversations/{id})
+ */
+export interface ConversationResponse {
+  conversation_id: string;
+  chat_history: ChatTurn[];
+}
+
+/**
+ * Conversation delete response
+ */
+export interface ConversationDeleteResponse {
+  conversation_id: string;
+  success: boolean;
+  response: string;
+}
+
+/**
+ * Feedback status update request
+ */
+export interface FeedbackStatusUpdateRequest {
+  status: boolean;
+}
+
+/**
+ * Feedback status update response
+ */
+export interface FeedbackStatusUpdateResponse {
+  status: {
+    previous_status: boolean;
+    updated_status: boolean;
+    updated_by: string;
+    timestamp: string;
+  };
+}
+
+/**
+ * Provider health status
+ */
+export interface ProviderHealthStatus {
+  provider_id: string;
+  status: string;
+  message: string | null;
+}
+
+/**
+ * Updated readiness response with providers array
+ */
+export interface ReadinessResponse {
+  ready: boolean;
+  reason: string;
+  providers: ProviderHealthStatus[];
+}
+
+// ====================
+// Temporary Conversation ID Pattern
+// ====================
+
+/**
+ * Constant for temporary conversation ID used in conversation promotion pattern
+ */
+export const TEMP_CONVERSATION_ID = '__temp_lightspeed_conversation__';

@@ -30,8 +30,8 @@ const client = new LightspeedClient({
   fetchFunction: (input, init) => fetch(input, init) // Use arrow function to preserve context
 });
 
-// Initialize the client
-await client.init();
+// Initialize the client and get existing conversations
+const { conversations } = await client.init();
 
 // Create a conversation
 const conversation = await client.createNewConversation();
@@ -79,8 +79,8 @@ interface LightspeedClientConfig extends IBaseClientConfig {
 The LightspeedClient implements the same `IAIClient` interface as other AI clients in this workspace:
 
 ```typescript
-// Initialize client
-await client.init();
+// Initialize client and get existing conversations
+const { conversations } = await client.init();
 
 // Create a conversation
 const conversation = await client.createNewConversation();
@@ -114,8 +114,8 @@ const newConversation = await client.createNewConversation();
 console.log('New conversation locked status:', newConversation.locked); // false
 
 // Initialize client to get conversation list
-const result = await client.init();
-console.log('Available conversations:', result.conversations); // Currently returns empty array
+const { conversations } = await client.init();
+console.log('Available conversations:', conversations);
 ```
 
 When used with the state manager from `@redhat-cloud-services/ai-client-state`, conversation locking is fully supported:
@@ -158,16 +158,26 @@ try {
 
 ## API Limitations
 
-**Conversation History**: The Lightspeed API v1.0.1 does not provide a conversation history endpoint. The `getConversationHistory()` method is implemented for interface compliance but always returns an empty array and logs a warning.
+**Conversation History**: The Lightspeed API does not support retrieving conversation history through the `getConversationHistory()` method for existing conversations. The method is implemented for interface compliance but always returns an empty array and logs a warning.
 
 ## Available Methods
 
 ```typescript
 // Core client methods
-await client.init();
+const { conversations } = await client.init();
 await client.sendMessage(conversationId, message, options);
 await client.getConversationHistory(conversationId); // Returns [] - not supported by Lightspeed API
 await client.createNewConversation();
+
+// Service information
+await client.getServiceInfo(); // Get service information
+await client.getModels(); // Get available models
+await client.getConfiguration(); // Get service configuration
+
+// Conversation management  
+await client.getConversations(); // List all conversations
+await client.getConversation(conversationId); // Get specific conversation details
+await client.deleteConversation(conversationId); // Delete a conversation
 
 // Health checks
 await client.healthCheck(); // Combines readiness and liveness checks
@@ -175,6 +185,7 @@ await client.getServiceStatus();
 
 // Feedback and authorization
 await client.storeFeedback(feedback);
+await client.updateFeedbackStatus(request); // Update feedback status
 await client.checkAuthorization(userId);
 
 // Metrics
@@ -198,6 +209,14 @@ import {
   ReadinessResponse,
   LivenessResponse,
   HealthCheck,
+  InfoResponse,
+  ModelsResponse,
+  Configuration,
+  ConversationsListResponse,
+  ConversationResponse,
+  ConversationDeleteResponse,
+  FeedbackStatusUpdateRequest,
+  FeedbackStatusUpdateResponse,
   
   // Data types
   Attachment,
@@ -212,6 +231,7 @@ import {
   
   // Configuration
   LightspeedClientConfig,
+  LightspeedSendMessageOptions,
   RequestOptions
 } from '@redhat-cloud-services/lightspeed-client';
 ```

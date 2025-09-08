@@ -23,6 +23,15 @@ import {
   LightspeedClientError,
   LightspeedValidationError,
   LightSpeedCoreAdditionalProperties,
+  InfoResponse,
+  ModelsResponse,
+  Configuration,
+  ConversationsListResponse,
+  ConversationResponse,
+  ConversationDeleteResponse,
+  FeedbackStatusUpdateRequest,
+  FeedbackStatusUpdateResponse,
+  TEMP_CONVERSATION_ID,
 } from './types';
 import { DefaultStreamingHandler } from './default-streaming-handler';
 
@@ -51,14 +60,28 @@ export class LightspeedClient
   // ====================
 
   /**
-   * Initialize the client and return the initial conversation ID
-   * @returns Promise that resolves to a new conversation ID
+   * Initialize the client and return existing conversations
+   * @returns Promise that resolves to existing conversations
    */
   async init(): Promise<{
     conversations: IConversation[];
   }> {
-    // Just a stub for now - no auto-creation of conversations
-    return { conversations: [] };
+    try {
+      const conversationsResponse = await this.getConversations();
+
+      const conversations: IConversation[] =
+        conversationsResponse.conversations.map((conv) => ({
+          id: conv.conversation_id,
+          title: `Conversation (${conv.message_count || 0} messages)`,
+          locked: false,
+          createdAt: conv.created_at ? new Date(conv.created_at) : new Date(),
+        }));
+
+      return { conversations };
+    } catch (error) {
+      console.warn('Failed to load existing conversations:', error);
+      return { conversations: [] };
+    }
   }
 
   /**
@@ -81,7 +104,9 @@ export class LightspeedClient
 
     const request: LLMRequest = {
       query: message,
-      conversation_id: conversationId,
+      // Omit conversation_id if it's the temporary ID - let API auto-generate
+      conversation_id:
+        conversationId === TEMP_CONVERSATION_ID ? undefined : conversationId,
       media_type: mediaType,
     };
 
@@ -150,37 +175,84 @@ export class LightspeedClient
   }
 
   async createNewConversation(): Promise<IConversation> {
-    const conversationId = this.generateConversationId();
+    // Return temporary conversation ID - real conversation will be created on first sendMessage
     const newConversation: IConversation = {
-      id: conversationId,
+      id: TEMP_CONVERSATION_ID,
       title: 'New Conversation',
       locked: false,
       createdAt: new Date(),
     };
 
-    // In a real implementation, you would likely want to store this conversation
-    // in some state management or database. Here we just return it.
     return newConversation;
   }
 
   /**
-   * Get the conversation history for a specific conversation
-   * Note: Lightspeed API doesn't have a dedicated history endpoint in v1.0.1
+   * Get the conversation history (message history) for a specific conversation
+   * Uses the /v1/conversations/{id} endpoint to get detailed message history
    * @param conversationId - The conversation ID to retrieve history for
    * @param options - Optional request configuration
-   * @returns Promise that resolves to null (not implemented in API)
+   * @returns Promise that resolves to the conversation message history
    */
   async getConversationHistory(
     conversationId: string,
     options?: IRequestOptions
   ): Promise<IConversationHistoryResponse<LightSpeedCoreAdditionalProperties>> {
-    // Lightspeed API v1.0.1 doesn't have a dedicated history endpoint
-    // This is documented in the OpenAPI spec - only query endpoints exist
-    console.warn(
-      `getConversationHistory is not implemented for conversation ${conversationId} - Lightspeed API does not have a history endpoint`,
-      options
-    );
-    return [];
+    // Handle temporary conversation ID - no history available yet
+    if (conversationId === TEMP_CONVERSATION_ID) {
+      return [];
+    }
+
+    try {
+      // Get conversation data from the API
+      const conversationData = await this.getConversation(
+        conversationId,
+        options
+      );
+
+      // Transform the API response to match IConversationHistoryResponse format
+      const history = conversationData.chat_history.flatMap((turn) => {
+        // Each turn has messages array with user/assistant pairs
+        const messages = [];
+
+        // Find user and assistant messages in this turn
+        const userMessage = turn.messages.find((msg) => msg.type === 'user');
+        const assistantMessage = turn.messages.find(
+          (msg) => msg.type === 'assistant'
+        );
+
+        if (userMessage && assistantMessage) {
+          // Create a conversation message entry for this Q&A pair
+          messages.push({
+            message_id: this.generateMessageId(),
+            answer: assistantMessage.content,
+            input: userMessage.content,
+            date: new Date(turn.started_at),
+            additionalAttributes: {
+              // We don't have detailed attributes from the conversation endpoint
+              // These would be available from the original query/response
+              referencedDocuments: [],
+              truncated: false,
+              inputTokens: 0,
+              outputTokens: 0,
+              availableQuotas: {},
+              toolCalls: [],
+              toolResults: [],
+            },
+          });
+        }
+
+        return messages;
+      });
+
+      return history;
+    } catch (error) {
+      // If conversation doesn't exist or is inaccessible, return empty history
+      if (error instanceof LightspeedClientError && error.status === 404) {
+        return [];
+      }
+      // Re-throw other errors
+      throw error;
+    }
   }
 
   /**
@@ -292,6 +364,128 @@ export class LightspeedClient
     });
 
     return response.text();
+  }
+
+  // ====================
+  // New API Endpoints (OpenAPI v0.2.0)
+  // ====================
+
+  /**
+   * Get service information
+   * @param options - Optional request configuration
+   * @returns Promise that resolves to service info
+   */
+  async getServiceInfo(options?: IRequestOptions): Promise<InfoResponse> {
+    return this.makeRequest<InfoResponse>('/v1/info', {
+      method: 'GET',
+      headers: options?.headers,
+      signal: options?.signal,
+    });
+  }
+
+  /**
+   * Get available models
+   * @param options - Optional request configuration
+   * @returns Promise that resolves to available models
+   */
+  async getModels(options?: IRequestOptions): Promise<ModelsResponse> {
+    return this.makeRequest<ModelsResponse>('/v1/models', {
+      method: 'GET',
+      headers: options?.headers,
+      signal: options?.signal,
+    });
+  }
+
+  /**
+   * Get service configuration
+   * @param options - Optional request configuration
+   * @returns Promise that resolves to service configuration
+   */
+  async getConfiguration(options?: IRequestOptions): Promise<Configuration> {
+    return this.makeRequest<Configuration>('/v1/config', {
+      method: 'GET',
+      headers: options?.headers,
+      signal: options?.signal,
+    });
+  }
+
+  /**
+   * List all conversations
+   * @param options - Optional request configuration
+   * @returns Promise that resolves to conversations list
+   */
+  async getConversations(
+    options?: IRequestOptions
+  ): Promise<ConversationsListResponse> {
+    return this.makeRequest<ConversationsListResponse>('/v1/conversations', {
+      method: 'GET',
+      headers: options?.headers,
+      signal: options?.signal,
+    });
+  }
+
+  /**
+   * Get specific conversation by ID
+   * @param conversationId - The conversation ID to retrieve
+   * @param options - Optional request configuration
+   * @returns Promise that resolves to conversation details
+   */
+  async getConversation(
+    conversationId: string,
+    options?: IRequestOptions
+  ): Promise<ConversationResponse> {
+    return this.makeRequest<ConversationResponse>(
+      `/v1/conversations/${conversationId}`,
+      {
+        method: 'GET',
+        headers: options?.headers,
+        signal: options?.signal,
+      }
+    );
+  }
+
+  /**
+   * Delete a conversation by ID
+   * @param conversationId - The conversation ID to delete
+   * @param options - Optional request configuration
+   * @returns Promise that resolves to deletion confirmation
+   */
+  async deleteConversation(
+    conversationId: string,
+    options?: IRequestOptions
+  ): Promise<ConversationDeleteResponse> {
+    return this.makeRequest<ConversationDeleteResponse>(
+      `/v1/conversations/${conversationId}`,
+      {
+        method: 'DELETE',
+        headers: options?.headers,
+        signal: options?.signal,
+      }
+    );
+  }
+
+  /**
+   * Update feedback status
+   * @param request - Feedback status update request
+   * @param options - Optional request configuration
+   * @returns Promise that resolves to status update response
+   */
+  async updateFeedbackStatus(
+    request: FeedbackStatusUpdateRequest,
+    options?: IRequestOptions
+  ): Promise<FeedbackStatusUpdateResponse> {
+    return this.makeRequest<FeedbackStatusUpdateResponse>(
+      '/v1/feedback/status',
+      {
+        method: 'PUT',
+        body: JSON.stringify(request),
+        headers: {
+          'Content-Type': 'application/json',
+          ...options?.headers,
+        },
+        signal: options?.signal,
+      }
+    );
   }
 
   // ====================
