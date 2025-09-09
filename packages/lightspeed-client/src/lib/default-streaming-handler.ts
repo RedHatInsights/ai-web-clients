@@ -12,6 +12,7 @@ import {
   isEndEvent,
   isAssistantAnswerEvent,
   isErrorEvent,
+  isToolCallEvent,
 } from './types';
 
 /**
@@ -26,7 +27,9 @@ export class DefaultStreamingHandler
   implements ISimpleStreamingHandler<string | StreamingEvent>
 {
   private conversationId = '';
-  private additionalAttributes: LightSpeedCoreAdditionalProperties = {};
+  private additionalAttributes: LightSpeedCoreAdditionalProperties = {
+    toolCalls: [],
+  };
   private messageBuffer = '';
   private streamPromise: Promise<
     IMessageResponse<LightSpeedCoreAdditionalProperties>
@@ -149,7 +152,14 @@ export class DefaultStreamingHandler
         this.conversationId = result.conversationId;
       }
       if (result.additionalAttributes) {
-        Object.assign(this.additionalAttributes, result.additionalAttributes);
+        this.additionalAttributes = {
+          ...this.additionalAttributes,
+          ...result.additionalAttributes,
+          toolCalls: [
+            ...(this.additionalAttributes.toolCalls || []),
+            ...(result.additionalAttributes.toolCalls || []),
+          ],
+        };
       }
     }
 
@@ -177,12 +187,12 @@ export class DefaultStreamingHandler
     buffer: string;
     hasUpdate: boolean;
     conversationId?: string;
-    additionalAttributes?: LightSpeedCoreAdditionalProperties;
+    additionalAttributes: LightSpeedCoreAdditionalProperties;
   } {
     let buffer = currentBuffer;
     let hasUpdate = false;
     let conversationId: string | undefined;
-    let additionalAttributes: LightSpeedCoreAdditionalProperties | undefined;
+    let additionalAttributes: LightSpeedCoreAdditionalProperties = {};
 
     // Focus on answer-building events
     if (isTokenEvent(event)) {
@@ -200,12 +210,18 @@ export class DefaultStreamingHandler
     } else if (isEndEvent(event)) {
       // Capture final metadata
       additionalAttributes = {
+        ...additionalAttributes,
         referencedDocuments: event.data.referenced_documents,
         truncated: event.data.truncated,
         inputTokens: event.data.input_tokens,
         outputTokens: event.data.output_tokens,
         availableQuotas: event.available_quotas as Record<string, number>,
       };
+    } else if (isToolCallEvent(event)) {
+      if (!additionalAttributes.toolCalls) {
+        additionalAttributes.toolCalls = [];
+      }
+      additionalAttributes.toolCalls.push(event);
     } else if (isErrorEvent(event)) {
       // Handle error events
       const error = new Error(event.data.response);

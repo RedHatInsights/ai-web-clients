@@ -382,6 +382,12 @@ export function isAssistantAnswerEvent(
   return event.event === 'assistant_answer';
 }
 
+export function isToolCallEvent(
+  event: BaseStreamingEvent
+): event is ToolCallEvent {
+  return event.event === 'tool_call';
+}
+
 export function isErrorEvent(event: BaseStreamingEvent): event is ErrorEvent {
   return event.event === 'error';
 }
