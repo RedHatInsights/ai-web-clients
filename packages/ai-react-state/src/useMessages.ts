@@ -22,5 +22,9 @@ export function useMessages<
       unsubscribeConversation();
     };
   }, [getState]);
-  return messages as Message<T>[];
+  // make sure to create copy of array object to trigger re-renders
+  return messages.map((msg) => ({
+    ...msg,
+    additionalAttributes: { ...msg.additionalAttributes },
+  })) as Message<T>[];
 }

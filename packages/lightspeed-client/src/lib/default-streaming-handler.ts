@@ -26,6 +26,8 @@ import {
 export class DefaultStreamingHandler
   implements ISimpleStreamingHandler<string | StreamingEvent>
 {
+  // LSC does not provide message IDs in stream, so we generate one and keep it constant across stream instance
+  private messageId = crypto.randomUUID();
   private conversationId = '';
   private additionalAttributes: LightSpeedCoreAdditionalProperties = {
     toolCalls: [],
@@ -103,7 +105,7 @@ export class DefaultStreamingHandler
       }
 
       return {
-        messageId: crypto.randomUUID(),
+        messageId: this.messageId,
         answer: this.messageBuffer,
         conversationId: this.conversationId,
         additionalAttributes: this.additionalAttributes,
@@ -166,7 +168,7 @@ export class DefaultStreamingHandler
     // Call the callback with current complete message if there's an update
     if (hasUpdate && updatedBuffer) {
       const streamChunk: IStreamChunk<LightSpeedCoreAdditionalProperties> = {
-        messageId: crypto.randomUUID(),
+        messageId: this.messageId,
         answer: updatedBuffer,
         conversationId: this.conversationId,
         additionalAttributes: this.additionalAttributes,
@@ -218,6 +220,7 @@ export class DefaultStreamingHandler
         availableQuotas: event.available_quotas as Record<string, number>,
       };
     } else if (isToolCallEvent(event)) {
+      hasUpdate = true;
       if (!additionalAttributes.toolCalls) {
         additionalAttributes.toolCalls = [];
       }
