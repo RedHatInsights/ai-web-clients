@@ -82,6 +82,7 @@ export type StateManager<
   getMessageInProgress: () => boolean;
   getState: () => ClientState<T>;
   subscribe: (event: Events, callback: () => void) => () => void;
+  notifyAll: () => void;
   getConversations: () => Conversation<T>[];
   createNewConversation: (force?: boolean) => Promise<IConversation>;
   getClient: () => C;
@@ -606,6 +607,7 @@ export function createClientStateManager<
     getMessageInProgress,
     getState,
     subscribe,
+    notifyAll,
     getConversations,
     createNewConversation,
     getClient,
