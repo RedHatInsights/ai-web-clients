@@ -1157,4 +1157,109 @@ describe('DefaultStreamingHandler', () => {
       );
     });
   });
+
+  describe('Tool Call Processing', () => {
+    it('should only process tool call events with role "tool_execution"', () => {
+      const handler = new DefaultStreamingHandler(
+        mockResponse,
+        'test-conversation',
+        'application/json',
+        mockAfterChunk
+      );
+
+      // Reset mock to ensure clean state
+      mockAfterChunk.mockClear();
+
+      // Tool call event with role "tool_execution" - should be processed
+      const toolExecutionEvent = {
+        event: 'tool_call' as const,
+        data: {
+          id: 526,
+          role: 'tool_execution',
+          token: {
+            tool_name: 'execute_range_query',
+            arguments: {
+              duration: '1h',
+              query: 'sum(rate(container_cpu_usage_seconds_total[5m]))',
+            },
+          },
+        },
+      };
+
+      // Tool call event with different role - should be ignored
+      const toolInferenceEvent = {
+        event: 'tool_call' as const,
+        data: {
+          id: 527,
+          role: 'tool_inference',
+          token: {
+            tool_name: 'some_inference_tool',
+            arguments: { param: 'value' },
+          },
+        },
+      };
+
+      // Process both events
+      const result1 = handler.processChunk(
+        toolExecutionEvent,
+        '',
+        mockAfterChunk
+      );
+      handler.processChunk(toolInferenceEvent, result1, mockAfterChunk);
+
+      // Only the tool_execution event should trigger a callback
+      expect(mockAfterChunk).toHaveBeenCalledTimes(1);
+      expect(mockAfterChunk).toHaveBeenCalledWith(
+        expect.objectContaining({
+          additionalAttributes: expect.objectContaining({
+            toolCalls: [toolExecutionEvent],
+          }),
+        })
+      );
+    });
+
+    it('should accumulate multiple tool_execution events', () => {
+      const handler = new DefaultStreamingHandler(
+        mockResponse,
+        'test-conversation',
+        'application/json',
+        mockAfterChunk
+      );
+
+      // Reset mock to ensure clean state
+      mockAfterChunk.mockClear();
+
+      const toolEvent1 = {
+        event: 'tool_call' as const,
+        data: {
+          id: 1,
+          role: 'tool_execution',
+          token: { tool_name: 'tool1', arguments: {} },
+        },
+      };
+
+      const toolEvent2 = {
+        event: 'tool_call' as const,
+        data: {
+          id: 2,
+          role: 'tool_execution',
+          token: { tool_name: 'tool2', arguments: {} },
+        },
+      };
+
+      // Process both events
+      handler.processChunk(toolEvent1, '', mockAfterChunk);
+      handler.processChunk(toolEvent2, '', mockAfterChunk);
+
+      // Both events should be accumulated
+      expect(mockAfterChunk).toHaveBeenCalledTimes(2);
+      expect(mockAfterChunk).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          additionalAttributes: expect.objectContaining({
+            toolCalls: [toolEvent1, toolEvent2],
+          }),
+        })
+      );
+    });
+  });
 });

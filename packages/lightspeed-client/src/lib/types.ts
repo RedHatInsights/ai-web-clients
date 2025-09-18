@@ -320,9 +320,11 @@ export interface AssistantAnswerEvent {
 
 export interface ToolCallEvent {
   event: 'tool_call';
-  tool_name: string;
-  arguments: Record<string, unknown>;
-  tool_id: string;
+  data: {
+    id: number;
+    role: string;
+    token: unknown;
+  };
 }
 
 export interface ToolResultEvent {

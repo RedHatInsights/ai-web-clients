@@ -166,7 +166,7 @@ export class DefaultStreamingHandler
     }
 
     // Call the callback with current complete message if there's an update
-    if (hasUpdate && updatedBuffer) {
+    if (hasUpdate) {
       const streamChunk: IStreamChunk<LightSpeedCoreAdditionalProperties> = {
         messageId: this.messageId,
         answer: updatedBuffer,
@@ -220,11 +220,14 @@ export class DefaultStreamingHandler
         availableQuotas: event.available_quotas as Record<string, number>,
       };
     } else if (isToolCallEvent(event)) {
-      hasUpdate = true;
-      if (!additionalAttributes.toolCalls) {
-        additionalAttributes.toolCalls = [];
+      // Only process tool calls with role 'tool_execution' - other roles add extra tokens and are not usable
+      if (event.data.role === 'tool_execution') {
+        hasUpdate = true;
+        if (!additionalAttributes.toolCalls) {
+          additionalAttributes.toolCalls = [];
+        }
+        additionalAttributes.toolCalls.push(event);
       }
-      additionalAttributes.toolCalls.push(event);
     } else if (isErrorEvent(event)) {
       // Handle error events
       const error = new Error(event.data.response);
