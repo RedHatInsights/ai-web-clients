@@ -136,6 +136,13 @@ declare class IAIClient<
    * @returns Promise that resolves to the newly created conversation
    */
   createNewConversation(): Promise<IConversation>;
+
+  /**
+   * Delete conversation
+   * @param conversationId conversation id to delete
+   * @returns Promise that resolves to deleted conversation information
+   */
+  deleteConversation?(conversationId: string): Promise<unknown>;
 }
 
 export { IAIClient };

@@ -92,6 +92,7 @@ export type StateManager<
   getClient: () => C;
   getInitLimitation: () => ClientInitLimitation | undefined;
   isTemporaryConversation: () => boolean;
+  deleteConversation: (conversationId: string) => Promise<unknown>;
 };
 
 export function createClientStateManager<
@@ -562,6 +563,22 @@ export function createClientStateManager<
     return newConversation;
   }
 
+  async function deleteConversation(conversationId: string): Promise<unknown> {
+    if (!client.deleteConversation) {
+      return Promise.resolve(undefined);
+    }
+    const resp = await client.deleteConversation?.(conversationId);
+
+    const currentConversationId = getActiveConversationId();
+    if (currentConversationId && currentConversationId === conversationId) {
+      state.activeConversationId = TEMP_CONVERSATION_ID;
+      initializeConversationState(TEMP_CONVERSATION_ID);
+    }
+    delete state.conversations[conversationId];
+    notify(Events.CONVERSATIONS);
+    return resp;
+  }
+
   function subscribe(event: Events, callback: () => void) {
     const id = crypto.randomUUID();
     const subscription: EventSubscription = { id, callback };
@@ -630,5 +647,6 @@ export function createClientStateManager<
     getClient,
     getInitLimitation,
     isTemporaryConversation,
+    deleteConversation,
   };
 }
