@@ -11,6 +11,7 @@ import {
   useInProgress,
   useMessages,
   useSendMessage,
+  useStreamChunk,
 } from '@redhat-cloud-services/ai-react-state';
 import { useEffect, useRef } from 'react';
 
@@ -23,6 +24,7 @@ const GenericPFChatbot = ({
   const sendMessage = useSendMessage();
   const inProgress = useInProgress();
   const scrollToBottomRef = useRef<HTMLDivElement>(null);
+  const lastChunk = useStreamChunk();
 
   const handleSend = (message: string | number) => {
     sendMessage(`${message}`, {
@@ -71,6 +73,11 @@ const GenericPFChatbot = ({
           />
         </ChatbotFooter>
       </Chatbot>
+      <div>
+        {lastChunk ? (
+          <p>Last streamed chunk: {JSON.stringify(lastChunk, null, 2)}</p>
+        ) : null}
+      </div>
     </div>
   );
 };

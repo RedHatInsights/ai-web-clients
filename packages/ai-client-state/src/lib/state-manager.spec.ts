@@ -1088,4 +1088,162 @@ describe('ClientStateManager', () => {
       expect(state.activeConversationId).toBe('new-conv-retry');
     });
   });
+
+  describe('Stream Chunk Management', () => {
+    beforeEach(() => {
+      mockClient.sendMessage = jest.fn().mockResolvedValue({
+        messageId: 'test-msg',
+        answer: 'Test response',
+        conversationId: 'test-conv',
+      });
+    });
+
+    it('should return undefined when no active conversation', () => {
+      const streamChunk = stateManager.getActiveConversationStreamChunk();
+      expect(streamChunk).toBeUndefined();
+    });
+
+    it('should return undefined when active conversation has no stream chunk', async () => {
+      await stateManager.setActiveConversationId('test-conv');
+
+      const streamChunk = stateManager.getActiveConversationStreamChunk();
+      expect(streamChunk).toBeUndefined();
+    });
+
+    it('should store and retrieve last stream chunk for active conversation', async () => {
+      const mockStreamChunk = {
+        answer: 'Streaming response',
+        messageId: 'stream-msg-1',
+        conversationId: 'test-conv',
+        additionalAttributes: { priority: 'high' },
+      };
+
+      await stateManager.setActiveConversationId('test-conv');
+
+      // Simulate streaming by calling sendMessage with handleChunk
+      mockClient.sendMessage = jest
+        .fn()
+        .mockImplementation(async (convId, message, options) => {
+          // Simulate the streaming behavior by calling handleChunk
+          if (options?.handleChunk) {
+            options.handleChunk(mockStreamChunk);
+          }
+          return {
+            messageId: 'final-msg',
+            answer: 'Final response',
+            conversationId: convId,
+          };
+        });
+
+      await stateManager.sendMessage('Test message', { stream: true });
+
+      const retrievedChunk = stateManager.getActiveConversationStreamChunk();
+      expect(retrievedChunk).toEqual(mockStreamChunk);
+    });
+
+    it('should update stream chunk when new chunks arrive', async () => {
+      await stateManager.setActiveConversationId('test-conv');
+
+      const firstChunk = {
+        answer: 'First chunk',
+        messageId: 'msg-1',
+        conversationId: 'test-conv',
+        additionalAttributes: {},
+      };
+
+      const secondChunk = {
+        answer: 'Second chunk',
+        messageId: 'msg-1',
+        conversationId: 'test-conv',
+        additionalAttributes: { updated: true },
+      };
+
+      mockClient.sendMessage = jest
+        .fn()
+        .mockImplementation(async (convId, message, options) => {
+          if (options?.handleChunk) {
+            options.handleChunk(firstChunk);
+            options.handleChunk(secondChunk);
+          }
+          return {
+            messageId: 'final-msg',
+            answer: 'Final response',
+            conversationId: convId,
+          };
+        });
+
+      await stateManager.sendMessage('Test message', { stream: true });
+
+      const retrievedChunk = stateManager.getActiveConversationStreamChunk();
+      expect(retrievedChunk).toEqual(secondChunk);
+    });
+
+    it('should return undefined for inactive conversations', async () => {
+      await stateManager.setActiveConversationId('conv-1');
+      await stateManager.setActiveConversationId('conv-2');
+
+      const mockStreamChunk = {
+        answer: 'Stream for conv-2',
+        messageId: 'msg-2',
+        conversationId: 'conv-2',
+        additionalAttributes: {},
+      };
+
+      mockClient.sendMessage = jest
+        .fn()
+        .mockImplementation(async (convId, message, options) => {
+          if (options?.handleChunk) {
+            options.handleChunk(mockStreamChunk);
+          }
+          return {
+            messageId: 'final-msg',
+            answer: 'Final response',
+            conversationId: convId,
+          };
+        });
+
+      await stateManager.sendMessage('Test message', { stream: true });
+
+      // Switch back to conv-1 (which has no stream chunk)
+      await stateManager.setActiveConversationId('conv-1');
+
+      const retrievedChunk = stateManager.getActiveConversationStreamChunk();
+      expect(retrievedChunk).toBeUndefined();
+    });
+
+    it('should notify STREAM_CHUNK event when chunk is updated', async () => {
+      const streamChunkListener = jest.fn();
+      const unsubscribe = stateManager.subscribe(
+        Events.STREAM_CHUNK,
+        streamChunkListener
+      );
+
+      await stateManager.setActiveConversationId('test-conv');
+
+      const mockStreamChunk = {
+        answer: 'Streaming response',
+        messageId: 'stream-msg-1',
+        conversationId: 'test-conv',
+        additionalAttributes: {},
+      };
+
+      mockClient.sendMessage = jest
+        .fn()
+        .mockImplementation(async (convId, message, options) => {
+          if (options?.handleChunk) {
+            options.handleChunk(mockStreamChunk);
+          }
+          return {
+            messageId: 'final-msg',
+            answer: 'Final response',
+            conversationId: convId,
+          };
+        });
+
+      await stateManager.sendMessage('Test message', { stream: true });
+
+      expect(streamChunkListener).toHaveBeenCalled();
+      unsubscribe();
+    });
+  });
 });

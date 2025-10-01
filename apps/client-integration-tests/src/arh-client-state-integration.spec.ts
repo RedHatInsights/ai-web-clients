@@ -805,4 +805,288 @@ describe('ARH Client Integration Tests', () => {
       expect(stateManager.isInitialized()).toBe(true);
     });
   });
+
+  describe('Stream Chunk Integration', () => {
+    const mockServerBaseUrl = 'http://localhost:3001';
+
+    beforeAll(async () => {
+      // Health check to ensure mock server is running
+      try {
+        const response = await fetch(`${mockServerBaseUrl}/api/ask/v1/health`);
+        if (!response.ok) {
+          throw new Error('Mock server not responding');
+        }
+      } catch (error) {
+        throw new Error(
+          `ARH mock server not running at ${mockServerBaseUrl}. Start it with: npm run arh-mock-server`
+        );
+      }
+    });
+
+    it('should capture and track stream chunks during streaming message', async () => {
+      const realClient = new IFDClient({
+        baseUrl: mockServerBaseUrl,
+      });
+
+      const stateManager = createClientStateManager(realClient);
+
+      // Create conversation first (required by mock server)
+      const conversation = await realClient.createConversation();
+      await stateManager.setActiveConversationId(conversation.conversation_id);
+
+      // Initially no stream chunk
+      expect(stateManager.getActiveConversationStreamChunk()).toBeUndefined();
+
+      // Set up event tracking
+      const streamChunkEvents: any[] = [];
+      const streamChunkUnsubscribe = stateManager.subscribe(
+        Events.STREAM_CHUNK,
+        () => {
+          const currentChunk = stateManager.getActiveConversationStreamChunk();
+          streamChunkEvents.push({
+            timestamp: Date.now(),
+            chunk: currentChunk,
+          });
+        }
+      );
+
+      // Send streaming message
+      const response = await stateManager.sendMessage(
+        'Tell me about streaming',
+        { stream: true }
+      );
+
+      // Verify response
+      expect(response).toBeDefined();
+      expect(response.messageId).toBeDefined();
+
+      // Verify stream chunk was captured
+      const finalStreamChunk = stateManager.getActiveConversationStreamChunk();
+      expect(finalStreamChunk).toBeDefined();
+      expect(finalStreamChunk?.answer).toBeDefined();
+      expect(finalStreamChunk?.messageId).toBeDefined();
+      expect(finalStreamChunk?.conversationId).toBe(
+        conversation.conversation_id
+      );
+      expect(finalStreamChunk?.additionalAttributes).toBeDefined();
+
+      // Verify stream chunk events were fired
+      expect(streamChunkEvents.length).toBeGreaterThan(0);
+      expect(streamChunkEvents[streamChunkEvents.length - 1].chunk).toEqual(
+        finalStreamChunk
+      );
+
+      streamChunkUnsubscribe();
+    });
+
+    it('should update stream chunks progressively during streaming', async () => {
+      const realClient = new IFDClient({
+        baseUrl: mockServerBaseUrl,
+      });
+
+      const stateManager = createClientStateManager(realClient);
+
+      // Create conversation
+      const conversation = await realClient.createConversation();
+      await stateManager.setActiveConversationId(conversation.conversation_id);
+
+      // Track all chunk updates
+      const chunkUpdates: IStreamChunk[] = [];
+      const streamChunkUnsubscribe = stateManager.subscribe(
+        Events.STREAM_CHUNK,
+        () => {
+          const currentChunk = stateManager.getActiveConversationStreamChunk();
+          if (currentChunk) {
+            chunkUpdates.push({ ...currentChunk });
+          }
+        }
+      );
+
+      // Send message with streaming
+      await stateManager.sendMessage('Stream multiple chunks please', {
+        stream: true,
+      });
+
+      // Verify we captured multiple chunk updates
+      expect(chunkUpdates.length).toBeGreaterThan(0);
+
+      // Verify chunks have progressive content
+      if (chunkUpdates.length > 1) {
+        // First chunk should be shorter than last chunk
+        expect(chunkUpdates[0].answer.length).toBeLessThanOrEqual(
+          chunkUpdates[chunkUpdates.length - 1].answer.length
+        );
+      }
+
+      // All chunks should have the same message ID and conversation ID
+      const messageId = chunkUpdates[0].messageId;
+      const conversationId = chunkUpdates[0].conversationId;
+      chunkUpdates.forEach((chunk) => {
+        expect(chunk.messageId).toBe(messageId);
+        expect(chunk.conversationId).toBe(conversationId);
+      });
+
+      streamChunkUnsubscribe();
+    });
+
+    it('should maintain separate stream chunks for different conversations', async () => {
+      const realClient = new IFDClient({
+        baseUrl: mockServerBaseUrl,
+      });
+
+      const stateManager = createClientStateManager(realClient);
+
+      // Create first conversation
+      const conversation1 = await realClient.createConversation();
+      await stateManager.setActiveConversationId(conversation1.conversation_id);
+
+      // Send streaming message to first conversation
+      await stateManager.sendMessage('First conversation stream', {
+        stream: true,
+      });
+      const chunk1 = stateManager.getActiveConversationStreamChunk();
+      expect(chunk1).toBeDefined();
+      expect(chunk1?.conversationId).toBe(conversation1.conversation_id);
+
+      // Create second conversation
+      const conversation2 = await realClient.createConversation();
+      await stateManager.setActiveConversationId(conversation2.conversation_id);
+
+      // Initially no chunk for new conversation
+      expect(stateManager.getActiveConversationStreamChunk()).toBeUndefined();
+
+      // Send streaming message to second conversation
+      await stateManager.sendMessage('Second conversation stream', {
+        stream: true,
+      });
+      const chunk2 = stateManager.getActiveConversationStreamChunk();
+      expect(chunk2).toBeDefined();
+      expect(chunk2?.conversationId).toBe(conversation2.conversation_id);
+
+      // Switch back to first conversation
+      await stateManager.setActiveConversationId(conversation1.conversation_id);
+      const retrievedChunk1 = stateManager.getActiveConversationStreamChunk();
+      expect(retrievedChunk1).toEqual(chunk1);
+
+      // Switch back to second conversation
+      await stateManager.setActiveConversationId(conversation2.conversation_id);
+      const retrievedChunk2 = stateManager.getActiveConversationStreamChunk();
+      expect(retrievedChunk2).toEqual(chunk2);
+    });
+
+    it('should handle stream chunk with additional attributes from ARH client', async () => {
+      const realClient = new IFDClient({
+        baseUrl: mockServerBaseUrl,
+      });
+
+      const stateManager = createClientStateManager(realClient);
+
+      // Create conversation
+      const conversation = await realClient.createConversation();
+      await stateManager.setActiveConversationId(conversation.conversation_id);
+
+      // Send streaming message
+      await stateManager.sendMessage(
+        'Generate response with additional attributes',
+        { stream: true }
+      );
+
+      const streamChunk = stateManager.getActiveConversationStreamChunk();
+      expect(streamChunk).toBeDefined();
+
+      // Verify chunk structure
+      expect(streamChunk?.answer).toBeDefined();
+      expect(streamChunk?.messageId).toBeDefined();
+      expect(streamChunk?.conversationId).toBe(conversation.conversation_id);
+      expect(streamChunk?.additionalAttributes).toBeDefined();
+
+      // ARH client should include additional attributes
+      const additionalAttributes = streamChunk?.additionalAttributes;
+      expect(additionalAttributes).toBeInstanceOf(Object);
+      // Mock server typically includes sources and other metadata
+      if (
+        additionalAttributes &&
+        Object.keys(additionalAttributes).length > 0
+      ) {
+        expect(additionalAttributes).toHaveProperty('sources');
+      }
+    });
+
+    it('should clear stream chunk when switching to conversation without streaming', async () => {
+      const realClient = new IFDClient({
+        baseUrl: mockServerBaseUrl,
+      });
+
+      const stateManager = createClientStateManager(realClient);
+
+      // Create conversation and send streaming message
+      const conversation1 = await realClient.createConversation();
+      await stateManager.setActiveConversationId(conversation1.conversation_id);
+      await stateManager.sendMessage('Stream this message', { stream: true });
+
+      // Verify chunk exists
+      expect(stateManager.getActiveConversationStreamChunk()).toBeDefined();
+
+      // Create new conversation (no streaming done yet)
+      const conversation2 = await realClient.createConversation();
+      await stateManager.setActiveConversationId(conversation2.conversation_id);
+
+      // Should have no chunk for new conversation
+      expect(stateManager.getActiveConversationStreamChunk()).toBeUndefined();
+    });
+
+    it('should handle non-streaming messages without affecting stream chunk state', async () => {
+      const realClient = new IFDClient({
+        baseUrl: mockServerBaseUrl,
+      });
+
+      const stateManager = createClientStateManager(realClient);
+
+      // Create conversation
+      const conversation = await realClient.createConversation();
+      await stateManager.setActiveConversationId(conversation.conversation_id);
+
+      // Send non-streaming message first
+      await stateManager.sendMessage('Non-streaming message');
+      expect(stateManager.getActiveConversationStreamChunk()).toBeUndefined();
+
+      // Send streaming message
+      await stateManager.sendMessage('Now streaming', { stream: true });
+      const streamChunk = stateManager.getActiveConversationStreamChunk();
+      expect(streamChunk).toBeDefined();
+
+      // Send another non-streaming message
+      await stateManager.sendMessage('Another non-streaming message');
+
+      // Stream chunk should still be available (not cleared by non-streaming)
+      const retrievedChunk = stateManager.getActiveConversationStreamChunk();
+      expect(retrievedChunk).toEqual(streamChunk);
+    });
+
+    it('should handle temporary conversation promotion with stream chunks', async () => {
+      const realClient = new IFDClient({
+        baseUrl: mockServerBaseUrl,
+      });
+
+      const stateManager = createClientStateManager(realClient);
+
+      // Don't set active conversation - let it auto-create temporary
+      expect(stateManager.isTemporaryConversation()).toBe(false);
+
+      // Send streaming message (should promote temporary conversation)
+      await stateManager.sendMessage('Stream to promoted conversation', {
+        stream: true,
+      });
+
+      // Should no longer be temporary
+      expect(stateManager.isTemporaryConversation()).toBe(false);
+
+      // Should have stream chunk
+      const streamChunk = stateManager.getActiveConversationStreamChunk();
+      expect(streamChunk).toBeDefined();
+      expect(streamChunk?.conversationId).toBe(
+        stateManager.getActiveConversationId()
+      );
+    });
+  });
 });

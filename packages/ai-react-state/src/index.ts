@@ -10,3 +10,4 @@ export * from './useSetActiveConversation';
 export * from './useIsInitializing';
 export * from './useClient';
 export * from './useInitLimitation';
+export * from './useStreamChunk';

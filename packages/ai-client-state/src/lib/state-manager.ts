@@ -4,6 +4,7 @@ import {
   IConversation,
   ISendMessageOptions,
   isInitErrorResponse,
+  IStreamChunk,
 } from '@redhat-cloud-services/ai-client-common';
 
 // Temporary conversation constants
@@ -21,6 +22,7 @@ export enum Events {
   CONVERSATIONS = 'conversations',
   INITIALIZING_MESSAGES = 'initializing-messages',
   INIT_LIMITATION = 'init-limitation',
+  STREAM_CHUNK = 'stream-chunk',
 }
 
 export interface Message<
@@ -43,6 +45,7 @@ export interface Conversation<
   messages: Message<T>[];
   locked: boolean;
   createdAt: Date;
+  lastStreamChunk?: IStreamChunk<T>;
 }
 
 export interface MessageOptions {
@@ -78,6 +81,7 @@ export type StateManager<
   setActiveConversationId: (conversationId: string) => Promise<void>;
   getActiveConversationId: () => string | null;
   getActiveConversationMessages: () => Message<T>[];
+  getActiveConversationStreamChunk: () => IStreamChunk<T> | undefined;
   sendMessage: (query: UserQuery, options?: MessageOptions) => Promise<any>;
   getMessageInProgress: () => boolean;
   getState: () => ClientState<T>;
@@ -111,6 +115,7 @@ export function createClientStateManager<
     [Events.IN_PROGRESS]: [],
     [Events.CONVERSATIONS]: [],
     [Events.INITIALIZING_MESSAGES]: [],
+    [Events.STREAM_CHUNK]: [],
   };
 
   function notify(event: Events) {
@@ -132,6 +137,7 @@ export function createClientStateManager<
       Events.CONVERSATIONS,
       Events.INITIALIZING_MESSAGES,
       Events.INIT_LIMITATION,
+      Events.STREAM_CHUNK,
     ].forEach((event) => {
       notify(event);
     });
@@ -469,7 +475,9 @@ export function createClientStateManager<
           botMessage.answer = chunk.answer;
           botMessage.id = chunk.messageId ?? botMessage.id;
           botMessage.additionalAttributes = chunk.additionalAttributes;
+          conversation.lastStreamChunk = chunk;
           notify(Events.MESSAGE);
+          notify(Events.STREAM_CHUNK);
         },
       };
 
@@ -596,6 +604,14 @@ export function createClientStateManager<
     return isTemporaryConversationId(state.activeConversationId);
   }
 
+  function getActiveConversationStreamChunk(): IStreamChunk<T> | undefined {
+    if (!state.activeConversationId) {
+      return undefined;
+    }
+    const conversation = state.conversations[state.activeConversationId];
+    return conversation ? conversation.lastStreamChunk : undefined;
+  }
+
   return {
     init,
     isInitialized,
@@ -603,6 +619,7 @@ export function createClientStateManager<
     setActiveConversationId,
     getActiveConversationId,
     getActiveConversationMessages,
+    getActiveConversationStreamChunk,
     sendMessage,
     getMessageInProgress,
     getState,
