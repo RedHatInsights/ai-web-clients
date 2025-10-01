@@ -7,7 +7,11 @@ on:
   workflow_dispatch:
 
 jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
   release:
+    needs: ci
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -30,19 +34,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Run tests
-        env:
-           NX_TUI: false
-        run: |-
-          npm run dev:mock > /dev/null &
-          sleep 5
-          npx nx run-many --target=test --all --parallel=1
-
-      - name: Run linting
-        env:
-           NX_TUI: false
-        run: npx nx run-many --target=lint --all --parallel --maxParallel=4
 
       - name: Build packages
         env:
