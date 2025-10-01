@@ -87,7 +87,7 @@
       "conventionalCommits": true,
       "preserveLocalDependencyProtocols": false,
       "versionActionsOptions": {
-        "skipLockFileUpdate": true
+        "skipLockFileUpdate": false
       },
       "manifestRootsToUpdate": [
         "{projectRoot}",

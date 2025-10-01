@@ -63,6 +63,7 @@ jobs:
           NX_TUI: false
           # Once we have it proper org we cans et this up
           NPM_CONFIG_PROVENANCE: false
+          npm_config_legacy_peer_deps: false
         run: |
           npx nx release version --verbose
           npx nx run-many --target=build --all --parallel --maxParallel=4 --skipNxCache
