@@ -1246,4 +1246,80 @@ describe('ClientStateManager', () => {
       unsubscribe();
     });
   });
+
+  describe('Delete Conversation', () => {
+    it('should call client.deleteConversation and remove active conversation, creating a temporary one', async () => {
+      // Ensure an active conversation exists
+      await stateManager.setActiveConversationId('conv-del');
+
+      // Provide client delete implementation
+      mockClient.deleteConversation = jest
+        .fn()
+        .mockResolvedValue({ success: true });
+
+      const result = await stateManager.deleteConversation('conv-del');
+
+      // Verify client method was called and result returned
+      expect(mockClient.deleteConversation).toHaveBeenCalledWith('conv-del');
+      expect(result).toEqual({ success: true });
+
+      // State assertions: active should switch to temp and the old conversation removed
+      const state = stateManager.getState();
+      expect(state.activeConversationId).toBe('__temp_conversation__');
+      expect(state.conversations['conv-del']).toBeUndefined();
+      expect(state.conversations['__temp_conversation__']).toBeDefined();
+    });
+
+    it('should remove non-active conversation without changing active conversation', async () => {
+      // Create two conversations and set one as active
+      await stateManager.setActiveConversationId('conv-keep');
+      await stateManager.setActiveConversationId('conv-del2');
+      await stateManager.setActiveConversationId('conv-keep');
+
+      mockClient.deleteConversation = jest
+        .fn()
+        .mockResolvedValue({ deleted: true });
+
+      const result = await stateManager.deleteConversation('conv-del2');
+
+      expect(result).toEqual({ deleted: true });
+      expect(mockClient.deleteConversation).toHaveBeenCalledWith('conv-del2');
+
+      const state = stateManager.getState();
+      expect(state.activeConversationId).toBe('conv-keep');
+      expect(state.conversations['conv-del2']).toBeUndefined();
+      // No temp conversation should have been created
+      expect(state.conversations['__temp_conversation__']).toBeUndefined();
+    });
+
+    it('should return undefined and not change state when client.deleteConversation is not implemented', async () => {
+      // Ensure a conversation exists and is active
+      await stateManager.setActiveConversationId('conv-noimpl');
+
+      // Explicitly remove deleteConversation implementation
+      mockClient.deleteConversation = undefined;
+
+      const result = await stateManager.deleteConversation('conv-noimpl');
+
+      expect(result).toBeUndefined();
+
+      const state = stateManager.getState();
+      // Active conversation remains and is not removed
+      expect(state.activeConversationId).toBe('conv-noimpl');
+      expect(state.conversations['conv-noimpl']).toBeDefined();
+    });
+
+    it('should emit CONVERSATIONS event when a conversation is deleted', async () => {
+      await stateManager.setActiveConversationId('conv-evt');
+
+      mockClient.deleteConversation = jest.fn().mockResolvedValue({ ok: true });
+
+      const conversationsCallback = jest.fn();
+      stateManager.subscribe(Events.CONVERSATIONS, conversationsCallback);
+
+      await stateManager.deleteConversation('conv-evt');
+
+      expect(conversationsCallback).toHaveBeenCalled();
+    });
+  });
 });
