@@ -499,7 +499,12 @@ export class LightspeedClient
    * @returns Complete URL with query parameters if needed
    */
   private buildUrl(path: string, userId?: string): string {
-    const url = new URL(path, this.baseUrl);
+    const url = new URL(this.baseUrl);
+    // Remove trailing slash from base URL and add path without leading slash.
+    // We need this because the baseUrl may contain a path, so we need to merge the baseUrl path and the path from the argument.
+    const basePath = url.pathname.replace(/\/$/, '');
+    const cleanPath = path.replace(/^\/+/, '');
+    url.pathname = cleanPath ? `${basePath}/${cleanPath}` : basePath;
     if (userId) {
       url.searchParams.set('user_id', userId);
     }
