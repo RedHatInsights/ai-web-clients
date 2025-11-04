@@ -1159,7 +1159,7 @@ describe('DefaultStreamingHandler', () => {
   });
 
   describe('Tool Call Processing', () => {
-    it('should only process tool call events with role "tool_execution"', () => {
+    it('should only process tool call and tool results', () => {
       const handler = new DefaultStreamingHandler(
         mockResponse,
         'test-conversation',
@@ -1170,12 +1170,10 @@ describe('DefaultStreamingHandler', () => {
       // Reset mock to ensure clean state
       mockAfterChunk.mockClear();
 
-      // Tool call event with role "tool_execution" - should be processed
-      const toolExecutionEvent = {
+      const toolCallEvent = {
         event: 'tool_call' as const,
         data: {
           id: 526,
-          role: 'tool_execution',
           token: {
             tool_name: 'execute_range_query',
             arguments: {
@@ -1186,39 +1184,33 @@ describe('DefaultStreamingHandler', () => {
         },
       };
 
-      // Tool call event with different role - should be ignored
-      const toolInferenceEvent = {
-        event: 'tool_call' as const,
+      const toolResultEvent = {
+        event: 'tool_result' as const,
         data: {
           id: 527,
-          role: 'tool_inference',
           token: {
             tool_name: 'some_inference_tool',
-            arguments: { param: 'value' },
+            result: { foo: 'bar' },
           },
         },
       };
 
       // Process both events
-      const result1 = handler.processChunk(
-        toolExecutionEvent,
-        '',
-        mockAfterChunk
-      );
-      handler.processChunk(toolInferenceEvent, result1, mockAfterChunk);
+      const result1 = handler.processChunk(toolCallEvent, '', mockAfterChunk);
+      handler.processChunk(toolResultEvent, result1, mockAfterChunk);
 
-      // Only the tool_execution event should trigger a callback
-      expect(mockAfterChunk).toHaveBeenCalledTimes(1);
+      expect(mockAfterChunk).toHaveBeenCalledTimes(2);
       expect(mockAfterChunk).toHaveBeenCalledWith(
         expect.objectContaining({
           additionalAttributes: expect.objectContaining({
-            toolCalls: [toolExecutionEvent],
+            toolCalls: [toolCallEvent],
+            toolResults: [toolResultEvent],
           }),
         })
       );
     });
 
-    it('should accumulate multiple tool_execution events', () => {
+    it('should accumulate multiple tool_call events', () => {
       const handler = new DefaultStreamingHandler(
         mockResponse,
         'test-conversation',
@@ -1233,7 +1225,6 @@ describe('DefaultStreamingHandler', () => {
         event: 'tool_call' as const,
         data: {
           id: 1,
-          role: 'tool_execution',
           token: { tool_name: 'tool1', arguments: {} },
         },
       };
@@ -1242,7 +1233,6 @@ describe('DefaultStreamingHandler', () => {
         event: 'tool_call' as const,
         data: {
           id: 2,
-          role: 'tool_execution',
           token: { tool_name: 'tool2', arguments: {} },
         },
       };
