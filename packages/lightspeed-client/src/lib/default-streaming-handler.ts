@@ -13,6 +13,7 @@ import {
   isAssistantAnswerEvent,
   isErrorEvent,
   isToolCallEvent,
+  isToolResultEvent,
 } from './types';
 
 /**
@@ -31,6 +32,7 @@ export class DefaultStreamingHandler
   private conversationId = '';
   private additionalAttributes: LightSpeedCoreAdditionalProperties = {
     toolCalls: [],
+    toolResults: [],
   };
   private messageBuffer = '';
   private streamPromise: Promise<
@@ -161,6 +163,10 @@ export class DefaultStreamingHandler
             ...(this.additionalAttributes.toolCalls || []),
             ...(result.additionalAttributes.toolCalls || []),
           ],
+          toolResults: [
+            ...(this.additionalAttributes.toolResults || []),
+            ...(result.additionalAttributes.toolResults || []),
+          ],
         };
       }
     }
@@ -220,21 +226,24 @@ export class DefaultStreamingHandler
         availableQuotas: event.available_quotas as Record<string, number>,
       };
     } else if (isToolCallEvent(event)) {
-      // Only process tool calls with role 'tool_execution' - other roles add extra tokens and are not usable
-      if (event.data.role === 'tool_execution') {
-        hasUpdate = true;
-        if (!additionalAttributes.toolCalls) {
-          additionalAttributes.toolCalls = [];
-        }
-        additionalAttributes.toolCalls.push(event);
+      hasUpdate = true;
+      if (!additionalAttributes.toolCalls) {
+        additionalAttributes.toolCalls = [];
       }
+      additionalAttributes.toolCalls.push(event);
+    } else if (isToolResultEvent(event)) {
+      hasUpdate = true;
+      if (!additionalAttributes.toolResults) {
+        additionalAttributes.toolResults = [];
+      }
+      additionalAttributes.toolResults.push(event);
     } else if (isErrorEvent(event)) {
       // Handle error events
       const error = new Error(event.data.response);
       this.onError?.(error);
       throw error;
     }
-    // Ignore other events (tool_call, tool_result, user_question) for now
+    // Ignore other events (user_question) for now
 
     return { buffer, hasUpdate, conversationId, additionalAttributes };
   }

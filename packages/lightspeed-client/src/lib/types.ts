@@ -322,16 +322,16 @@ export interface ToolCallEvent {
   event: 'tool_call';
   data: {
     id: number;
-    role: string;
     token: unknown;
   };
 }
 
 export interface ToolResultEvent {
   event: 'tool_result';
-  tool_id: string;
-  status: string;
-  output_snippet: string;
+  data: {
+    id: number;
+    token: unknown;
+  };
 }
 
 export interface UserQuestionEvent {
@@ -388,6 +388,12 @@ export function isToolCallEvent(
   event: BaseStreamingEvent
 ): event is ToolCallEvent {
   return event.event === 'tool_call';
+}
+
+export function isToolResultEvent(
+  event: BaseStreamingEvent
+): event is ToolResultEvent {
+  return event.event === 'tool_result';
 }
 
 export function isErrorEvent(event: BaseStreamingEvent): event is ErrorEvent {
