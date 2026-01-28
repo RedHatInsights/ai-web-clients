@@ -535,6 +535,7 @@ export interface Configuration {
  */
 export interface ConversationDetails {
   conversation_id: string;
+  topic_summary?: string | null;
   created_at: string | null;
   last_message_at: string | null;
   message_count: number | null;
