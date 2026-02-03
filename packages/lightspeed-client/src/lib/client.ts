@@ -72,7 +72,9 @@ export class LightspeedClient
       const conversations: IConversation[] =
         conversationsResponse.conversations.map((conv) => ({
           id: conv.conversation_id,
-          title: conv.topic_summary || `Conversation (${conv.message_count || 0} messages)`,
+          title:
+            conv.topic_summary ||
+            `Conversation (${conv.message_count || 0} messages)`,
           locked: false,
           createdAt: conv.created_at ? new Date(conv.created_at) : new Date(),
         }));
