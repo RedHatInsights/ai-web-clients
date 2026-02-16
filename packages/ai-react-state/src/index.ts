@@ -2,6 +2,7 @@ export * from './AIStateProvider';
 export * from './AiStateContext';
 export * from './useActiveConversation';
 export * from './useSendMessage';
+export * from './useAbortStream';
 export * from './useMessages';
 export * from './useActiveInProgress';
 export * from './useConversations';

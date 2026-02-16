@@ -23,6 +23,7 @@ export enum Events {
   INITIALIZING_MESSAGES = 'initializing-messages',
   INIT_LIMITATION = 'init-limitation',
   STREAM_CHUNK = 'stream-chunk',
+  STREAM_ABORT = 'stream-abort',
 }
 
 export interface Message<
@@ -50,6 +51,7 @@ export interface Conversation<
 
 export interface MessageOptions {
   stream?: boolean;
+  signal?: AbortSignal;
   [key: string]: unknown;
 }
 
@@ -59,11 +61,14 @@ interface ClientState<
   conversations: Record<string, Conversation<T>>;
   activeConversationId: string | null;
   messageInProgress: boolean;
+  activeRequestId: number | null;
+  nextRequestId: number;
   isInitialized: boolean;
   isInitializing: boolean;
   client: IAIClient;
   initLimitation: ClientInitLimitation | undefined;
   promotionRetryCount: number;
+  currentAbortController: AbortController | null;
 }
 
 interface EventSubscription {
@@ -83,6 +88,7 @@ export type StateManager<
   getActiveConversationMessages: () => Message<T>[];
   getActiveConversationStreamChunk: () => IStreamChunk<T> | undefined;
   sendMessage: (query: UserQuery, options?: MessageOptions) => Promise<any>;
+  abortStream: () => void;
   getMessageInProgress: () => boolean;
   getState: () => ClientState<T>;
   subscribe: (event: Events, callback: () => void) => () => void;
@@ -103,11 +109,14 @@ export function createClientStateManager<
     conversations: {},
     activeConversationId: null,
     messageInProgress: false,
+    activeRequestId: null,
+    nextRequestId: 1,
     isInitialized: false,
     isInitializing: false,
     client,
     initLimitation: undefined,
     promotionRetryCount: 0,
+    currentAbortController: null,
   };
 
   const eventSubscriptions: Record<string, EventSubscription[]> = {
@@ -117,6 +126,7 @@ export function createClientStateManager<
     [Events.CONVERSATIONS]: [],
     [Events.INITIALIZING_MESSAGES]: [],
     [Events.STREAM_CHUNK]: [],
+    [Events.STREAM_ABORT]: [],
   };
 
   function notify(event: Events) {
@@ -414,7 +424,27 @@ export function createClientStateManager<
 
     // Set message in progress
     state.messageInProgress = true;
+    const requestId = state.nextRequestId++;
+    state.activeRequestId = requestId;
     notify(Events.IN_PROGRESS);
+
+    // create AbortController for this request
+    const abortController = new AbortController();
+    state.currentAbortController = abortController;
+    const externalSignal = options?.signal;
+    const handleExternalAbort = () => {
+      abortController.abort();
+    };
+
+    if (externalSignal) {
+      if (externalSignal.aborted) {
+        abortController.abort();
+      } else {
+        externalSignal.addEventListener('abort', handleExternalAbort, {
+          once: true,
+        });
+      }
+    }
 
     try {
       // Auto-create temporary conversation if none exists
@@ -456,6 +486,7 @@ export function createClientStateManager<
         conversation.messages.push(lockedMessage);
         notify(Events.MESSAGE);
         state.messageInProgress = false;
+        state.currentAbortController = null;
         notify(Events.IN_PROGRESS);
         return;
       }
@@ -472,6 +503,7 @@ export function createClientStateManager<
       // Always provide handleChunk callback for state updates - client handles streaming internally
       const enhancedOptions: ISendMessageOptions<T> = {
         ...options,
+        signal: abortController.signal,
         handleChunk: (chunk) => {
           botMessage.answer = chunk.answer;
           botMessage.id = chunk.messageId ?? botMessage.id;
@@ -486,6 +518,7 @@ export function createClientStateManager<
       return client
         .sendMessage(originalConversationId, query, enhancedOptions)
         .catch((error) => {
+          // remove placeholder bot message on all failures, including aborts
           removeMessageFromConversation(botMessage.id, originalConversationId);
           notify(Events.MESSAGE);
           throw error;
@@ -510,13 +543,26 @@ export function createClientStateManager<
           return response;
         })
         .finally(() => {
-          state.messageInProgress = false;
-          notify(Events.IN_PROGRESS);
+          if (externalSignal) {
+            externalSignal.removeEventListener('abort', handleExternalAbort);
+          }
+          // only cleanup if this is still the active request.
+          // prevent an old request's finally from clobbering a newer in-flight request.
+          if (state.activeRequestId === requestId) {
+            state.messageInProgress = false;
+            state.currentAbortController = null;
+            state.activeRequestId = null;
+            notify(Events.IN_PROGRESS);
+          }
         });
     } catch (error) {
       // Make sure to reset progress flag on any error
-      state.messageInProgress = false;
-      notify(Events.IN_PROGRESS);
+      if (state.activeRequestId === requestId) {
+        state.messageInProgress = false;
+        state.currentAbortController = null;
+        state.activeRequestId = null;
+        notify(Events.IN_PROGRESS);
+      }
       throw error;
     }
   }
@@ -579,6 +625,17 @@ export function createClientStateManager<
     return resp;
   }
 
+  function abortStream(): void {
+    if (state.currentAbortController) {
+      state.currentAbortController.abort();
+      state.currentAbortController = null;
+      state.messageInProgress = false;
+      state.activeRequestId = null;
+      notify(Events.IN_PROGRESS);
+      notify(Events.STREAM_ABORT);
+    }
+  }
+
   function subscribe(event: Events, callback: () => void) {
     const id = crypto.randomUUID();
     const subscription: EventSubscription = { id, callback };
@@ -638,6 +695,7 @@ export function createClientStateManager<
     getActiveConversationMessages,
     getActiveConversationStreamChunk,
     sendMessage,
+    abortStream,
     getMessageInProgress,
     getState,
     subscribe,

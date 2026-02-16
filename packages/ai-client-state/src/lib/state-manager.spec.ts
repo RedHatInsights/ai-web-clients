@@ -184,9 +184,130 @@ describe('ClientStateManager', () => {
       expect(mockClient.sendMessage).toHaveBeenCalledWith(
         'conv-456',
         'Stream this',
-        { stream: true, handleChunk: expect.any(Function) }
+        expect.objectContaining({
+          stream: true,
+          handleChunk: expect.any(Function),
+          signal: expect.anything(),
+        })
       );
       expect(response).toBeDefined();
+    });
+
+    it('should abort active streaming request via abortStream', async () => {
+      mockClient.sendMessage.mockImplementation(
+        (_conversationId, _query, enhancedOptions) =>
+          new Promise((_resolve, reject) => {
+            enhancedOptions?.signal?.addEventListener('abort', () => {
+              const abortError = new Error('aborted');
+              abortError.name = 'AbortError';
+              reject(abortError);
+            });
+          })
+      );
+
+      const messagePromise = stateManager.sendMessage('abort this stream', {
+        stream: true,
+      });
+      expect(stateManager.getMessageInProgress()).toBe(true);
+
+      stateManager.abortStream();
+
+      await expect(messagePromise).rejects.toThrow('aborted');
+      expect(stateManager.getMessageInProgress()).toBe(false);
+      expect(stateManager.getState().currentAbortController).toBeNull();
+      expect(stateManager.getActiveConversationMessages()).toHaveLength(1);
+      expect(stateManager.getActiveConversationMessages()[0].role).toBe('user');
+    });
+
+    it('should merge external signal with internal abort controller', async () => {
+      mockClient.sendMessage.mockImplementation(
+        (_conversationId, _query, enhancedOptions) =>
+          new Promise((_resolve, reject) => {
+            enhancedOptions?.signal?.addEventListener('abort', () => {
+              reject(new Error('external-abort'));
+            });
+          })
+      );
+
+      const externalController = new AbortController();
+      const messagePromise = stateManager.sendMessage('external abort', {
+        stream: true,
+        signal: externalController.signal,
+      });
+
+      externalController.abort();
+
+      await expect(messagePromise).rejects.toThrow('external-abort');
+      expect(stateManager.getMessageInProgress()).toBe(false);
+    });
+
+    it('should emit STREAM_ABORT and IN_PROGRESS when aborting', async () => {
+      mockClient.sendMessage.mockImplementation(
+        (_conversationId, _query, enhancedOptions) =>
+          new Promise((_resolve, reject) => {
+            enhancedOptions?.signal?.addEventListener('abort', () => {
+              const abortError = new Error('aborted');
+              abortError.name = 'AbortError';
+              reject(abortError);
+            });
+          })
+      );
+
+      const inProgressCallback = jest.fn();
+      const abortCallback = jest.fn();
+      stateManager.subscribe(Events.IN_PROGRESS, inProgressCallback);
+      stateManager.subscribe(Events.STREAM_ABORT, abortCallback);
+
+      const messagePromise = stateManager.sendMessage('emit abort event', {
+        stream: true,
+      });
+
+      stateManager.abortStream();
+
+      // start IN_PROGRESS, then abort IN_PROGRESS false (finally may emit once more)
+      expect(inProgressCallback.mock.calls.length).toBeGreaterThanOrEqual(2);
+      expect(abortCallback).toHaveBeenCalledTimes(1);
+      expect(stateManager.getMessageInProgress()).toBe(false);
+
+      await expect(messagePromise).rejects.toThrow('aborted');
+    });
+
+    it('should not let aborted request cleanup clobber a newer request', async () => {
+      const pendingRejects: Array<(error: Error) => void> = [];
+      mockClient.sendMessage.mockImplementation(
+        (_conversationId, _query, enhancedOptions) =>
+          new Promise((_resolve, reject) => {
+            pendingRejects.push(reject);
+            enhancedOptions?.signal?.addEventListener('abort', () => {
+              const abortError = new Error('aborted');
+              abortError.name = 'AbortError';
+              reject(abortError);
+            });
+          })
+      );
+
+      // start request #1
+      const firstMessagePromise = stateManager.sendMessage('first', {
+        stream: true,
+      });
+      stateManager.abortStream();
+
+      // start request #2 before request #1 settles
+      const secondMessagePromise = stateManager.sendMessage('second', {
+        stream: true,
+      });
+
+      // settle request #1 rejection first
+      await expect(firstMessagePromise).rejects.toThrow('aborted');
+
+      // ensure request #2 is still considered in progress (not clobbered by #1 cleanup)
+      expect(stateManager.getMessageInProgress()).toBe(true);
+      expect(stateManager.getState().currentAbortController).not.toBeNull();
+
+      // finish request #2
+      pendingRejects[pendingRejects.length - 1](new Error('second-failed'));
+      await expect(secondMessagePromise).rejects.toThrow('second-failed');
+      expect(stateManager.getMessageInProgress()).toBe(false);
     });
   });
 
@@ -1320,6 +1441,18 @@ describe('ClientStateManager', () => {
       await stateManager.deleteConversation('conv-evt');
 
       expect(conversationsCallback).toHaveBeenCalled();
+    });
+  });
+
+  describe('Abort Event Semantics', () => {
+    it('should not emit STREAM_ABORT during notifyAll flows', async () => {
+      const streamAbortCallback = jest.fn();
+      stateManager.subscribe(Events.STREAM_ABORT, streamAbortCallback);
+
+      // createNewConversation triggers notifyAll internally
+      await stateManager.createNewConversation(true);
+
+      expect(streamAbortCallback).not.toHaveBeenCalled();
     });
   });
 });
