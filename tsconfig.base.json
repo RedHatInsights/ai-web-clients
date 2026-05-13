@@ -35,6 +35,9 @@
       "@redhat-cloud-services/aai-client": ["packages/aai-client/src/index.ts"],
       "@redhat-cloud-services/rhel-lightspeed-client": [
         "packages/rhel-lightspeed-client/src/index.ts"
+      ],
+      "@redhat-cloud-services/hcc-ai-assistant-client": [
+        "packages/hcc-ai-assistant-client/src/index.ts"
       ]
     }
   },
