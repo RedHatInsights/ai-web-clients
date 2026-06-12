@@ -16,6 +16,7 @@ jobs:
   release:
     needs: ci
     runs-on: ubuntu-latest
+    environment: npm-publish
     # Only run on push to main branch (never on workflow_dispatch, etc.)
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
@@ -25,13 +26,13 @@ jobs:
       id-token: write    # Needed for OIDC token generation (npm trusted publishing)
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           fetch-depth: 0
           # Use default GITHUB_TOKEN for authentication (no SSH key needed)
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'
           cache: 'npm'
