@@ -18,7 +18,7 @@
         "outputPath": "dist/packages/aai-client",
         "main": "packages/aai-client/src/index.ts",
         "tsConfig": "packages/aai-client/tsconfig.lib.json",
-        "assets": []
+        "assets": [".npmignore"]
       }
     },
     "nx-release-publish": {

@@ -18,7 +18,7 @@
         "outputPath": "dist/packages/ansible-lightspeed",
         "main": "packages/ansible-lightspeed/src/index.ts",
         "tsConfig": "packages/ansible-lightspeed/tsconfig.lib.json",
-        "assets": []
+        "assets": [".npmignore"]
       }
     },
     "nx-release-publish": {

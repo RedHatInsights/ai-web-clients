@@ -18,7 +18,7 @@
         "outputPath": "dist/packages/rhel-lightspeed-client",
         "main": "packages/rhel-lightspeed-client/src/index.ts",
         "tsConfig": "packages/rhel-lightspeed-client/tsconfig.lib.json",
-        "assets": []
+        "assets": [".npmignore"]
       }
     },
     "nx-release-publish": {

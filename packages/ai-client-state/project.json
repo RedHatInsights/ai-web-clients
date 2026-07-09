@@ -18,7 +18,7 @@
         "outputPath": "dist/packages/ai-client-state",
         "main": "packages/ai-client-state/src/index.ts",
         "tsConfig": "packages/ai-client-state/tsconfig.lib.json",
-        "assets": ["packages/ai-client-state/*.md"]
+        "assets": ["packages/ai-client-state/*.md", ".npmignore"]
       }
     },
     "test": {

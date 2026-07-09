@@ -18,7 +18,7 @@
         "outputPath": "dist/packages/ai-react-state",
         "main": "packages/ai-react-state/src/index.ts",
         "tsConfig": "packages/ai-react-state/tsconfig.lib.json",
-        "assets": []
+        "assets": [".npmignore"]
       }
     },
     "test": {

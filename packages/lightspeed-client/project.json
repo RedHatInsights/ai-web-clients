@@ -18,7 +18,7 @@
         "outputPath": "dist/packages/lightspeed-client",
         "main": "packages/lightspeed-client/src/index.ts",
         "tsConfig": "packages/lightspeed-client/tsconfig.lib.json",
-        "assets": []
+        "assets": [".npmignore"]
       }
     },
     "nx-release-publish": {
