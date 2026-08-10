@@ -1,0 +1,95 @@
+version: 2
+updates:
+  # npm dependencies at root (includes packages/* via workspaces)
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: tuesday
+    open-pull-requests-limit: 10
+    groups:
+      nx:
+        patterns:
+          - "@nx/*"
+          - "nx"
+      patternfly:
+        patterns:
+          - "@patternfly/*"
+      testing:
+        patterns:
+          - "@testing-library/*"
+          - "jest"
+          - "jest-*"
+          - "@types/jest"
+          - "ts-jest"
+          - "vitest"
+          - "@vitest/*"
+          - "cypress"
+      build-tools:
+        patterns:
+          - "@swc/*"
+          - "@swc-node/*"
+          - "swc-loader"
+          - "rollup"
+          - "@rollup/*"
+          - "vite"
+          - "@vitejs/*"
+          - "typescript"
+      linting:
+        patterns:
+          - "eslint"
+          - "eslint-*"
+          - "@typescript-eslint/*"
+          - "prettier"
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
+        exclude-patterns:
+          - "@nx/*"
+          - "nx"
+          - "@patternfly/*"
+          - "@testing-library/*"
+          - "jest*"
+          - "vitest"
+          - "@vitest/*"
+          - "cypress"
+          - "eslint*"
+          - "@typescript-eslint/*"
+          - "rollup"
+          - "@rollup/*"
+          - "vite"
+          - "@vitejs/*"
+          - "typescript"
+          - "@swc/*"
+          - "@swc-node/*"
+    commit-message:
+      prefix: "chore"
+      include: scope
+
+  # npm dependencies for integration tests app (separate package.json)
+  - package-ecosystem: npm
+    directory: /apps/client-integration-tests
+    schedule:
+      interval: weekly
+      day: tuesday
+    open-pull-requests-limit: 5
+    groups:
+      all-minor-patch:
+        update-types:
+          - minor
+          - patch
+    commit-message:
+      prefix: "chore"
+      include: scope
+
+  # GitHub Actions — pin action versions by SHA
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: tuesday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "ci"
+      include: scope
