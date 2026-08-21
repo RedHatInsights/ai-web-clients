@@ -9,6 +9,7 @@ import { LightSpeedChatbot } from './LightSpeedChatbot';
 import { ClientSwitcher, ClientInfo } from './ClientSwitcher';
 import AnsibleLightspeedChatbot from './AnsibleLightspeedChatbot';
 import AAIChatbot from './AAIChatbot';
+import MASChatbot from './MASChatbot';
 
 type ClientType =
   | 'arh-vanilla'
@@ -16,7 +17,8 @@ type ClientType =
   | 'arh-replica'
   | 'lightspeed'
   | 'ansible-lightspeed'
-  | 'aai';
+  | 'aai'
+  | 'mas';
 
 export function App() {
   const [activeClient, setActiveClient] = useState<ClientType>('arh-vanilla');
@@ -52,6 +54,11 @@ export function App() {
       name: 'AAI',
       description: 'AAI chatbot using AAI client',
     },
+    {
+      id: 'mas',
+      name: 'MAS',
+      description: 'Multi-Agent System chatbot using MAS client',
+    },
   ];
 
   const activeClientComponent = useMemo(() => {
@@ -68,6 +75,8 @@ export function App() {
         return <AnsibleLightspeedChatbot />;
       case 'aai':
         return <AAIChatbot />;
+      case 'mas':
+        return <MASChatbot />;
       default:
         return <ARHVanillaChatbot />;
     }
