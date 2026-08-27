@@ -175,9 +175,13 @@ export class MASClient implements IAIClient<MASAdditionalAttributes> {
 
       // When the stream is aborted (user cancel or timeout), tell the backend to stop.
       // cancelSession must not reuse the already-aborted signal.
-      signal.addEventListener('abort', () => {
-        this.cancelSession(conversationId).catch(() => {});
-      }, { once: true });
+      // addEventListener only fires on the abort transition — check upfront for pre-aborted signals.
+      const onAbort = () => { this.cancelSession(conversationId).catch(() => {}); };
+      if (signal.aborted) {
+        onAbort();
+      } else {
+        signal.addEventListener('abort', onAbort, { once: true });
+      }
 
       const subscribeUrl = `${this.baseUrl}/api/sessions/session.subscribe?sessionId=${conversationId}`;
       const response = await this.fetchFunction(subscribeUrl, {

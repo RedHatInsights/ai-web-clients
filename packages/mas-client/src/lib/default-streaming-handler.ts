@@ -145,7 +145,7 @@ export class DefaultStreamingHandler {
         }
 
         const finalChunk: IStreamChunk<MASAdditionalAttributes> = {
-          messageId: this.sessionId,
+          messageId: this.messageId,
           answer: accumulatedAnswer,
           conversationId: this.sessionId,
           additionalAttributes: {
@@ -158,7 +158,7 @@ export class DefaultStreamingHandler {
         this.handleChunk(finalChunk);
 
         return {
-          messageId: this.sessionId,
+          messageId: this.messageId,
           answer: accumulatedAnswer,
           conversationId: this.sessionId,
           additionalAttributes: {
