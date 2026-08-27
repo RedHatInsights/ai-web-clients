@@ -16,7 +16,6 @@ export interface SubmitSessionRequest {
 
 export interface SubmitSessionResponse {
   sessionId: string;
-  workflowId?: string;
 }
 
 // --- Chat Messages ---
@@ -113,8 +112,15 @@ export class MASValidationError extends MASApiError {
 
 // --- Additional Attributes for state manager ---
 
+export type ActiveAgent = {
+  nodeId: string;
+  name: string;
+  status: 'running' | 'done' | 'error';
+};
+
 export type MASAdditionalAttributes = {
   output?: string;
   status?: SessionStatus;
   status_message?: string | null;
+  activeAgents?: ActiveAgent[];
 };

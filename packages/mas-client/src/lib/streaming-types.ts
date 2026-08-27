@@ -3,7 +3,6 @@
  */
 export type StreamEventType =
   | 'heartbeat'
-  | 'field_update'
   | 'complete'
   | 'stream_end'
   | 'stream_error'
@@ -18,9 +17,7 @@ export interface StreamEvent {
   node?: string;
   display_name?: string;
   chunk?: string;
-  field?: string;
-  value?: string;
-  state?: {
+state?: {
     user_prompt?: string;
     messages?: unknown[];
     output?: string;

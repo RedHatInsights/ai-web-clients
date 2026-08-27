@@ -329,25 +329,18 @@ export class MASClient implements IAIClient<MASAdditionalAttributes> {
     );
   }
 
-  /**
-   * Poll session.chat.get until status is terminal (COMPLETED/FAILED/CANCELLED)
-   */
   private async pollForCompletion(
     sessionId: string,
-    maxAttempts = 60,
     intervalMs = 2000
   ): Promise<SessionChatResponse> {
     const terminalStatuses = ['COMPLETED', 'FAILED', 'CANCELLED'];
 
-    for (let i = 0; i < maxAttempts; i++) {
+    while (true) {
       const chatState = await this.getChatState(sessionId);
       if (terminalStatuses.includes(chatState.status)) {
         return chatState;
       }
       await new Promise((resolve) => setTimeout(resolve, intervalMs));
     }
-
-    // Return whatever state we have after max attempts
-    return this.getChatState(sessionId);
   }
 }

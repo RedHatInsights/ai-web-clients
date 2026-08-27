@@ -3,7 +3,7 @@ import {
   IMessageResponse,
   IStreamChunk,
 } from '@redhat-cloud-services/ai-client-common';
-import { MASAdditionalAttributes, SessionChatResponse } from './types';
+import { ActiveAgent, MASAdditionalAttributes, SessionChatResponse } from './types';
 import { StreamEvent, isEmpty } from './streaming-types';
 
 /**
@@ -15,6 +15,7 @@ import { StreamEvent, isEmpty } from './streaming-types';
  */
 export class DefaultStreamingHandler {
   private messageBuffer = '';
+  private agentMap = new Map<string, ActiveAgent>();
   private streamPromise: Promise<IMessageResponse<MASAdditionalAttributes>>;
 
   constructor(
@@ -24,6 +25,15 @@ export class DefaultStreamingHandler {
     private getChatState: (sessionId: string) => Promise<SessionChatResponse>
   ) {
     this.streamPromise = this.processStream();
+  }
+
+  private activeAgents(): ActiveAgent[] {
+    return Array.from(this.agentMap.values());
+  }
+
+  private trackAgent(event: StreamEvent, status: ActiveAgent['status']): void {
+    if (!event.node || !event.display_name) return;
+    this.agentMap.set(event.node, { nodeId: event.node, name: event.display_name, status });
   }
 
   private async processStream(): Promise<
@@ -66,6 +76,7 @@ export class DefaultStreamingHandler {
               break;
 
             case 'llm_token':
+              this.trackAgent(event, 'running');
               if (event.chunk) {
                 accumulatedAnswer += event.chunk;
                 this.messageBuffer = accumulatedAnswer;
@@ -74,28 +85,19 @@ export class DefaultStreamingHandler {
                   messageId: this.sessionId,
                   answer: accumulatedAnswer,
                   conversationId: this.sessionId,
-                  additionalAttributes: {},
+                  additionalAttributes: { activeAgents: this.activeAgents() },
                 };
                 this.handleChunk(chunk);
               }
               break;
 
-            case 'field_update':
-              if (event.field === 'output' && event.value) {
-                accumulatedAnswer = event.value;
-                this.messageBuffer = accumulatedAnswer;
-
-                const chunk: IStreamChunk<MASAdditionalAttributes> = {
-                  messageId: this.sessionId,
-                  answer: accumulatedAnswer,
-                  conversationId: this.sessionId,
-                  additionalAttributes: { output: event.value },
-                };
-                this.handleChunk(chunk);
-              }
+            case 'tool_calling':
+            case 'tool_result':
+              this.trackAgent(event, 'running');
               break;
 
             case 'complete':
+              this.trackAgent(event, 'done');
               if (event.state?.output) {
                 accumulatedAnswer = event.state.output;
                 this.messageBuffer = accumulatedAnswer;
@@ -103,6 +105,9 @@ export class DefaultStreamingHandler {
               break;
 
             case 'stream_error':
+              if (event.node && event.display_name) {
+                this.trackAgent(event, 'error');
+              }
               this.messageBuffer = event.error || 'An error occurred';
               accumulatedAnswer = this.messageBuffer;
 
@@ -113,6 +118,7 @@ export class DefaultStreamingHandler {
                 additionalAttributes: {
                   status: 'FAILED',
                   status_message: event.error,
+                  activeAgents: this.activeAgents(),
                 },
               };
               this.handleChunk(errorChunk);
@@ -145,6 +151,7 @@ export class DefaultStreamingHandler {
             output: chatState.output,
             status: chatState.status,
             status_message: chatState.status_message,
+            activeAgents: this.activeAgents(),
           },
         };
         this.handleChunk(finalChunk);
@@ -157,6 +164,7 @@ export class DefaultStreamingHandler {
             output: chatState.output,
             status: chatState.status,
             status_message: chatState.status_message,
+            activeAgents: this.activeAgents(),
           },
         };
       } catch (error) {
