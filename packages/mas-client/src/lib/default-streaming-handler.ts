@@ -21,6 +21,7 @@ export class DefaultStreamingHandler {
   constructor(
     private response: Response,
     private sessionId: string,
+    private messageId: string,
     private handleChunk: HandleChunkCallback<MASAdditionalAttributes>,
     private getChatState: (sessionId: string) => Promise<SessionChatResponse>
   ) {
@@ -82,7 +83,7 @@ export class DefaultStreamingHandler {
                 this.messageBuffer = accumulatedAnswer;
 
                 const chunk: IStreamChunk<MASAdditionalAttributes> = {
-                  messageId: this.sessionId,
+                  messageId: this.messageId,
                   answer: accumulatedAnswer,
                   conversationId: this.sessionId,
                   additionalAttributes: { activeAgents: this.activeAgents() },
@@ -112,7 +113,7 @@ export class DefaultStreamingHandler {
               accumulatedAnswer = this.messageBuffer;
 
               const errorChunk: IStreamChunk<MASAdditionalAttributes> = {
-                messageId: this.sessionId,
+                messageId: this.messageId,
                 answer: this.messageBuffer,
                 conversationId: this.sessionId,
                 additionalAttributes: {
@@ -169,7 +170,7 @@ export class DefaultStreamingHandler {
         };
       } catch (error) {
         return {
-          messageId: this.sessionId,
+          messageId: this.messageId,
           answer: accumulatedAnswer || this.messageBuffer,
           conversationId: this.sessionId,
           additionalAttributes: {},

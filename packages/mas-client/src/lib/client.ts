@@ -167,14 +167,20 @@ export class MASClient implements IAIClient<MASAdditionalAttributes> {
     });
 
     if (options?.stream) {
-      // Step 2: Subscribe to NDJSON stream
+      // Step 2: Subscribe to NDJSON stream, capped at 1 hour
+      const ONE_HOUR_MS = 60 * 60 * 1000;
+      const timeoutSignal = AbortSignal.timeout(ONE_HOUR_MS);
+      const signal = options.signal
+        ? AbortSignal.any([options.signal, timeoutSignal])
+        : timeoutSignal;
+
       const subscribeUrl = `${this.baseUrl}/api/sessions/session.subscribe?sessionId=${conversationId}`;
       const response = await this.fetchFunction(subscribeUrl, {
         method: 'GET',
         headers: {
           Accept: 'application/x-ndjson',
         },
-        signal: options.signal,
+        signal,
       });
 
       if (!response.ok) {
@@ -185,29 +191,19 @@ export class MASClient implements IAIClient<MASAdditionalAttributes> {
         throw new Error('Response body is null from subscribe endpoint');
       }
 
+      const messageId = crypto.randomUUID();
       const handleChunk = options?.handleChunk || (() => {});
       const handler = new DefaultStreamingHandler(
         response,
         conversationId,
+        messageId,
         handleChunk,
         this.getChatState.bind(this)
       );
 
       return await handler.getResult();
     } else {
-      // Non-streaming: poll for completion
-      const chatState = await this.pollForCompletion(conversationId);
-
-      return {
-        messageId: conversationId,
-        answer: chatState.output || '',
-        conversationId,
-        additionalAttributes: {
-          output: chatState.output,
-          status: chatState.status,
-          status_message: chatState.status_message,
-        },
-      };
+      throw new Error('Non-streaming sendMessage is not supported in MASClient');
     }
   }
 
@@ -224,7 +220,7 @@ export class MASClient implements IAIClient<MASAdditionalAttributes> {
     return chatState.messages.map((msg) => ({
       answer: msg.role === 'assistant' ? msg.content : '',
       input: msg.role === 'user' ? msg.content : '',
-      message_id: conversationId,
+      message_id: crypto.randomUUID(),
       conversationId,
       date: new Date(),
       additionalAttributes: {
