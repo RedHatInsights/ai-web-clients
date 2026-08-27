@@ -159,14 +159,13 @@ export class MASClient implements IAIClient<MASAdditionalAttributes> {
     message: string,
     options?: ISendMessageOptions
   ): Promise<IMessageResponse<MASAdditionalAttributes>> {
-    // Step 1: Submit the message (fire-and-forget, returns 202)
-    await this.submitSession({
-      sessionId: conversationId,
-      inputs: { user_prompt: message },
-      scope: 'public',
-    });
-
     if (options?.stream) {
+      // Step 1: Submit message, forwarding caller headers + signal
+      await this.submitSession(
+        { sessionId: conversationId, inputs: { user_prompt: message }, scope: 'public' },
+        { signal: options.signal, headers: options.headers }
+      );
+
       // Step 2: Subscribe to NDJSON stream, capped at 1 hour
       const ONE_HOUR_MS = 60 * 60 * 1000;
       const timeoutSignal = AbortSignal.timeout(ONE_HOUR_MS);
@@ -174,10 +173,17 @@ export class MASClient implements IAIClient<MASAdditionalAttributes> {
         ? AbortSignal.any([options.signal, timeoutSignal])
         : timeoutSignal;
 
+      // When the stream is aborted (user cancel or timeout), tell the backend to stop.
+      // cancelSession must not reuse the already-aborted signal.
+      signal.addEventListener('abort', () => {
+        this.cancelSession(conversationId).catch(() => {});
+      }, { once: true });
+
       const subscribeUrl = `${this.baseUrl}/api/sessions/session.subscribe?sessionId=${conversationId}`;
       const response = await this.fetchFunction(subscribeUrl, {
         method: 'GET',
         headers: {
+          ...(options.headers as Record<string, string>),
           Accept: 'application/x-ndjson',
         },
         signal,
@@ -251,13 +257,15 @@ export class MASClient implements IAIClient<MASAdditionalAttributes> {
   }
 
   async submitSession(
-    request: SubmitSessionRequest
+    request: SubmitSessionRequest,
+    options?: RequestOptions
   ): Promise<SubmitSessionResponse> {
     return this.makeRequest<SubmitSessionResponse>(
       '/api/sessions/user.session.submit',
       {
         method: 'POST',
         body: JSON.stringify(request),
+        ...options,
       }
     );
   }
