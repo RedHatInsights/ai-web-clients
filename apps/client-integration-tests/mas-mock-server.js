@@ -118,7 +118,7 @@ app.post('/api/sessions/user.session.create', (req, res) => {
 
 // Submit message
 app.post('/api/sessions/user.session.submit', (req, res) => {
-  const { sessionId, inputs, scope } = req.body;
+  const { sessionId, inputs } = req.body;
 
   if (!sessionId) {
     return res.status(422).json({ error: 'sessionId is required' });
@@ -196,14 +196,11 @@ app.get('/api/sessions/session.subscribe', async (req, res) => {
 
   // Simulate streaming with llm_token events
   const words = fullResponse.split(' ');
-  let accumulated = '';
-
   // Send initial heartbeat
   res.write(JSON.stringify({ type: 'heartbeat' }) + '\n');
 
   for (let i = 0; i < words.length; i++) {
     const chunk = (i > 0 ? ' ' : '') + words[i];
-    accumulated += chunk;
 
     await new Promise((resolve) =>
       setTimeout(resolve, 30 + Math.random() * 70)

@@ -1,3 +1,5 @@
+import { IStreamChunk } from '@redhat-cloud-services/ai-client-common';
+import { MASAdditionalAttributes } from './types';
 import { MASClient } from './client';
 
 const mockFetch = jest.fn();
@@ -50,7 +52,8 @@ describe('MASClient', () => {
     it('calls the health endpoint', async () => {
       mockFetch.mockResolvedValue({
         ok: true,
-        json: () => Promise.resolve({ status: 'ok', message: 'Server is healthy' }),
+        json: () =>
+          Promise.resolve({ status: 'ok', message: 'Server is healthy' }),
       });
 
       const result = await client.healthCheck();
@@ -115,7 +118,9 @@ describe('MASClient', () => {
     it('throws when called without stream:true', async () => {
       await expect(
         client.sendMessage('session-abc-123', 'Hello')
-      ).rejects.toThrow('Non-streaming sendMessage is not supported in MASClient');
+      ).rejects.toThrow(
+        'Non-streaming sendMessage is not supported in MASClient'
+      );
     });
 
     it('POSTs to submit then GETs subscribe, forwarding headers', async () => {
@@ -165,8 +170,18 @@ describe('MASClient', () => {
         .mockResolvedValueOnce({
           ok: true,
           body: ndjsonStream(
-            { type: 'llm_token', node: 'n1', display_name: 'Alpha', chunk: 'Hello' },
-            { type: 'llm_token', node: 'n1', display_name: 'Alpha', chunk: ' World' },
+            {
+              type: 'llm_token',
+              node: 'n1',
+              display_name: 'Alpha',
+              chunk: 'Hello',
+            },
+            {
+              type: 'llm_token',
+              node: 'n1',
+              display_name: 'Alpha',
+              chunk: ' World',
+            },
             { type: 'stream_end' }
           ),
         })
@@ -192,7 +207,12 @@ describe('MASClient', () => {
         .mockResolvedValueOnce({
           ok: true,
           body: ndjsonStream(
-            { type: 'llm_token', node: 'n1', display_name: 'Alpha', chunk: 'Hi' },
+            {
+              type: 'llm_token',
+              node: 'n1',
+              display_name: 'Alpha',
+              chunk: 'Hi',
+            },
             { type: 'stream_end' }
           ),
         })
@@ -224,14 +244,24 @@ describe('MASClient', () => {
         .mockResolvedValueOnce({
           ok: true,
           body: ndjsonStream(
-            { type: 'llm_token', node: 'n1', display_name: 'Alpha', chunk: 'Hi' },
-            { type: 'complete', node: 'n1', display_name: 'Alpha', state: { output: 'Hi' } },
+            {
+              type: 'llm_token',
+              node: 'n1',
+              display_name: 'Alpha',
+              chunk: 'Hi',
+            },
+            {
+              type: 'complete',
+              node: 'n1',
+              display_name: 'Alpha',
+              state: { output: 'Hi' },
+            },
             { type: 'stream_end' }
           ),
         })
         .mockResolvedValueOnce(completedChatState('Hi'));
 
-      const chunks: any[] = [];
+      const chunks: IStreamChunk<MASAdditionalAttributes>[] = [];
       const result = await client.sendMessage('session-abc-123', 'Hey', {
         stream: true,
         handleChunk: (c) => chunks.push(c),
@@ -259,22 +289,36 @@ describe('MASClient', () => {
         .mockResolvedValueOnce({
           ok: true,
           body: ndjsonStream(
-            { type: 'llm_token', node: 'n1', display_name: 'Alpha', chunk: 'Partial' },
-            { type: 'stream_error', node: 'n1', display_name: 'Alpha', error: 'Agent exploded' }
+            {
+              type: 'llm_token',
+              node: 'n1',
+              display_name: 'Alpha',
+              chunk: 'Partial',
+            },
+            {
+              type: 'stream_error',
+              node: 'n1',
+              display_name: 'Alpha',
+              error: 'Agent exploded',
+            }
           ),
         })
         .mockResolvedValueOnce(completedChatState(''));
 
-      const chunks: any[] = [];
+      const chunks: IStreamChunk<MASAdditionalAttributes>[] = [];
       await client.sendMessage('session-abc-123', 'Hi', {
         stream: true,
         handleChunk: (c) => chunks.push(c),
       });
 
-      const errChunk = chunks.find((c) => c.additionalAttributes?.status === 'FAILED');
+      const errChunk = chunks.find(
+        (c) => c.additionalAttributes?.status === 'FAILED'
+      );
       expect(errChunk).toBeDefined();
-      expect(errChunk.additionalAttributes.status_message).toBe('Agent exploded');
-      expect(errChunk.additionalAttributes.activeAgents).toEqual([
+      expect(errChunk!.additionalAttributes!.status_message).toBe(
+        'Agent exploded'
+      );
+      expect(errChunk!.additionalAttributes!.activeAgents).toEqual([
         { nodeId: 'n1', name: 'Alpha', status: 'error' },
       ]);
     });
@@ -284,9 +328,10 @@ describe('MASClient', () => {
 
       // Spy on cancelSession so we can assert it was called without relying on
       // Node.js's async AbortSignal.any() composite-abort microtask timing.
-      const cancelSpy = jest
-        .spyOn(client, 'cancelSession')
-        .mockResolvedValue({ sessionId: 'session-abc-123', status: 'CANCELLED' });
+      const cancelSpy = jest.spyOn(client, 'cancelSession').mockResolvedValue({
+        sessionId: 'session-abc-123',
+        status: 'CANCELLED',
+      });
 
       mockFetch
         .mockResolvedValueOnce({
@@ -381,7 +426,8 @@ describe('MASClient', () => {
       mockFetch
         .mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve({ status: 'ok', message: 'Server is healthy' }),
+          json: () =>
+            Promise.resolve({ status: 'ok', message: 'Server is healthy' }),
         })
         .mockResolvedValueOnce({
           ok: true,
@@ -458,7 +504,10 @@ describe('MASClient', () => {
       mockFetch.mockResolvedValue({
         ok: true,
         json: () =>
-          Promise.resolve({ sessionId: 'session-abc-123', status: 'CANCELLED' }),
+          Promise.resolve({
+            sessionId: 'session-abc-123',
+            status: 'CANCELLED',
+          }),
       });
 
       const result = await client.cancelSession('session-abc-123');

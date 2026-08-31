@@ -17,7 +17,7 @@ export interface StreamEvent {
   node?: string;
   display_name?: string;
   chunk?: string;
-state?: {
+  state?: {
     user_prompt?: string;
     messages?: unknown[];
     output?: string;

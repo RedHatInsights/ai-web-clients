@@ -3,7 +3,11 @@ import {
   IMessageResponse,
   IStreamChunk,
 } from '@redhat-cloud-services/ai-client-common';
-import { ActiveAgent, MASAdditionalAttributes, SessionChatResponse } from './types';
+import {
+  ActiveAgent,
+  MASAdditionalAttributes,
+  SessionChatResponse,
+} from './types';
 import { StreamEvent, isEmpty } from './streaming-types';
 
 /**
@@ -34,7 +38,11 @@ export class DefaultStreamingHandler {
 
   private trackAgent(event: StreamEvent, status: ActiveAgent['status']): void {
     if (!event.node || !event.display_name) return;
-    this.agentMap.set(event.node, { nodeId: event.node, name: event.display_name, status });
+    this.agentMap.set(event.node, {
+      nodeId: event.node,
+      name: event.display_name,
+      status,
+    });
   }
 
   private async processStream(): Promise<

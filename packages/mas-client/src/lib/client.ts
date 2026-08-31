@@ -162,7 +162,11 @@ export class MASClient implements IAIClient<MASAdditionalAttributes> {
     if (options?.stream) {
       // Step 1: Submit message, forwarding caller headers + signal
       await this.submitSession(
-        { sessionId: conversationId, inputs: { user_prompt: message }, scope: 'public' },
+        {
+          sessionId: conversationId,
+          inputs: { user_prompt: message },
+          scope: 'public',
+        },
         { signal: options.signal, headers: options.headers }
       );
 
@@ -176,7 +180,9 @@ export class MASClient implements IAIClient<MASAdditionalAttributes> {
       // When the stream is aborted (user cancel or timeout), tell the backend to stop.
       // cancelSession must not reuse the already-aborted signal.
       // addEventListener only fires on the abort transition — check upfront for pre-aborted signals.
-      const onAbort = () => { this.cancelSession(conversationId).catch(() => {}); };
+      const onAbort = () => {
+        this.cancelSession(conversationId).catch(() => {});
+      };
       if (signal.aborted) {
         onAbort();
       } else {
@@ -213,7 +219,9 @@ export class MASClient implements IAIClient<MASAdditionalAttributes> {
 
       return await handler.getResult();
     } else {
-      throw new Error('Non-streaming sendMessage is not supported in MASClient');
+      throw new Error(
+        'Non-streaming sendMessage is not supported in MASClient'
+      );
     }
   }
 
