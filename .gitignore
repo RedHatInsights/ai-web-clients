@@ -60,3 +60,5 @@ pnpm-lock.yaml
 
 vite.config.*.timestamp*
 vitest.config.*.timestamp*
+
+.history/
