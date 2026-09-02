@@ -87,12 +87,14 @@ export class DefaultStreamingHandler {
             case 'llm_token':
               this.trackAgent(event, 'running');
               if (event.chunk) {
+                // Accumulate internally — kept for future use / agent tracking,
+                // but not reflected to the user until the workflow completes.
                 accumulatedAnswer += event.chunk;
                 this.messageBuffer = accumulatedAnswer;
 
                 const chunk: IStreamChunk<MASAdditionalAttributes> = {
                   messageId: this.messageId,
-                  answer: accumulatedAnswer,
+                  answer: 'Thinking...',
                   conversationId: this.sessionId,
                   additionalAttributes: { activeAgents: this.activeAgents() },
                 };

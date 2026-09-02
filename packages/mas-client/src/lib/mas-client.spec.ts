@@ -193,9 +193,9 @@ describe('MASClient', () => {
         handleChunk: (c) => chunks.push(c.answer),
       });
 
-      expect(chunks[0]).toBe('Hello');
-      expect(chunks[1]).toBe('Hello World');
-      expect(result.answer).toBe('Hello World');
+      expect(chunks[0]).toBe('Thinking...');
+      expect(chunks[1]).toBe('Thinking...');
+      expect(result.answer).toBe('Hello World'); // real answer from getChatState after stream_end
     });
 
     it('assigns a unique messageId distinct from the conversationId', async () => {
