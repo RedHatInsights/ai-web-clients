@@ -585,6 +585,23 @@ export interface ConversationDeleteResponse {
 }
 
 /**
+ * Conversation update request (topic summary / rename)
+ * Used with PUT /v2/conversations/{id}
+ */
+export interface ConversationUpdateRequest {
+  topic_summary: string;
+}
+
+/**
+ * Conversation update response
+ */
+export interface ConversationUpdateResponse {
+  conversation_id: string;
+  success: boolean;
+  message: string;
+}
+
+/**
  * Feedback status update request
  */
 export interface FeedbackStatusUpdateRequest {
