@@ -178,6 +178,7 @@ await client.getConfiguration(); // Get service configuration
 await client.getConversations(); // List all conversations
 await client.getConversation(conversationId); // Get specific conversation details
 await client.deleteConversation(conversationId); // Delete a conversation
+await client.updateConversation(conversationId, topicSummary); // Rename a conversation (v2 endpoint)
 
 // Health checks
 await client.healthCheck(); // Combines readiness and liveness checks

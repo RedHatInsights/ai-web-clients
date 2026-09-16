@@ -804,6 +804,36 @@ describe('LightspeedClient', () => {
           expect.objectContaining({ method: 'DELETE' })
         );
       });
+
+      it('should update (rename) a conversation via the v2 endpoint', async () => {
+        const mockUpdateResponse = {
+          conversation_id: 'conv-123',
+          success: true,
+          message: 'Conversation updated successfully',
+        };
+
+        (mockFetch as jest.Mock).mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve(mockUpdateResponse),
+        });
+
+        const result = await client.updateConversation(
+          'conv-123',
+          'My renamed conversation'
+        );
+
+        expect(result).toEqual(mockUpdateResponse);
+        expect(mockFetch).toHaveBeenCalledWith(
+          'https://test-lightspeed.example.com/v2/conversations/conv-123',
+          expect.objectContaining({
+            method: 'PUT',
+            body: JSON.stringify({ topic_summary: 'My renamed conversation' }),
+            headers: expect.objectContaining({
+              'Content-Type': 'application/json',
+            }),
+          })
+        );
+      });
     });
 
     describe('Feedback Status Management', () => {

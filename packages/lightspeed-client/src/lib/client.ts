@@ -29,6 +29,8 @@ import {
   ConversationsListResponse,
   ConversationResponse,
   ConversationDeleteResponse,
+  ConversationUpdateRequest,
+  ConversationUpdateResponse,
   FeedbackStatusUpdateRequest,
   FeedbackStatusUpdateResponse,
   TEMP_CONVERSATION_ID,
@@ -461,6 +463,36 @@ export class LightspeedClient
       {
         method: 'DELETE',
         headers: options?.headers,
+        signal: options?.signal,
+      }
+    );
+  }
+
+  /**
+   * Update a conversation's topic summary (rename conversation)
+   * Uses the v2 endpoint - PUT /v2/conversations/{id} - as v1 has no update support
+   * @param conversationId - The conversation ID to update
+   * @param topicSummary - The new topic summary for the conversation
+   * @param options - Optional request configuration
+   * @returns Promise that resolves to update confirmation
+   */
+  async updateConversation(
+    conversationId: string,
+    topicSummary: string,
+    options?: IRequestOptions
+  ): Promise<ConversationUpdateResponse> {
+    const request: ConversationUpdateRequest = {
+      topic_summary: topicSummary,
+    };
+    return this.makeRequest<ConversationUpdateResponse>(
+      `/v2/conversations/${conversationId}`,
+      {
+        method: 'PUT',
+        body: JSON.stringify(request),
+        headers: {
+          'Content-Type': 'application/json',
+          ...options?.headers,
+        },
         signal: options?.signal,
       }
     );
