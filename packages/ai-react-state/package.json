@@ -16,7 +16,6 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/RedHatInsights/ai-web-clients.git",
-    "directory": "packages/ai-react-state"
+    "url": "git+https://github.com/RedHatInsights/ai-web-clients.git"
   }
 }
