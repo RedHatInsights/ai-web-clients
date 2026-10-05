@@ -13,5 +13,9 @@
   },
   "publishConfig": {
     "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RedHatInsights/ai-web-clients.git"
   }
 }
