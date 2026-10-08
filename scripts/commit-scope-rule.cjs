@@ -7,8 +7,8 @@
 //  - Everything else may use free-form area scopes (`release`, `deps`, ...), but
 //    never glob or tag patterns: Nx treats a scope as a project matcher and aborts
 //    the whole release when a scope is ambiguous.
-//  - The bot's `chore(release): publish` commit is exempt; its notes may mention
-//    "BREAKING CHANGE:" for the packages it released.
+//  - The release job's `chore(versions): package.json version sync + changelog`
+//    commit is exempt as a safeguard in case a body ever mentions "BREAKING CHANGE:".
 //
 // A valid scope does not guarantee a bump: Nx still only bumps projects whose
 // files the commit touched.
@@ -19,7 +19,7 @@ const path = require('node:path');
 const DEFAULT_ROOT = path.resolve(__dirname, '..');
 const HEADER_PATTERN = /^(\w+)(?:\((.*?)\))?(!)?: /;
 const BREAKING_FOOTER_PATTERN = /BREAKING[ -]CHANGE:/;
-const RELEASE_COMMIT_PATTERN = /^chore\(release\): publish( \[skip ci\])?$/;
+const RELEASE_COMMIT_PATTERN = /^chore\(versions\): package\.json version sync \+ changelog( \[skip ci\])?$/;
 const AREA_SCOPE_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
 // ---------- parsing ----------

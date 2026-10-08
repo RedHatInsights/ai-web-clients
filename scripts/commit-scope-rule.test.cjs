@@ -188,15 +188,16 @@ describe('non versioning commits stay easy', () => {
 });
 
 describe('release commit', () => {
-  test('chore(release): publish is exempt even when notes mention BREAKING CHANGE', () => {
+  test('version sync commit is exempt even if a body mentions BREAKING CHANGE', () => {
     const body = '## 1.0.0\n\n- BREAKING CHANGE: old api removed';
-    assert.equal(check('chore(release): publish [skip ci]', body).valid, true);
-    assert.equal(check('chore(release): publish', body).valid, true);
+    const subject = 'chore(versions): package.json version sync + changelog';
+    assert.equal(check(`${subject} [skip ci]`, body).valid, true);
+    assert.equal(check(subject, body).valid, true);
   });
 
   test('only the exact release header is exempt', () => {
-    assert.equal(check('chore(release)!: publish').valid, false);
-    assert.equal(check('feat(release): publish').valid, false);
+    assert.equal(check('chore(versions)!: package.json version sync + changelog').valid, false);
+    assert.equal(check('feat(versions): package.json version sync + changelog').valid, false);
   });
 });
 

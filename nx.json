@@ -83,7 +83,7 @@
       "commit": true,
       "tag": true,
       "push": false,
-      "commitMessage": "chore(release): publish [skip ci]\n\n{releaseNotes}"
+      "commitMessage": "chore(versions): package.json version sync + changelog [skip ci]"
     },
     "version": {
       "preVersionCommand": "npx nx run-many -t build",
