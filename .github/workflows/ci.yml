@@ -22,6 +22,24 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Test release tooling
+        run: node --test scripts/commit-scope-rule.test.cjs .github/scripts/verify-versions.test.cjs
+
+      - name: Lint pull request commits
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          MERGE_BASE="$(git merge-base "$BASE_SHA" "$HEAD_SHA")"
+          npx commitlint --from "$MERGE_BASE" --to "$HEAD_SHA" --verbose
+
+      - name: Lint pull request title (squash merge subject)
+        if: github.event_name == 'pull_request'
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: printf '%s\n' "$PR_TITLE" | npx commitlint --verbose
+
       - name: Run tests
         env:
            NX_TUI: false
