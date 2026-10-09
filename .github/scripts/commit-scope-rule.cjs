@@ -16,7 +16,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-const DEFAULT_ROOT = path.resolve(__dirname, '..');
+const DEFAULT_ROOT = path.resolve(__dirname, '..', '..');
 const HEADER_PATTERN = /^(\w+)(?:\((.*?)\))?(!)?: /;
 const BREAKING_FOOTER_PATTERN = /BREAKING[ -]CHANGE:/;
 const RELEASE_COMMIT_PATTERN = /^chore\(versions\): package\.json version sync \+ changelog( \[skip ci\])?$/;

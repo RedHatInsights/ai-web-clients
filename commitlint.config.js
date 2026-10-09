@@ -1,4 +1,4 @@
-const { createScopeRule } = require('./scripts/commit-scope-rule.cjs');
+const { createScopeRule } = require('./.github/scripts/commit-scope-rule.cjs');
 
 module.exports = {
   extends: ['@commitlint/config-conventional'],
@@ -6,7 +6,7 @@ module.exports = {
     {
       rules: {
         // feat and breaking commits must name releasable Nx projects.
-        // See scripts/commit-scope-rule.cjs.
+        // See .github/scripts/commit-scope-rule.cjs.
         'releasable-project-scope': createScopeRule(),
       },
     },

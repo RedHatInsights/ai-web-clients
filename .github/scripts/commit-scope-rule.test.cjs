@@ -1,6 +1,6 @@
 'use strict';
 
-// Run: node --test scripts/commit-scope-rule.test.cjs
+// Run: node --test .github/scripts/commit-scope-rule.test.cjs
 
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');

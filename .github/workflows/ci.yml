@@ -23,7 +23,7 @@ jobs:
         run: npm ci
 
       - name: Test release tooling
-        run: node --test scripts/commit-scope-rule.test.cjs .github/scripts/verify-versions.test.cjs
+        run: node --test .github/scripts/commit-scope-rule.test.cjs .github/scripts/verify-versions.test.cjs
 
       - name: Lint pull request commits
         if: github.event_name == 'pull_request'
