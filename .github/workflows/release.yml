@@ -1,5 +1,10 @@
 name: Release
 
+# Release order (never reorder):
+#   verify baseline -> nx release (commit + tags, no publish) -> validate signed commit/tags
+#   -> atomic git push of the release commit and new tags -> npm publish
+# A rejected or racing push stops the job before anything reaches npm. See docs/release-operations.md.
+
 on:
   push:
     branches:
@@ -17,19 +22,24 @@ jobs:
     needs: ci
     runs-on: ubuntu-latest
     environment: npm-publish
-    # Only run on push to main branch (never on workflow_dispatch, etc.)
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Only the authoritative repository, only on push to main (never forks or workflow_dispatch).
+    if: github.repository == 'RedHatInsights/ai-web-clients' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # One release at a time. Never cancel a run that may already have pushed but not yet published.
+    concurrency:
+      group: ${{ github.workflow }}-release
+      cancel-in-progress: false
+      queue: max         # keep every queued run (up to 100), do not replace a pending one
     permissions:
-      contents: write    # Needed for creating tags and GitHub releases
-      issues: write      # Needed for release notes
-      pull-requests: write  # Needed for release notes
-      id-token: write    # Needed for OIDC token generation (npm trusted publishing)
+      contents: read     # Git writes use the bot token below, not GITHUB_TOKEN
+      id-token: write    # npm trusted publishing (OIDC) and provenance
+    env:
+      NX_TUI: false
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           fetch-depth: 0
-          # Use default GITHUB_TOKEN for authentication (no SSH key needed)
+          token: ${{ secrets.GH_BOT_TOKEN }}
 
       - name: Setup Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -38,56 +48,69 @@ jobs:
           cache: 'npm'
           registry-url: 'https://registry.npmjs.org'
 
+      # The run may have waited in the release queue behind another release (or behind merges), so
+      # catch up with main before anything is calculated. Every commit on main passed PR checks.
+      - name: Confirm repository and catch up with main
+        run: |
+          .github/scripts/release-refs.sh check-origin RedHatInsights/ai-web-clients
+          .github/scripts/release-refs.sh fast-forward origin main
+
       - name: Install dependencies
         run: npm ci
 
-      - name: Build packages
+      - name: Configure signing identity
         env:
-           NX_TUI: false
-        run: npx nx run-many --target=build --all --parallel --maxParallel=4
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          GIT_USER_NAME: ${{ secrets.GH_NAME }}
+          GIT_USER_EMAIL: ${{ secrets.GH_EMAIL }}
+        run: .github/scripts/release-refs.sh configure-signing
 
-      - name: Configure Git
-        env:
-           NX_TUI: false
+      - name: Verify versions are aligned before releasing
+        run: .github/scripts/verify-versions.sh
+
+      - name: Record baseline
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          {
+            echo "BASE_SHA=$(git rev-parse HEAD)"
+            echo "RELEASE_TAGS_BEFORE=$RUNNER_TEMP/tags-before.txt"
+          } >> "$GITHUB_ENV"
+          .github/scripts/release-refs.sh snapshot-tags "$RUNNER_TEMP/tags-before.txt"
 
-      - name: Release (GitHub + NPM)
+      # Nx runs its pre-version build, bumps source and dist manifests, writes changelogs, makes one
+      # signed commit and signed tags. Any failure fails the job. HUSKY=0: the release commit is
+      # machine generated, so the commit-msg hook adds nothing.
+      - name: Prepare release (version, changelog, commit, tags)
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Built-in token (auto-scoped, ephemeral)
-          # No NODE_AUTH_TOKEN: npm auth via OIDC trusted publishing (id-token: write + npm-publish environment)
-          NX_TUI: false
-          NPM_CONFIG_PROVENANCE: true  # Enable npm provenance attestations via OIDC
+          HUSKY: 0
           npm_config_legacy_peer_deps: false
-        run: |
-          npx nx release version --verbose
-          npx nx run-many --target=build --all --parallel --maxParallel=4 --skipNxCache
-          # Verify built files exist before publishing
-          echo "Verifying built files..."
-          ls -la dist/packages/*/src/index.js || (echo "Built files missing!" && exit 1)
-          # Double-check that we're publishing from dist directories
-          echo "Checking package.json files in dist..."
-          for pkg in dist/packages/*/package.json; do
-            echo "=== $pkg ==="
-            cat "$pkg" | grep -E '"name"|"main"|"types"'
-          done
-          npx nx release publish --verbose
-          git add .
-          git commit -m "chore(release): publish" || echo "No changes to commit"
-          git push origin main
+        run: npx nx release --skip-publish
 
-      # - name: Release
-      #   run: npm run release
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      #     NPM_TOKEN: ${{ secrets.NPM_TOKEN }} 
-
-      - name: Tag last-release
-        shell: bash
+      - name: Decide whether anything was released
+        id: decide
         run: |
-          git tag -f last-release
-          git push origin last-release --force
-          # push nx created tags
-          git tag -l
-          git push origin --tags
+          result="$(.github/scripts/release-refs.sh release-state "$BASE_SHA" "$RELEASE_TAGS_BEFORE")"
+          echo "result=$result" >> "$GITHUB_OUTPUT"
+          if [ "$result" = "none" ]; then
+            echo "::notice::No releasable changes. Nothing pushed, nothing published."
+          fi
+
+      - name: Validate signed release commit and tags
+        if: steps.decide.outputs.result == 'release'
+        run: |
+          .github/scripts/release-refs.sh validate-release "$BASE_SHA" "$RELEASE_TAGS_BEFORE"
+          {
+            echo "### Release prepared"
+            git tag --points-at HEAD | sed 's/^/- /'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Push release commit and tags atomically
+        if: steps.decide.outputs.result == 'release'
+        run: .github/scripts/release-refs.sh push-release origin "$RELEASE_TAGS_BEFORE"
+
+      - name: Publish to npm
+        if: steps.decide.outputs.result == 'release'
+        env:
+          # No NODE_AUTH_TOKEN: npm auth via OIDC trusted publishing (id-token: write + npm-publish environment)
+          NPM_CONFIG_PROVENANCE: true
+          npm_config_legacy_peer_deps: false
+        run: npx nx release publish
