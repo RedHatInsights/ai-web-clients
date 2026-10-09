@@ -420,10 +420,9 @@ ai-web-clients/
 - `npm run affected:e2e` - E2e test only affected packages
 
 ### Versioning & Releases
-- `npm run version` - Version all packages based on conventional commits
 - `npm run version:dry-run` - Preview version changes without applying them
-- `npm run release` - Release all packages (runs in CI)
-- `npm run release:dry-run` - Preview release without applying changes
+- `npm run release:dry-run` - Preview a release without applying changes
+- Releases run only in GitHub Actions. Do not run `npm run release`, `npm run version` or `npm run publish` locally; see [docs/release-operations.md](docs/release-operations.md)
 
 ## Technologies
 
@@ -433,7 +432,7 @@ ai-web-clients/
 - **Jest**: Unit testing
 - **Cypress**: End-to-end testing
 - **ESLint**: Code linting
-- **@jscutlery/semver**: Semantic versioning and releases
+- **Nx release**: Semantic versioning, changelogs and release tags
 - **Conventional Commits**: Commit message format for automated versioning
 - **Husky v9+**: Modern git hooks for code quality
 
@@ -497,9 +496,12 @@ When package B (dependency) is updated, package A (dependent) will automatically
 3. Trigger a new release
 
 ### Release Process
-1. **Automated**: Releases happen automatically via GitHub Actions on pushes to `main`
-2. **Manual**: Run `npm run release` locally (requires proper git setup)
-3. **Preview**: Use `npm run version:dry-run` to preview changes
+Releases happen automatically via GitHub Actions on every push to `main`. The workflow verifies that Git tags, package manifests and npm agree, then lets Nx create one signed release commit and one signed tag per released package. It pushes the commit and tags **atomically**, and only then publishes to npm. If the push is rejected, nothing is published.
+
+- `feat` and breaking commits must be scoped to exact Nx project names, for example `feat(aai-client,mas-client): ...`. Other types may use area scopes such as `ci` or `release`.
+- PRs are squash-merged, so the PR title becomes the commit message and must follow the same rules.
+- Preview locally with `npm run release:dry-run`.
+- If a release run fails, see [docs/release-operations.md](docs/release-operations.md) before re-running anything.
 
 ## Examples
 
@@ -513,8 +515,7 @@ nx generate @nx/react:library my-lib
 git add .
 git commit -m "feat(my-lib): add new awesome feature"
 
-# Version and release
-npm run release
+# Open a PR. Merging it to main releases the package through GitHub Actions.
 ```
 
 ### Setting up dependencies between packages:

@@ -76,13 +76,16 @@
   },
   "release": {
     "projectsRelationship": "independent",
+    "conventionalCommits": {
+      "useCommitScope": true
+    },
+    "git": {
+      "commit": true,
+      "tag": true,
+      "push": false,
+      "commitMessage": "chore(versions): package.json version sync + changelog [skip ci]"
+    },
     "version": {
-      "git": {
-        "commit": false,
-        "tag": true,
-        "push": false,
-        "commitMessage": "chore(release): publish\n\n{releaseNotes}"
-      },
       "preVersionCommand": "npx nx run-many -t build",
       "conventionalCommits": true,
       "preserveLocalDependencyProtocols": false,
@@ -96,13 +99,7 @@
     },
     "changelog": {
       "workspaceChangelog": false,
-      "projectChangelogs": true,
-      "git": {
-        "commit": true,
-        "tag": true,
-        "push": true,
-        "commitMessage": "chore(release): publish\n\n{releaseNotes}"
-      }
+      "projectChangelogs": true
     },
     "releaseTagPattern": "{projectName}@{version}"
   },

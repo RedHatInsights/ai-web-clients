@@ -4,6 +4,8 @@ on:
   pull_request:
     branches:
       - main
+    # "edited" re-runs the title lint when the squash-merge subject changes
+    types: [opened, synchronize, reopened, edited]
 
 jobs:
   ci:
