@@ -1,5 +1,10 @@
 name: Release
 
+# Release order: CI -> strict baseline verification -> Nx preparation
+# (pre-version build, versions, changelogs, one signed commit, signed tags) ->
+# one atomic push -> npm publish. npm is written to only after GitHub has accepted
+# the release commit and tags. See docs/release-operations.md.
+
 on:
   push:
     branches:
@@ -17,19 +22,24 @@ jobs:
     needs: ci
     runs-on: ubuntu-latest
     environment: npm-publish
-    # Only run on push to main branch (never on workflow_dispatch, etc.)
+    # Only run on push to main (never workflow_dispatch).
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # One release at a time. Never cancel a run that may already have pushed but not yet published.
+    concurrency:
+      group: ${{ github.workflow }}-release
+      cancel-in-progress: false
+      queue: max         # keep every queued run (up to 100), do not replace a pending one
     permissions:
-      contents: write    # Needed for creating tags and GitHub releases
-      issues: write      # Needed for release notes
-      pull-requests: write  # Needed for release notes
-      id-token: write    # Needed for OIDC token generation (npm trusted publishing)
+      contents: read     # Git writes use the bot token below, not GITHUB_TOKEN
+      id-token: write    # npm trusted publishing (OIDC) and provenance
+    env:
+      NX_TUI: false
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           fetch-depth: 0
-          # Use default GITHUB_TOKEN for authentication (no SSH key needed)
+          token: ${{ secrets.GH_BOT_TOKEN }}
 
       - name: Setup Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -41,53 +51,49 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build packages
+      - name: Import GPG key
         env:
-           NX_TUI: false
-        run: npx nx run-many --target=build --all --parallel --maxParallel=4
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+        run: printf '%s' "$GPG_PRIVATE_KEY" | base64 -d | gpg --batch --import
 
-      - name: Configure Git
+      - name: Configure Git identity and signing
         env:
-           NX_TUI: false
+          GIT_USER_NAME: ${{ secrets.GH_NAME }}
+          GIT_USER_EMAIL: ${{ secrets.GH_EMAIL }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "$GIT_USER_NAME"
+          git config user.email "$GIT_USER_EMAIL"
+          git config commit.gpgsign true
+          git config tag.gpgsign true
+          git config user.signingkey "$(gpg --list-secret-keys --with-colons "$GIT_USER_EMAIL" | awk -F: '/^sec:/ {print $5; exit}')"
 
-      - name: Release (GitHub + NPM)
+      - name: Verify versions are aligned before releasing
+        run: .github/scripts/verify-versions.sh
+
+      # Nx runs its pre-version build, bumps source and dist manifests from conventional
+      # commits, updates changelogs and the lockfile, then creates one signed commit and one
+      # signed annotated tag per released project. HUSKY=0: the release commit is machine
+      # generated, so the commit-msg hook adds nothing.
+      - name: Prepare release (version, changelog, commit, tags)
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Built-in token (auto-scoped, ephemeral)
-          # No NODE_AUTH_TOKEN: npm auth via OIDC trusted publishing (id-token: write + npm-publish environment)
-          NX_TUI: false
-          NPM_CONFIG_PROVENANCE: true  # Enable npm provenance attestations via OIDC
+          HUSKY: 0
           npm_config_legacy_peer_deps: false
-        run: |
-          npx nx release version --verbose
-          npx nx run-many --target=build --all --parallel --maxParallel=4 --skipNxCache
-          # Verify built files exist before publishing
-          echo "Verifying built files..."
-          ls -la dist/packages/*/src/index.js || (echo "Built files missing!" && exit 1)
-          # Double-check that we're publishing from dist directories
-          echo "Checking package.json files in dist..."
-          for pkg in dist/packages/*/package.json; do
-            echo "=== $pkg ==="
-            cat "$pkg" | grep -E '"name"|"main"|"types"'
-          done
-          npx nx release publish --verbose
-          git add .
-          git commit -m "chore(release): publish" || echo "No changes to commit"
-          git push origin main
+        run: npx nx release --skip-publish
 
-      # - name: Release
-      #   run: npm run release
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      #     NPM_TOKEN: ${{ secrets.NPM_TOKEN }} 
+      # nx release creates the release commit and tags locally. Treat that commit as
+      # immutable: rebasing it can leave signed tags pointing at its old hash. If main
+      # advanced during release calculation, this atomic push fails and the attempt must be
+      # restarted from main. --follow-tags pushes annotated release tags; --atomic prevents
+      # a commit-only push.
+      - name: Push release commit and tags
+        env:
+          HUSKY: '0'
+        run: git push --atomic --follow-tags origin HEAD:main
 
-      - name: Tag last-release
-        shell: bash
-        run: |
-          git tag -f last-release
-          git push origin last-release --force
-          # push nx created tags
-          git tag -l
-          git push origin --tags
+      # Publish only after the push succeeds, from the already-versioned workspace.
+      - name: Publish to npm
+        env:
+          # No NODE_AUTH_TOKEN: npm auth via OIDC trusted publishing (id-token: write + npm-publish environment)
+          NPM_CONFIG_PROVENANCE: true
+          npm_config_legacy_peer_deps: false
+        run: npx nx release publish
