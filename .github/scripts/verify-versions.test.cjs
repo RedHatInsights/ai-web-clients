@@ -119,9 +119,17 @@ test('fails when the latest tag differs from disk and npm', () => {
   assert.match(output, /alpha versions disagree/);
 });
 
-test('fails when npm latest differs from disk and tag', () => {
+test('passes with a warning when npm lags a tagged version', () => {
   alignedPackage('alpha');
   npmPublished('alpha', '1.1.0');
+  const { status, output } = runVerifier();
+  assert.equal(status, 0);
+  assert.match(output, /alpha@1\.2\.0 is tagged but not published/);
+});
+
+test('fails when npm latest is ahead of disk and tag', () => {
+  alignedPackage('alpha');
+  npmPublished('alpha', '1.3.0');
   assert.equal(runVerifier().status, 1);
 });
 
