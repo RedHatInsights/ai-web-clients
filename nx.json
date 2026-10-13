@@ -83,7 +83,6 @@
       "commitMessage": "chore(versions): package.json version sync + changelog [skip ci]"
     },
     "version": {
-      "preVersionCommand": "npx nx run-many -t build",
       "conventionalCommits": true,
       "preserveLocalDependencyProtocols": false,
       "versionActionsOptions": {

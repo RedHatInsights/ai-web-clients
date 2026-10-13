@@ -32,11 +32,12 @@ jobs:
       HUSKY: '0'
       npm_config_legacy_peer_deps: false
     steps:
+      # No persisted credentials: dependency and build scripts must not see the bot token.
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.GH_BOT_TOKEN }}
+          persist-credentials: false
 
       - name: Setup Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -47,6 +48,14 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      # Build before the signing key is imported, so build tooling never sees it.
+      # nx release then syncs versions into the built dist manifests.
+      - name: Build packages
+        run: npx nx run-many -t build
+
+      - name: Verify versions are aligned before releasing
+        run: .github/scripts/verify-versions.sh
 
       - name: Import GPG key
         env:
@@ -64,13 +73,10 @@ jobs:
           git config tag.gpgsign true
           git config user.signingkey "$(gpg --list-secret-keys --with-colons "$GIT_USER_EMAIL" | awk -F: '/^sec:/ {print $5; exit}')"
 
-      - name: Verify versions are aligned before releasing
-        run: .github/scripts/verify-versions.sh
-
-      # Nx runs its pre-version build, bumps source and dist manifests from conventional
-      # commits, updates changelogs and the lockfile, then creates one signed commit and one
-      # signed annotated tag per released project. HUSKY=0: the release commit is machine
-      # generated, so the commit-msg hook adds nothing.
+      # Nx bumps source and dist manifests from conventional commits, updates changelogs and
+      # the lockfile, then creates one signed commit and one signed annotated tag per
+      # released project. With nothing to release it creates no commit or tags.
+      # HUSKY=0: the release commit is machine generated, so the commit-msg hook adds nothing.
       - name: Prepare release (version, changelog, commit, tags)
         run: npx nx release --skip-publish
 
@@ -79,10 +85,14 @@ jobs:
       # advanced during release calculation, this atomic push fails and the attempt must be
       # restarted from main. --follow-tags pushes annotated release tags; --atomic prevents
       # a commit-only push.
+      # The bot token is only exposed to this step.
       - name: Push release commit and tags
-        run: git push --atomic --follow-tags origin HEAD:main
+        env:
+          GH_BOT_TOKEN: ${{ secrets.GH_BOT_TOKEN }}
+        run: git push --atomic --follow-tags "https://x-access-token:${GH_BOT_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:main
 
       # Publish only after the push succeeds, from the already-versioned workspace.
+      # Versions already on npm are skipped, so this also retries a previously failed publish.
       - name: Publish to npm
         env:
           # No NODE_AUTH_TOKEN: npm auth via OIDC trusted publishing (id-token: write + npm-publish environment)
