@@ -133,6 +133,18 @@ test('fails when npm latest is ahead of disk and tag', () => {
   assert.equal(runVerifier().status, 1);
 });
 
+test('fails when the manifest at the tagged commit differs from the tag', () => {
+  writePackage({ dir: 'alpha', version: '1.1.0' });
+  commitAll();
+  tag('alpha@1.2.0');
+  writePackage({ dir: 'alpha', version: '1.2.0' });
+  commitAll();
+  npmPublished('alpha', '1.2.0');
+  const { status, output } = runVerifier();
+  assert.equal(status, 1);
+  assert.match(output, /alpha manifest at alpha@1\.2\.0 says 1\.1\.0/);
+});
+
 test('fails when no tag exists', () => {
   writePackage({ dir: 'alpha', version: '0.1.0' });
   commitAll();

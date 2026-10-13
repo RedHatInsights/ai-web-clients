@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Gate for nx release: manifest and latest reachable tag must agree, and npm latest must
+# Gate for nx release: the latest reachable tag is the version baseline. Its commit's manifest
+# must match the tag, the current manifest must match it, and npm latest must
 # match them. npm may lag behind (a publish that failed after the push); the publish
 # step then retries the tagged version.
 set -euo pipefail
@@ -16,6 +17,12 @@ for dir in packages/*/; do
         | { grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' || true; } | sort -V | tail -1)
   npm=$(npm view "$name" dist-tags.latest 2>/dev/null || echo ERROR)
   printf '%-45s %-10s %-10s %s\n' "$name" "$disk" "${tag:-NONE}" "$npm"
+  if [[ -n $tag ]]; then
+    tagged=$(git show "${project}@${tag}:${dir}package.json" | jq -r .version)
+    if [[ $tagged != "$tag" ]]; then
+      echo "::error::$name manifest at ${project}@${tag} says $tagged"; fail=1; continue
+    fi
+  fi
   [[ $disk == "$tag" && $disk == "$npm" ]] && continue
   if [[ $disk == "$tag" && $npm != ERROR && $(printf '%s\n' "$npm" "$disk" | sort -V | head -1) == "$npm" ]]; then
     echo "::warning::$name@$disk is tagged but not published; the publish step will retry it"
