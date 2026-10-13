@@ -530,13 +530,13 @@ test('counts general mismatch when disk, tag and npm are all different', () => {
 });
 
 // Plausible parser stdout cannot override its failing exit status.
-for (const [parserMarker, expected] of [
-  ['const tags =', /REGISTRY_ERROR/],
-  ['const manifest =', /TAG_MANIFEST_MISMATCH/],
+for (const [field, expected] of [
+  ['latest', /REGISTRY_ERROR/],
+  ['version', /TAG_MANIFEST_MISMATCH/],
 ]) {
-  test(`rejects failed JSON parser with aligned stdout: ${parserMarker}`, () => {
+  test(`rejects failed JSON parser with aligned stdout for ${field}`, () => {
     alignedPackage('alpha');
-    fakeCommand('node', `case "$2" in *"${parserMarker}"*) printf '1.2.0'; exit 1;; esac
+    fakeCommand('node', `if [ "$3" = "-" ] && [ "$4" = "${field}" ]; then printf '1.2.0'; exit 1; fi
 exec "${process.execPath}" "$@"`);
     assertFailure(expected);
   });

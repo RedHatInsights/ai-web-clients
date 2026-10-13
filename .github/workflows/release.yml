@@ -34,6 +34,8 @@ jobs:
       id-token: write    # npm trusted publishing (OIDC) and provenance
     env:
       NX_TUI: false
+      HUSKY: '0'
+      npm_config_legacy_peer_deps: false
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -75,9 +77,6 @@ jobs:
       # signed annotated tag per released project. HUSKY=0: the release commit is machine
       # generated, so the commit-msg hook adds nothing.
       - name: Prepare release (version, changelog, commit, tags)
-        env:
-          HUSKY: 0
-          npm_config_legacy_peer_deps: false
         run: npx nx release --skip-publish
 
       # nx release creates the release commit and tags locally. Treat that commit as
@@ -86,8 +85,6 @@ jobs:
       # restarted from main. --follow-tags pushes annotated release tags; --atomic prevents
       # a commit-only push.
       - name: Push release commit and tags
-        env:
-          HUSKY: '0'
         run: git push --atomic --follow-tags origin HEAD:main
 
       # Publish only after the push succeeds, from the already-versioned workspace.

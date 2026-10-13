@@ -36,11 +36,15 @@ die() {
 is_stable_semver() { [[ "$1" =~ $STABLE_SEMVER ]]; }
 is_prerelease_semver() { [[ "$1" =~ $PRERELEASE_SEMVER ]]; }
 
-# Read a typed top-level field from a JSON object. Absent fields print nothing;
-# callers decide whether absence is allowed. Malformed input never produces a value.
+# Read a typed top-level field from a JSON object. Pass "-" to read JSON from stdin.
+# Absent fields print nothing; callers decide whether absence is allowed.
 json_field() {
   node -e '
-    const metadata = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+    const fs = require("fs");
+    const input = process.argv[1] === "-"
+      ? fs.readFileSync(0, "utf8")
+      : fs.readFileSync(process.argv[1], "utf8");
+    const metadata = JSON.parse(input);
     if (metadata === null || typeof metadata !== "object" || Array.isArray(metadata)) {
       throw new Error("expected JSON object");
     }
@@ -83,16 +87,10 @@ latest_reachable_tag_version() {
 
 # Fail on either a Git read or JSON parse failure, even with plausible stdout.
 manifest_version_at_tag() {
-  local tag="$1" manifest_path="$2" manifest version
-  manifest="$(git -C "$REPO_ROOT" show "refs/tags/${tag}^{commit}:${manifest_path}" 2>/dev/null)" || return 1
-  version="$(node -e '
-    const manifest = JSON.parse(process.argv[1]);
-    if (manifest === null || typeof manifest !== "object" || Array.isArray(manifest) ||
-        typeof manifest.version !== "string" || !manifest.version) {
-      throw new Error("expected manifest version string");
-    }
-    process.stdout.write(manifest.version);
-  ' "$manifest" 2>/dev/null)" || return 1
+  local tag="$1" manifest_path="$2" version
+  version="$(git -C "$REPO_ROOT" show "refs/tags/${tag}^{commit}:${manifest_path}" 2>/dev/null \
+    | json_field - version string 2>/dev/null)" || return 1
+  [[ -n "$version" ]] || return 1
   printf '%s' "$version"
 }
 
@@ -123,16 +121,7 @@ lookup_npm() {
 }
 
 parse_npm_metadata() {
-  node -e '
-    const tags = JSON.parse(process.argv[1]);
-    if (tags === null || typeof tags !== "object" || Array.isArray(tags)) {
-      throw new Error("expected npm dist-tag object");
-    }
-    if (tags.latest !== undefined && typeof tags.latest !== "string") {
-      throw new Error("expected latest dist-tag string");
-    }
-    process.stdout.write(tags.latest ?? "");
-  ' "$1"
+  printf '%s' "$1" | json_field - latest string
 }
 
 # ---------- classification ----------
@@ -176,59 +165,77 @@ status_explanation() {
 
 # ---------- per-project verification ----------
 
-# Classified input failures set VERIFIED_STATUS and return normally for reporting.
-# Unexpected operational failures abort; callers must not suppress errors and skip.
-verify_package_dir() {
-  local dir="$1" name_dir manifest private project_name npm_name disk tag_version tagged_version
-  name_dir="${dir##*/}"
-  [[ -d "$dir" && -r "$dir" && -x "$dir" ]] || die "could not read discovered package directory"
-  manifest="$dir/package.json"
+# The VERIFIED_* variables are one reporting record, initialized here for every directory.
+reset_verified_fields() {
+  local name_dir="${1##*/}"
   VERIFIED_SKIP="no"
   VERIFIED_NPM_NAME="packages/$name_dir"
   VERIFIED_DISK="-"
   VERIFIED_TAG="-"
   VERIFIED_NPM="-"
   VERIFIED_STATUS="MANIFEST_ERROR"
+  VERIFIED_PROJECT_NAME=""
+}
 
+read_public_manifest() {
+  local dir="$1" name_dir="${1##*/}" manifest private
+  manifest="$dir/package.json"
   if [[ ! -e "$manifest" && ! -L "$manifest" && ! -e "$dir/project.json" && ! -L "$dir/project.json" ]]; then
     VERIFIED_SKIP="yes"
     return 0
   fi
-  [[ -f "$manifest" && -r "$manifest" ]] || return 0
-  private="$(json_field "$manifest" private boolean 2>/dev/null)" || return 0
+  [[ -f "$manifest" && -r "$manifest" ]] || return 1
+  private="$(json_field "$manifest" private boolean 2>/dev/null)" || return 1
   if [[ "$private" == "true" ]]; then
     VERIFIED_SKIP="yes"
     return 0
   fi
 
-  npm_name="$(json_field "$manifest" name string 2>/dev/null)" || return 0
-  [[ "$npm_name" =~ $NPM_NAME_PATTERN ]] || return 0
-  VERIFIED_NPM_NAME="$npm_name"
-  disk="$(json_field "$manifest" version string 2>/dev/null)" || return 0
-  [[ -n "$disk" ]] || return 0
-  VERIFIED_DISK="$disk"
-
+  VERIFIED_NPM_NAME="$(json_field "$manifest" name string 2>/dev/null)" || return 1
+  [[ "$VERIFIED_NPM_NAME" =~ $NPM_NAME_PATTERN ]] || return 1
+  VERIFIED_DISK="$(json_field "$manifest" version string 2>/dev/null)" || return 1
+  [[ -n "$VERIFIED_DISK" ]] || return 1
   VERIFIED_STATUS="INVALID_PROJECT_NAME"
-  [[ -f "$dir/project.json" && -r "$dir/project.json" ]] || return 0
-  project_name="$(json_field "$dir/project.json" name string 2>/dev/null)" || return 0
-  if [[ ! "$project_name" =~ $PROJECT_NAME_PATTERN ]]; then
-    echo "::error::packages/${name_dir}: invalid project name in project.json" >&2
-    return 0
-  fi
+}
 
-  tag_version="$(latest_reachable_tag_version "$project_name")" || die "could not enumerate reachable tags for $project_name"
-  lookup_npm "$npm_name"
+read_project_name() {
+  local dir="$1" name_dir="${1##*/}"
+  [[ -f "$dir/project.json" && -r "$dir/project.json" ]] || return 1
+  VERIFIED_PROJECT_NAME="$(json_field "$dir/project.json" name string 2>/dev/null)" || return 1
+  if [[ ! "$VERIFIED_PROJECT_NAME" =~ $PROJECT_NAME_PATTERN ]]; then
+    echo "::error::packages/${name_dir}: invalid project name in project.json" >&2
+    return 1
+  fi
+}
+
+compare_release_sources() {
+  local name_dir="$1" tag_version tagged_version
+  tag_version="$(latest_reachable_tag_version "$VERIFIED_PROJECT_NAME")" \
+    || die "could not enumerate reachable tags for $VERIFIED_PROJECT_NAME"
+  lookup_npm "$VERIFIED_NPM_NAME"
   VERIFIED_TAG="$tag_version"
   VERIFIED_NPM="${NPM_LATEST:-NO_LATEST}"
   [[ "$NPM_STATE" == "OK" ]] || VERIFIED_NPM="$NPM_STATE"
-  VERIFIED_STATUS="$(classify_versions "$disk" "$tag_version" "$NPM_STATE" "$NPM_LATEST")" || die "could not classify $npm_name"
+  VERIFIED_STATUS="$(classify_versions "$VERIFIED_DISK" "$tag_version" "$NPM_STATE" "$NPM_LATEST")" \
+    || die "could not classify $VERIFIED_NPM_NAME"
+
   if [[ "$VERIFIED_STATUS" == "OK" ]]; then
-    if ! tagged_version="$(manifest_version_at_tag "${project_name}@${tag_version}" "packages/${name_dir}/package.json")"; then
-      VERIFIED_STATUS="TAG_MANIFEST_MISMATCH"
-    elif [[ "$tagged_version" != "$tag_version" ]]; then
+    if ! tagged_version="$(manifest_version_at_tag "${VERIFIED_PROJECT_NAME}@${tag_version}" "packages/${name_dir}/package.json")" \
+      || [[ "$tagged_version" != "$tag_version" ]]; then
       VERIFIED_STATUS="TAG_MANIFEST_MISMATCH"
     fi
   fi
+}
+
+# Classified input failures return normally for reporting; operational failures abort.
+verify_package_dir() {
+  local dir="$1"
+  reset_verified_fields "$dir"
+  [[ -d "$dir" && -r "$dir" && -x "$dir" ]] || die "could not read discovered package directory"
+  read_public_manifest "$dir" || return 0
+  [[ "$VERIFIED_SKIP" == "yes" ]] && return 0
+  read_project_name "$dir" || return 0
+  compare_release_sources "${dir##*/}"
 }
 
 # ---------- reporting ----------
