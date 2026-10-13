@@ -1,10 +1,5 @@
 name: Release
 
-# Release order: CI -> strict baseline verification -> Nx preparation
-# (pre-version build, versions, changelogs, one signed commit, signed tags) ->
-# one atomic push -> npm publish. npm is written to only after GitHub has accepted
-# the release commit and tags. See docs/release-operations.md.
-
 on:
   push:
     branches:
@@ -22,7 +17,7 @@ jobs:
     needs: ci
     runs-on: ubuntu-latest
     environment: npm-publish
-    # Only run on push to main (never workflow_dispatch).
+    # Only run on push to main branch (never on workflow_dispatch, etc.)
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     # One release at a time. Never cancel a run that may already have pushed but not yet published.
     concurrency:
@@ -92,5 +87,4 @@ jobs:
         env:
           # No NODE_AUTH_TOKEN: npm auth via OIDC trusted publishing (id-token: write + npm-publish environment)
           NPM_CONFIG_PROVENANCE: true
-          npm_config_legacy_peer_deps: false
         run: npx nx release publish
