@@ -1,0 +1,54 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["github>RedHatInsights/shared-workflows//renovate/frontend"],
+  "commitMessageLowerCase": "auto",
+  "semanticCommits": "enabled",
+  "semanticCommitType": "fix",
+  "semanticCommitScope": "deps",
+  "packageRules": [
+    {
+      "matchDepTypes": ["devDependencies"],
+      "semanticCommitType": "chore",
+      "semanticCommitScope": "deps-dev"
+    },
+    {
+      "description": "Use chore commit type for GitHub Actions version updates (no package release should be triggered)",
+      "matchManagers": ["github-actions"],
+      "semanticCommitType": "chore",
+      "semanticCommitScope": "ci"
+    },
+    {
+      "description": "Handle Node.js updates in .nvmrc (latest dev toolchain)",
+      "matchManagers": ["nvm"],
+      "matchDepNames": ["node"],
+      "enabled": true,
+      "semanticCommitType": "chore",
+      "semanticCommitScope": "node",
+      "automerge": false
+    },
+    {
+      "description": "Disable engines.node updates (pinned to MintMaker's minimum supported version)",
+      "matchManagers": ["npm"],
+      "matchDepNames": ["node"],
+      "matchDepTypes": ["engines"],
+      "enabled": false
+    },
+    {
+      "description": "Handle npm packageManager updates (latest dev toolchain)",
+      "matchManagers": ["npm"],
+      "matchDepNames": ["npm"],
+      "matchDepTypes": ["packageManager"],
+      "enabled": true,
+      "semanticCommitType": "chore",
+      "semanticCommitScope": "npm",
+      "automerge": false
+    },
+    {
+      "description": "Disable engines.npm updates (pinned to MintMaker's minimum supported version)",
+      "matchManagers": ["npm"],
+      "matchDepNames": ["npm"],
+      "matchDepTypes": ["engines"],
+      "enabled": false
+    }
+  ]
+}
