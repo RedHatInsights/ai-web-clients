@@ -2,6 +2,11 @@
   "name": "ai-web-clients",
   "version": "1.0.0",
   "description": "AI Web Clients Monorepo",
+  "engines": {
+    "node": ">=24.11.0",
+    "npm": ">=11.6.0"
+  },
+  "packageManager": "npm@12.2.0",
   "main": "index.js",
   "scripts": {
     "graph": "nx graph",
