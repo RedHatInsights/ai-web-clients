@@ -4,10 +4,10 @@
 
 Only the latest code on the default branch (`main`) is actively supported with security fixes.
 
-| Version | Supported          |
-| ------- | ------------------ |
-| `main`  | :white_check_mark: |
-| Older releases / tags | :x: |
+| Version | Supported |
+| ------- | --------- |
+| `main`  | Yes       |
+| Older releases / tags | No |
 
 ## Reporting a Vulnerability
 
