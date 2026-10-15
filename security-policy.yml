@@ -1,0 +1,4 @@
+# Policy for github.com/RedHatInsights/frontend-repo-security-scanner.
+# This repo's only required CI context is "ci / ci" (pr.yml -> reusable ci.yml).
+required_status_checks:
+  - "ci / ci"

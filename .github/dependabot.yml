@@ -6,7 +6,7 @@ updates:
     schedule:
       interval: weekly
       day: tuesday
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 0
     groups:
       nx:
         patterns:
@@ -73,7 +73,7 @@ updates:
     schedule:
       interval: weekly
       day: tuesday
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0
     groups:
       all-minor-patch:
         update-types:
@@ -89,7 +89,7 @@ updates:
     schedule:
       interval: weekly
       day: tuesday
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0
     commit-message:
       prefix: "ci"
       include: scope

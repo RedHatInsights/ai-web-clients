@@ -1,0 +1,30 @@
+name: Setup Environment
+description: Setup Node.js and cache npm packages (not node_modules) consistently
+# Note: All workflows using this action should use runs-on: ubuntu-24.04
+runs:
+  using: "composite"
+  steps:
+    - name: Show environment info
+      shell: bash
+      run: |
+        echo "=== Pre-installed Node.js versions ==="
+        ls -la /opt/hostedtoolcache/node/ 2>/dev/null || ls -la /opt/acttoolcache/node/ 2>/dev/null || echo "No pre-installed Node versions found"
+        echo "=== Current default Node.js ==="
+        which node && node --version || echo "No default Node.js found"
+        echo "=== .nvmrc content ==="
+        cat .nvmrc 2>/dev/null || echo "No .nvmrc file found"
+    - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      with:
+        node-version-file: '.nvmrc'
+        cache: 'npm'
+    - name: Enable Corepack and activate pinned npm version
+      shell: bash
+      run: |
+        corepack enable npm
+        corepack install
+    - name: Show final versions
+      shell: bash
+      run: |
+        echo "=== Final Node.js version after setup ==="
+        which node && node --version
+        npm --version
