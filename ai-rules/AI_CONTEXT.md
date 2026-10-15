@@ -87,7 +87,7 @@ ai-web-clients/
 │   ├── TESTING_STRATEGIES.md
 │   ├── PACKAGE_PATTERNS.md
 │   └── TECHNICAL_SPECS.md
-├── .eslintrc.json           # Workspace-wide ESLint config
+├── eslint.config.mjs        # Workspace-wide ESLint config
 ├── .gitignore              # Git ignore patterns
 ├── .husky/                 # Git hooks for quality gates
 ├── jest.preset.js          # Jest configuration preset

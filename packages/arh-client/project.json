@@ -33,6 +33,5 @@
         "jestConfig": "packages/arh-client/jest.config.ts"
       }
     }
-
   }
 }
