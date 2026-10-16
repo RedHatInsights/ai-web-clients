@@ -52,7 +52,9 @@ export class AAIDefaultStreamingHandler
 
     switch (chunk.event) {
       case 'start':
-        this.messageBuffer.conversationId = (chunk.data['conversation_id'] as string) || this.messageBuffer.conversationId;
+        this.messageBuffer.conversationId =
+          (chunk.data['conversation_id'] as string) ||
+          this.messageBuffer.conversationId;
         this.messageBuffer.messageId = crypto.randomUUID(); // Generate if not provided
         // Store start event in additional attributes
         this.messageBuffer.additionalAttributes.start_event = chunk.data;
@@ -72,7 +74,9 @@ export class AAIDefaultStreamingHandler
         if (!this.messageBuffer.additionalAttributes.tool_call_events) {
           this.messageBuffer.additionalAttributes.tool_call_events = [];
         }
-        this.messageBuffer.additionalAttributes.tool_call_events.push(chunk.data);
+        this.messageBuffer.additionalAttributes.tool_call_events.push(
+          chunk.data
+        );
         break;
 
       case 'turn_complete':
@@ -82,7 +86,8 @@ export class AAIDefaultStreamingHandler
           this.messageBuffer.answer = completeToken;
           updatedBuffer = this.messageBuffer.answer;
         }
-        this.messageBuffer.additionalAttributes.turn_complete_event = chunk.data;
+        this.messageBuffer.additionalAttributes.turn_complete_event =
+          chunk.data;
         break;
 
       case 'end':
@@ -98,9 +103,12 @@ export class AAIDefaultStreamingHandler
 
       case 'error':
         // Handle error events from the server
-        const errorMessage = this.extractString(chunk.data, 'error') || 'Unknown streaming error';
+        const errorMessage =
+          this.extractString(chunk.data, 'error') || 'Unknown streaming error';
         const errorStatus = this.extractNumber(chunk.data, 'status') || 500;
-        throw new Error(`Streaming error: ${errorMessage} (status: ${errorStatus})`);
+        throw new Error(
+          `Streaming error: ${errorMessage} (status: ${errorStatus})`
+        );
     }
 
     // Call the callback with current complete message
@@ -118,7 +126,9 @@ export class AAIDefaultStreamingHandler
   /**
    * Process the entire stream internally
    */
-  private async processStream(): Promise<IMessageResponse<AAIAdditionalAttributes>> {
+  private async processStream(): Promise<
+    IMessageResponse<AAIAdditionalAttributes>
+  > {
     if (!this.response.body) {
       throw new Error('Response body is null');
     }
@@ -143,12 +153,12 @@ export class AAIDefaultStreamingHandler
       let shouldContinue = true;
       while (shouldContinue) {
         const { done, value } = await reader.read();
-        
+
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split('\n');
-        
+
         // Keep the last incomplete line in the buffer
         buffer = lines.pop() || '';
 
@@ -157,19 +167,23 @@ export class AAIDefaultStreamingHandler
             try {
               const jsonData = line.replace(/^data: /, ''); // Remove 'data: ' prefix
               const eventData = JSON.parse(jsonData) as AAISSEEvent;
-              
+
               messageBuffer = this.processChunk(
                 eventData,
                 messageBuffer,
                 this.handleChunk
               );
-              
+
               if (eventData.event === 'end') {
                 shouldContinue = false;
               }
             } catch (error) {
               // Always throw SSE parsing errors - if we can't parse JSON, we can't interpret messages
-              throw new Error(`Failed to parse SSE data: ${line}. ${error instanceof Error ? error.message : String(error)}`);
+              throw new Error(
+                `Failed to parse SSE data: ${line}. ${
+                  error instanceof Error ? error.message : String(error)
+                }`
+              );
             }
           }
         }
@@ -200,13 +214,19 @@ export class AAIDefaultStreamingHandler
   /**
    * Safely extract referenced documents from chunk data
    */
-  private extractReferencedDocuments(data: Record<string, unknown>): Array<{doc_url: string; doc_title: string}> | undefined {
+  private extractReferencedDocuments(
+    data: Record<string, unknown>
+  ): Array<{ doc_url: string; doc_title: string }> | undefined {
     const docs = data['referenced_documents'];
     if (Array.isArray(docs)) {
-      return docs.filter(doc => 
-        doc && typeof doc === 'object' && 
-        'doc_url' in doc && 'doc_title' in doc &&
-        typeof doc.doc_url === 'string' && typeof doc.doc_title === 'string'
+      return docs.filter(
+        (doc) =>
+          doc &&
+          typeof doc === 'object' &&
+          'doc_url' in doc &&
+          'doc_title' in doc &&
+          typeof doc.doc_url === 'string' &&
+          typeof doc.doc_title === 'string'
       );
     }
     return undefined;
@@ -215,7 +235,10 @@ export class AAIDefaultStreamingHandler
   /**
    * Safely extract a number from chunk data
    */
-  private extractNumber(data: Record<string, unknown>, key: string): number | undefined {
+  private extractNumber(
+    data: Record<string, unknown>,
+    key: string
+  ): number | undefined {
     const value = data[key];
     return typeof value === 'number' ? value : undefined;
   }
@@ -223,7 +246,10 @@ export class AAIDefaultStreamingHandler
   /**
    * Safely extract a string from chunk data
    */
-  private extractString(data: Record<string, unknown>, key: string): string | undefined {
+  private extractString(
+    data: Record<string, unknown>,
+    key: string
+  ): string | undefined {
     const value = data[key];
     return typeof value === 'string' ? value : undefined;
   }
@@ -231,8 +257,13 @@ export class AAIDefaultStreamingHandler
   /**
    * Safely extract a record from chunk data
    */
-  private extractRecord(data: Record<string, unknown>, key: string): Record<string, unknown> | undefined {
+  private extractRecord(
+    data: Record<string, unknown>,
+    key: string
+  ): Record<string, unknown> | undefined {
     const value = data[key];
-    return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : undefined;
+    return value && typeof value === 'object' && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : undefined;
   }
 }

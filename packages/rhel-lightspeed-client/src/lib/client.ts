@@ -1,4 +1,4 @@
-import { 
+import {
   IAIClient,
   IConversation,
   IConversationHistoryResponse,
@@ -7,19 +7,20 @@ import {
   ISendMessageOptions,
   IRequestOptions,
   ClientInitLimitation,
-  AIClientError
+  AIClientError,
 } from '@redhat-cloud-services/ai-client-common';
-import { 
-  RHELLightspeedAdditionalProperties, 
+import {
+  RHELLightspeedAdditionalProperties,
   RHELLightspeedClientConfig,
   RHELLightspeedRequestPayload,
   RHELLightspeedValidationError,
   RHELLightspeedServerError,
   Query,
-  RAGResponse
 } from './types';
 
-export class RHELLightspeedClient implements IAIClient<RHELLightspeedAdditionalProperties> {
+export class RHELLightspeedClient
+  implements IAIClient<RHELLightspeedAdditionalProperties>
+{
   private config: RHELLightspeedClientConfig;
   private fetchFunction: typeof fetch;
 
@@ -38,7 +39,7 @@ export class RHELLightspeedClient implements IAIClient<RHELLightspeedAdditionalP
     error?: IInitErrorResponse;
   }> {
     return {
-      conversations: []
+      conversations: [],
     };
   }
 
@@ -54,13 +55,15 @@ export class RHELLightspeedClient implements IAIClient<RHELLightspeedAdditionalP
     message: string,
     options?: ISendMessageOptions<T, R>
   ): Promise<IMessageResponse<RHELLightspeedAdditionalProperties>> {
-    const requestPayload = options?.requestPayload as RHELLightspeedRequestPayload | undefined;
-    
+    const requestPayload = options?.requestPayload as
+      | RHELLightspeedRequestPayload
+      | undefined;
+
     // Build query payload
     const query: Query = {
       question: message,
       context: requestPayload?.context,
-      skip_rag: requestPayload?.skip_rag || false
+      skip_rag: requestPayload?.skip_rag || false,
     };
 
     try {
@@ -68,7 +71,7 @@ export class RHELLightspeedClient implements IAIClient<RHELLightspeedAdditionalP
         data: {
           text: string;
           request_id: string;
-        }
+        };
       }>('/infer', {
         method: 'POST',
         headers: {
@@ -92,13 +95,15 @@ export class RHELLightspeedClient implements IAIClient<RHELLightspeedAdditionalP
             knowledge_base_version: 'unknown',
             confidence_score: 1.0,
           },
-          context_metadata: requestPayload?.context ? {
-            has_systeminfo: !!requestPayload.context.systeminfo,
-            has_terminal_output: !!requestPayload.context.terminal,
-            has_attachments: false,
-            has_stdin: false,
-            has_cla_info: false,
-          } : null,
+          context_metadata: requestPayload?.context
+            ? {
+                has_systeminfo: !!requestPayload.context.systeminfo,
+                has_terminal_output: !!requestPayload.context.terminal,
+                has_attachments: false,
+                has_stdin: false,
+                has_cla_info: false,
+              }
+            : null,
           sources: [],
           original_question: message,
         },
@@ -127,8 +132,8 @@ export class RHELLightspeedClient implements IAIClient<RHELLightspeedAdditionalP
    * RAG system doesn't persist conversation history server-side
    */
   async getConversationHistory(
-    conversationId: string,
-    options?: IRequestOptions
+    _conversationId: string,
+    _options?: IRequestOptions
   ): Promise<IConversationHistoryResponse<RHELLightspeedAdditionalProperties>> {
     return [];
   }
@@ -171,32 +176,32 @@ export class RHELLightspeedClient implements IAIClient<RHELLightspeedAdditionalP
     options: RequestInit
   ): Promise<T> {
     const url = `${this.config.baseUrl}${endpoint}`;
-    
+
     const response = await this.fetchFunction(url, {
       ...options,
       headers: {
-        'Accept': 'application/json',
+        Accept: 'application/json',
         ...options.headers,
       },
     });
 
     if (!response.ok) {
       const errorBody = await response.json().catch(() => null);
-      
+
       if (response.status === 422) {
         throw new RHELLightspeedValidationError(
           errorBody?.detail?.[0]?.msg || 'Validation error',
           errorBody
         );
       }
-      
+
       if (response.status >= 500) {
         throw new RHELLightspeedServerError(
           errorBody?.detail?.[0]?.msg || 'Server error',
           errorBody
         );
       }
-      
+
       throw new AIClientError(
         response.status,
         response.statusText,
@@ -215,11 +220,16 @@ export class RHELLightspeedClient implements IAIClient<RHELLightspeedAdditionalP
     if (error instanceof AIClientError) {
       throw error;
     }
-    
+
     if (error instanceof Error) {
       throw new AIClientError(0, 'Network Error', error.message, error);
     }
-    
-    throw new AIClientError(0, 'Unknown Error', 'An unknown error occurred', error);
+
+    throw new AIClientError(
+      0,
+      'Unknown Error',
+      'An unknown error occurred',
+      error
+    );
   }
 }

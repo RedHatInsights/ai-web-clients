@@ -1,4 +1,8 @@
-import { IBaseClientConfig, IFetchFunction, AIClientError } from '@redhat-cloud-services/ai-client-common';
+import {
+  IBaseClientConfig,
+  IFetchFunction,
+  AIClientError,
+} from '@redhat-cloud-services/ai-client-common';
 
 // OpenAPI Schema Types based on RHEL LightSpeed specification
 
@@ -76,7 +80,8 @@ export interface RHELLightspeedRequestPayload extends Record<string, unknown> {
 }
 
 // RHEL-specific additional properties for the IAIClient interface (response data)
-export interface RHELLightspeedAdditionalProperties extends Record<string, unknown> {
+export interface RHELLightspeedAdditionalProperties
+  extends Record<string, unknown> {
   rag_metadata?: RAGMetadata;
   context_metadata?: ContextMetadata | null;
   sources?: RAGSource[];

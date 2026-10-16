@@ -54,7 +54,7 @@
       }
     },
     "test": {
-      "executor": "@nx/vite:test",
+      "executor": "@nx/vitest:test",
       "outputs": ["{options.reportsDirectory}"],
       "options": {
         "passWithNoTests": true,
@@ -65,7 +65,9 @@
       "executor": "@nx/eslint:lint",
       "outputs": ["{options.outputFile}"],
       "options": {
-        "lintFilePatterns": ["apps/react-integration-tests/**/*.{ts,tsx,js,jsx}"]
+        "lintFilePatterns": [
+          "apps/react-integration-tests/**/*.{ts,tsx,js,jsx}"
+        ]
       }
     }
   }

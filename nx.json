@@ -12,7 +12,8 @@
       "!{projectRoot}/test-setup.[jt]s",
       "!{projectRoot}/cypress/**/*",
       "!{projectRoot}/**/*.cy.[jt]s?(x)",
-      "!{projectRoot}/cypress.config.[jt]s"
+      "!{projectRoot}/cypress.config.[jt]s",
+      "!{projectRoot}/eslint.config.mjs"
     ],
     "sharedGlobals": []
   },
@@ -25,16 +26,11 @@
       "inputs": ["default", "^production", "{workspaceRoot}/jest.preset.js"]
     },
     "lint": {
-      "inputs": [
-        "default",
-        "{workspaceRoot}/.eslintrc.json",
-        "{workspaceRoot}/.eslintignore"
-      ]
+      "inputs": ["default", "{workspaceRoot}/eslint.config.mjs"]
     },
     "e2e": {
       "inputs": ["default", "^production"]
     },
-
     "@nx/js:tsc": {
       "cache": true,
       "dependsOn": ["^build"],
@@ -88,16 +84,15 @@
       "versionActionsOptions": {
         "skipLockFileUpdate": false
       },
-      "manifestRootsToUpdate": [
-        "{projectRoot}",
-        "dist/packages/{projectName}"
-      ]
+      "manifestRootsToUpdate": ["{projectRoot}", "dist/packages/{projectName}"]
     },
     "changelog": {
       "workspaceChangelog": false,
       "projectChangelogs": true
     },
-    "releaseTagPattern": "{projectName}@{version}"
+    "releaseTag": {
+      "pattern": "{projectName}@{version}"
+    }
   },
   "plugins": [
     {
@@ -110,7 +105,6 @@
       "plugin": "@nx/vite/plugin",
       "options": {
         "buildTargetName": "build",
-        "testTargetName": "test",
         "serveTargetName": "serve",
         "devTargetName": "dev",
         "previewTargetName": "preview",
@@ -118,6 +112,12 @@
         "typecheckTargetName": "typecheck",
         "buildDepsTargetName": "build-deps",
         "watchDepsTargetName": "watch-deps"
+      }
+    },
+    {
+      "plugin": "@nx/vitest",
+      "options": {
+        "testTargetName": "test"
       }
     },
     {
@@ -148,5 +148,6 @@
         "ciTargetName": "e2e-ci"
       }
     }
-  ]
+  ],
+  "analytics": false
 }

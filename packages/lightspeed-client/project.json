@@ -33,6 +33,5 @@
         "jestConfig": "packages/lightspeed-client/jest.config.ts"
       }
     }
-
   }
 }

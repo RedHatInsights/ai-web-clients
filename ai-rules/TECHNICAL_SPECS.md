@@ -65,7 +65,7 @@ Key features:
 - Target ES2015+ for native class inheritance support
 
 ### **ESLint Configuration**
-- Workspace-wide rules in `.eslintrc.json`
+- Workspace-wide rules in `eslint.config.mjs`
 - TypeScript-specific rules
 - No unused variables/imports
 - Professional code standards
@@ -91,7 +91,7 @@ packages/{package-name}/
 ├── jest.config.ts                 # Jest configuration
 ├── tsconfig.json                  # TypeScript configuration
 ├── tsconfig.lib.json             # Library-specific TypeScript config
-├── .eslintrc.json                # Package-specific ESLint rules
+├── eslint.config.mjs             # Package-specific ESLint rules
 ├── README.md                     # Package documentation
 └── USAGE.md                      # Advanced usage examples
 ```
@@ -108,7 +108,7 @@ apps/{app-name}/
 ├── tsconfig.json                 # TypeScript configuration
 ├── tsconfig.app.json             # App-specific TypeScript config
 ├── tsconfig.spec.json            # Test-specific TypeScript config
-└── .eslintrc.json                # App-specific ESLint rules
+└── eslint.config.mjs             # App-specific ESLint rules
 ```
 
 ---
