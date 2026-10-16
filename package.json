@@ -109,7 +109,7 @@
     "nx": {
       "brace-expansion": "^5.0.9"
     },
-    "dompurify": "^3.4.14"
+    "dompurify": "^3.4.17"
   },
   "dependencies": {
     "@patternfly/chatbot": "^6.7.1",
