@@ -184,10 +184,9 @@ cd packages/project && npm test  # Bypasses NX configuration
 
 ### **Quality Gates**
 
-1. **Pre-commit Hooks** (via Husky)
-   - Linting checks for all changed files
-   - Test execution for affected packages
-   - Commit message format validation
+1. **Git Hooks** (via Husky)
+   - `pre-commit` is advisory only: run `nx affected --target=lint` and `nx affected --target=test` manually
+   - `commit-msg` validates conventional commit format; `feat`/breaking commits must scope to an nx project name (run `npx nx show projects`)
 
 2. **Testing Requirements**
    - Unit tests for all public methods
