@@ -1,6 +1,6 @@
 name: Setup Environment
 description: Setup Node.js and cache npm packages (not node_modules) consistently
-# Note: All workflows using this action should use runs-on: ubuntu-24.04
+# Note: All workflows using this action should use runs-on: ubuntu-24.04 or ubuntu-slim
 runs:
   using: "composite"
   steps:
