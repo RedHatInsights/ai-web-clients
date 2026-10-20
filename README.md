@@ -464,8 +464,8 @@ All packages should be created in the `packages/` directory. NX will automatical
 
 The repository uses **Husky v9+** for git hooks:
 
-- **pre-commit**: Runs linting and tests before allowing commits
-- **commit-msg**: Validates commit messages follow conventional commit format
+- **pre-commit**: Advisory only; prints a reminder to run `nx affected --target=lint && nx affected --target=test` manually
+- **commit-msg**: Validates commit messages follow conventional commit format; `feat`/breaking commits must scope to an nx project name (e.g. `feat(arh-client): …` — run `npx nx show projects`)
 
 These hooks ensure code quality and consistent commit messages for automated versioning.
 

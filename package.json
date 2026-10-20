@@ -9,6 +9,7 @@
   "packageManager": "npm@12.2.0",
   "main": "index.js",
   "scripts": {
+    "prepare": "husky",
     "graph": "nx graph",
     "version": "nx release version",
     "version:dry-run": "nx release version --dry-run",

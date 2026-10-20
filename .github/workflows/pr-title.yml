@@ -1,0 +1,30 @@
+name: PR title lint
+permissions:
+  contents: read
+on:
+  pull_request:
+    branches:
+      - main
+    types: [opened, edited, reopened, synchronize]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  pr-title-lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: './.github/actions/setup-environment'
+      - name: Install
+        shell: bash
+        run: npm ci --ignore-scripts
+      - name: Validate PR title with commitlint
+        shell: bash
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: echo "$PR_TITLE" | npx commitlint --verbose
