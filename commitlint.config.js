@@ -51,10 +51,12 @@ module.exports = {
         'scope-full-name-for-versioning': (parsed) => {
           const { type, scope, header, notes } = parsed;
 
-          // Detect breaking change: header `!:` marker OR BREAKING CHANGE footer
+          // Detect breaking change: header `!:` marker OR a BREAKING CHANGE /
+          // BREAKING-CHANGE footer (both spellings are valid conventional commits)
+          const breakingTitles = ['BREAKING CHANGE', 'BREAKING-CHANGE'];
           const isBreaking =
-            !!(header && header.includes('!:')) ||
-            !!(notes && notes.some((n) => n.title === 'BREAKING CHANGE'));
+            /^\w+(\([^)]*\))?!:/.test(header || '') ||
+            !!(notes && notes.some((n) => breakingTitles.includes(n.title)));
           const isVersioningType = type === 'feat';
 
           // Non-versioning, non-breaking commits can use any scope

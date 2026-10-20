@@ -8,6 +8,8 @@ const config = require('./commitlint.config');
 const parserOpts = {
   headerPattern: /^(\w*)(?:\(([^)]*)\))?!?: (.*)$/,
   headerCorrespondence: ['type', 'scope', 'subject'],
+  // Mirrors conventional-changelog-conventionalcommits (the preset the CLI uses)
+  noteKeywords: ['BREAKING CHANGE', 'BREAKING-CHANGE'],
 };
 
 let lint;
@@ -45,6 +47,18 @@ describe('commitlint scope-full-name-for-versioning', () => {
       const result = await lintMessage(
         'chore(arh-client): change\n\nBREAKING CHANGE: removed API'
       );
+      expect(result.valid).toBe(true);
+    });
+
+    it('BREAKING-CHANGE footer with bare project name', async () => {
+      const result = await lintMessage(
+        'fix(arh-client): change\n\nBREAKING-CHANGE: removed API'
+      );
+      expect(result.valid).toBe(true);
+    });
+
+    it('literal !: in the subject is not a breaking marker', async () => {
+      const result = await lintMessage('fix(deps): handle literal !: in input');
       expect(result.valid).toBe(true);
     });
 
@@ -119,6 +133,22 @@ describe('commitlint scope-full-name-for-versioning', () => {
         'refactor: rewrite\n\nBREAKING CHANGE: new API'
       );
       expect(result.valid).toBe(false);
+    });
+
+    it('BREAKING-CHANGE footer with no scope', async () => {
+      const result = await lintMessage(
+        'fix: change API\n\nBREAKING-CHANGE: removed API'
+      );
+      expect(result.valid).toBe(false);
+      expect(result.errors[0].message).toContain('Scope required');
+    });
+
+    it('BREAKING-CHANGE footer with non-project scope', async () => {
+      const result = await lintMessage(
+        'fix(deps): change API\n\nBREAKING-CHANGE: removed API'
+      );
+      expect(result.valid).toBe(false);
+      expect(result.errors[0].message).toContain('must be an Nx project name');
     });
 
     it('breaking with short scope (! marker)', async () => {
