@@ -8,7 +8,7 @@ describe('AAIClient', () => {
     mockFetch = jest.fn();
     client = new AAIClient({
       baseUrl: 'https://api.test.com',
-      fetchFunction: mockFetch
+      fetchFunction: mockFetch,
     });
   });
 
@@ -28,7 +28,7 @@ describe('AAIClient', () => {
   it('should get service status from API', async () => {
     const mockResponse = {
       'chatbot-service': 'ok',
-      'streaming-chatbot-service': 'ok'
+      'streaming-chatbot-service': 'ok',
     };
 
     mockFetch.mockResolvedValue({
@@ -38,7 +38,7 @@ describe('AAIClient', () => {
     } as Response);
 
     const result = await client.getServiceStatus();
-    
+
     expect(mockFetch).toHaveBeenCalledWith(
       'https://api.test.com/api/v1/health/status/chatbot/',
       {
@@ -65,12 +65,13 @@ describe('AAIClient', () => {
 
   it('should send message to streaming endpoint', async () => {
     // Create a mock ReadableStream for SSE data
-    const mockSSEData = 'data: {"event": "token", "data": {"id": 1, "role": "inference", "token": "Hello"}}\n\ndata: {"event": "end", "data": {}}\n\n';
+    const mockSSEData =
+      'data: {"event": "token", "data": {"id": 1, "role": "inference", "token": "Hello"}}\n\ndata: {"event": "end", "data": {}}\n\n';
     const mockStream = new ReadableStream({
       start(controller) {
         controller.enqueue(new TextEncoder().encode(mockSSEData));
         controller.close();
-      }
+      },
     });
 
     mockFetch.mockResolvedValue({
@@ -80,15 +81,19 @@ describe('AAIClient', () => {
       body: mockStream,
     } as Response);
 
-    const result = await client.sendMessage('test-conv-123', 'Hello test message', {
-      stream: true,
-      requestBody: {
-        model: "test/test-model",
-        provider: "test-provider",
-        query: "Hello test message", // This will be overridden by the message parameter
+    const result = await client.sendMessage(
+      'test-conv-123',
+      'Hello test message',
+      {
+        stream: true,
+        requestBody: {
+          model: 'test/test-model',
+          provider: 'test-provider',
+          query: 'Hello test message', // This will be overridden by the message parameter
+        },
       }
-    });
-    
+    );
+
     expect(mockFetch).toHaveBeenCalledWith(
       'https://api.test.com/api/v1/ai/streaming_chat/',
       {
@@ -97,11 +102,11 @@ describe('AAIClient', () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          media_type: "application/json",
-          model: "test/test-model",
-          provider: "test-provider",
-          query: "Hello test message",
-          conversation_id: "test-conv-123",
+          media_type: 'application/json',
+          model: 'test/test-model',
+          provider: 'test-provider',
+          query: 'Hello test message',
+          conversation_id: 'test-conv-123',
         }),
       }
     );
@@ -117,12 +122,13 @@ describe('AAIClient', () => {
 
   it('should use default media_type when not provided', async () => {
     // Create a mock ReadableStream for SSE data
-    const mockSSEData = 'data: {"event": "token", "data": {"id": 1, "role": "inference", "token": "Test"}}\n\ndata: {"event": "end", "data": {}}\n\n';
+    const mockSSEData =
+      'data: {"event": "token", "data": {"id": 1, "role": "inference", "token": "Test"}}\n\ndata: {"event": "end", "data": {}}\n\n';
     const mockStream = new ReadableStream({
       start(controller) {
         controller.enqueue(new TextEncoder().encode(mockSSEData));
         controller.close();
-      }
+      },
     });
 
     mockFetch.mockResolvedValue({
@@ -135,21 +141,21 @@ describe('AAIClient', () => {
     await client.sendMessage('test-conv', 'Hello test', {
       stream: true,
       requestBody: {
-        model: "test/test-model",
-        provider: "test-provider",
-        query: "Hello test",
-      }
+        model: 'test/test-model',
+        provider: 'test-provider',
+        query: 'Hello test',
+      },
     });
-    
+
     expect(mockFetch).toHaveBeenCalledWith(
       'https://api.test.com/api/v1/ai/streaming_chat/',
       expect.objectContaining({
         body: JSON.stringify({
-          media_type: "application/json", // Should use default
-          model: "test/test-model",
-          provider: "test-provider",
-          query: "Hello test",
-          conversation_id: "test-conv",
+          media_type: 'application/json', // Should use default
+          model: 'test/test-model',
+          provider: 'test-provider',
+          query: 'Hello test',
+          conversation_id: 'test-conv',
         }),
       })
     );
@@ -162,15 +168,15 @@ describe('AAIClient', () => {
       headers: new Headers({ 'content-type': 'application/json' }),
     } as Response);
 
-    await expect(client.sendMessage('test-conv', 'Hello', {
-      requestBody: {
-        model: "test/test-model",
-        provider: "test-provider",
-        query: "Hello",
-      }
-    })).rejects.toThrow(
-      'Expected text/event-stream but got: application/json'
-    );
+    await expect(
+      client.sendMessage('test-conv', 'Hello', {
+        requestBody: {
+          model: 'test/test-model',
+          provider: 'test-provider',
+          query: 'Hello',
+        },
+      })
+    ).rejects.toThrow('Expected text/event-stream but got: application/json');
   });
 
   it('should implement other IAIClient interface methods', async () => {
@@ -185,12 +191,13 @@ describe('AAIClient', () => {
   });
 
   it('should omit conversation_id for temporary conversations', async () => {
-    const mockSSEData = 'data: {"event":"start","data":{"conversation_id":"real-conv-id","message_id":"msg-123"}}\n\n';
+    const mockSSEData =
+      'data: {"event":"start","data":{"conversation_id":"real-conv-id","message_id":"msg-123"}}\n\n';
     const mockStream = new ReadableStream({
       start(controller) {
         controller.enqueue(new TextEncoder().encode(mockSSEData));
         controller.close();
-      }
+      },
     });
 
     mockFetch.mockResolvedValue({
@@ -203,20 +210,20 @@ describe('AAIClient', () => {
     await client.sendMessage('__temp_conversation__', 'Hello temp', {
       stream: true,
       requestBody: {
-        model: "test/test-model",
-        provider: "test-provider",
-        query: "placeholder", // Will be overridden by the message parameter
-      }
+        model: 'test/test-model',
+        provider: 'test-provider',
+        query: 'placeholder', // Will be overridden by the message parameter
+      },
     });
-    
+
     expect(mockFetch).toHaveBeenCalledWith(
       'https://api.test.com/api/v1/ai/streaming_chat/',
       expect.objectContaining({
         body: JSON.stringify({
-          media_type: "application/json",
-          model: "test/test-model",
-          provider: "test-provider",
-          query: "Hello temp",
+          media_type: 'application/json',
+          model: 'test/test-model',
+          provider: 'test-provider',
+          query: 'Hello temp',
           // No conversation_id should be included
         }),
       })
@@ -224,12 +231,13 @@ describe('AAIClient', () => {
   });
 
   it('should omit conversation_id for AAI temporary conversations', async () => {
-    const mockSSEData = 'data: {"event":"start","data":{"conversation_id":"real-conv-id","message_id":"msg-123"}}\n\n';
+    const mockSSEData =
+      'data: {"event":"start","data":{"conversation_id":"real-conv-id","message_id":"msg-123"}}\n\n';
     const mockStream = new ReadableStream({
       start(controller) {
         controller.enqueue(new TextEncoder().encode(mockSSEData));
         controller.close();
-      }
+      },
     });
 
     mockFetch.mockResolvedValue({
@@ -242,20 +250,20 @@ describe('AAIClient', () => {
     await client.sendMessage('__aai_temp_conversation__', 'Hello AAI temp', {
       stream: true,
       requestBody: {
-        model: "test/test-model",
-        provider: "test-provider",
-        query: "placeholder", // Will be overridden by the message parameter
-      }
+        model: 'test/test-model',
+        provider: 'test-provider',
+        query: 'placeholder', // Will be overridden by the message parameter
+      },
     });
-    
+
     expect(mockFetch).toHaveBeenCalledWith(
       'https://api.test.com/api/v1/ai/streaming_chat/',
       expect.objectContaining({
         body: JSON.stringify({
-          media_type: "application/json",
-          model: "test/test-model",
-          provider: "test-provider",
-          query: "Hello AAI temp",
+          media_type: 'application/json',
+          model: 'test/test-model',
+          provider: 'test-provider',
+          query: 'Hello AAI temp',
           // No conversation_id should be included for AAI temp conversations either
         }),
       })

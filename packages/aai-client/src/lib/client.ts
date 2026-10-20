@@ -11,11 +11,7 @@ import {
   IFetchFunction,
 } from '@redhat-cloud-services/ai-client-common';
 import { AAIDefaultStreamingHandler } from './sse-streaming-handler';
-import {
-  AAIAdditionalAttributes,
-  AAIRequestBody,
-  AAISSEEvent
-} from './types';
+import { AAIAdditionalAttributes, AAIRequestBody } from './types';
 
 /**
  * Configuration options for the AAI client
@@ -25,7 +21,8 @@ export interface AAIClientConfig extends IBaseClientConfig {
 }
 
 // Extended send message options for AAI
-export interface AAISendMessageOptions extends ISendMessageOptions<Record<string, unknown>> {
+export interface AAISendMessageOptions
+  extends ISendMessageOptions<Record<string, unknown>> {
   requestBody: AAIRequestBody; // Required for AAI client
 }
 
@@ -40,7 +37,8 @@ export class AAIClient implements IAIClient<AAIAdditionalAttributes> {
 
   constructor(config: AAIClientConfig) {
     this.baseUrl = config.baseUrl;
-    this.fetchFunction = config.fetchFunction || ((input, init) => fetch(input, init));
+    this.fetchFunction =
+      config.fetchFunction || ((input, init) => fetch(input, init));
   }
 
   /**
@@ -71,28 +69,37 @@ export class AAIClient implements IAIClient<AAIAdditionalAttributes> {
     }
 
     const requestBody: AAIRequestBody = {
-      media_type: "application/json", // Default fallback
+      media_type: 'application/json', // Default fallback
       ...options.requestBody,
       query: message, // Always use the message parameter for query
     };
 
     // Only include conversation_id if it's not a temporary conversation
-    if (conversationId && conversationId !== '__temp_conversation__' && conversationId !== '__aai_temp_conversation__') {
+    if (
+      conversationId &&
+      conversationId !== '__temp_conversation__' &&
+      conversationId !== '__aai_temp_conversation__'
+    ) {
       requestBody.conversation_id = conversationId;
     }
 
-    const response = await this.fetchFunction(`${this.baseUrl}/api/v1/ai/streaming_chat/`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...options?.headers,
-      },
-      body: JSON.stringify(requestBody),
-      signal: options?.signal,
-    });
+    const response = await this.fetchFunction(
+      `${this.baseUrl}/api/v1/ai/streaming_chat/`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...options?.headers,
+        },
+        body: JSON.stringify(requestBody),
+        signal: options?.signal,
+      }
+    );
 
     if (!response.ok) {
-      throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+      throw new Error(
+        `API request failed: ${response.status} ${response.statusText}`
+      );
     }
 
     // Verify response is Server-Sent Events
@@ -109,7 +116,7 @@ export class AAIClient implements IAIClient<AAIAdditionalAttributes> {
         conversationId,
         handleChunk
       );
-      
+
       return await handler.getResult();
     }
 
@@ -117,13 +124,12 @@ export class AAIClient implements IAIClient<AAIAdditionalAttributes> {
     throw new Error('Non-streaming sendMessage is not supported in AAI client');
   }
 
-
   /**
    * Get the conversation history for a specific conversation
    */
   async getConversationHistory(
-    conversationId: string,
-    options?: IRequestOptions
+    _conversationId: string,
+    _options?: IRequestOptions
   ): Promise<IConversationHistoryResponse<AAIAdditionalAttributes>> {
     // Stubbed implementation
     return [];
@@ -132,7 +138,7 @@ export class AAIClient implements IAIClient<AAIAdditionalAttributes> {
   /**
    * Perform a health check on the AI service
    */
-  async healthCheck(options?: IRequestOptions): Promise<{ status: string }> {
+  async healthCheck(_options?: IRequestOptions): Promise<{ status: string }> {
     return { status: 'ok' };
   }
 
@@ -175,7 +181,9 @@ export class AAIClient implements IAIClient<AAIAdditionalAttributes> {
       });
 
       if (!response.ok) {
-        throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+        throw new Error(
+          `API request failed: ${response.status} ${response.statusText}`
+        );
       }
 
       return await response.json();

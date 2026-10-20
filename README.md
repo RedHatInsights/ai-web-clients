@@ -394,7 +394,7 @@ ai-web-clients/
 ├── tsconfig.json      # TypeScript configuration
 ├── jest.preset.js     # Jest configuration
 ├── jest.setup.js      # Jest setup file
-├── .eslintrc.json     # ESLint configuration
+├── eslint.config.mjs  # ESLint configuration
 ├── commitlint.config.js # Commitlint configuration
 ├── .releaserc.json    # Semantic release configuration
 └── package.json       # Root package.json

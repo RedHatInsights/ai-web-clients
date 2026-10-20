@@ -1,5 +1,9 @@
 import { RHELLightspeedClient } from './client';
-import { RHELLightspeedClientConfig, RHELLightspeedValidationError, RHELLightspeedServerError } from './types';
+import {
+  RHELLightspeedClientConfig,
+  RHELLightspeedValidationError,
+  RHELLightspeedServerError,
+} from './types';
 import { AIClientError } from '@redhat-cloud-services/ai-client-common';
 
 describe('RHELLightspeedClient', () => {
@@ -16,7 +20,7 @@ describe('RHELLightspeedClient', () => {
       statusText: 'OK',
       json: jest.fn(),
     };
-    
+
     config = {
       baseUrl: 'https://api.example.com',
       fetchFunction: mockFetch,
@@ -57,7 +61,7 @@ describe('RHELLightspeedClient', () => {
     it('should return empty conversations array for RAG system', async () => {
       const result = await client.init();
       expect(result).toEqual({
-        conversations: []
+        conversations: [],
       });
     });
   });
@@ -65,7 +69,7 @@ describe('RHELLightspeedClient', () => {
   describe('createNewConversation', () => {
     it('should return constant conversation ID for RAG system', async () => {
       const conversation = await client.createNewConversation();
-      
+
       expect(conversation).toEqual({
         id: 'rhel-lightspeed-conversation',
         title: 'RHEL LightSpeed Chat',
@@ -77,7 +81,7 @@ describe('RHELLightspeedClient', () => {
     it('should return the same conversation ID on multiple calls', async () => {
       const conversation1 = await client.createNewConversation();
       const conversation2 = await client.createNewConversation();
-      
+
       expect(conversation1.id).toBe(conversation2.id);
       expect(conversation1.id).toBe('rhel-lightspeed-conversation');
     });
@@ -129,11 +133,13 @@ describe('RHELLightspeedClient', () => {
       data: {
         text: 'This is a RHEL response about your question',
         request_id: '12345-67890',
-      }
+      },
     };
 
     beforeEach(() => {
-      (mockResponse.json as jest.Mock).mockResolvedValue(mockRealServerResponse);
+      (mockResponse.json as jest.Mock).mockResolvedValue(
+        mockRealServerResponse
+      );
       mockFetch.mockResolvedValue(mockResponse as Response);
     });
 
@@ -180,7 +186,7 @@ describe('RHELLightspeedClient', () => {
       const message = 'Simple question';
 
       await client.sendMessage(conversationId, message, {
-        requestPayload: { skip_rag: true }
+        requestPayload: { skip_rag: true },
       });
 
       expect(mockFetch).toHaveBeenCalledWith('https://api.example.com/infer', {
@@ -214,7 +220,7 @@ describe('RHELLightspeedClient', () => {
       };
 
       const result = await client.sendMessage(conversationId, message, {
-        requestPayload: contextPayload
+        requestPayload: contextPayload,
       });
 
       expect(mockFetch).toHaveBeenCalledWith('https://api.example.com/infer', {
@@ -244,7 +250,7 @@ describe('RHELLightspeedClient', () => {
       const message = 'Test message';
 
       await client.sendMessage(conversationId, message, {
-        headers: { 'X-Custom': 'test-value' }
+        headers: { 'X-Custom': 'test-value' },
       });
 
       expect(mockFetch).toHaveBeenCalledWith('https://api.example.com/infer', {
@@ -268,7 +274,7 @@ describe('RHELLightspeedClient', () => {
       const abortController = new AbortController();
 
       await client.sendMessage(conversationId, message, {
-        signal: abortController.signal
+        signal: abortController.signal,
       });
 
       expect(mockFetch).toHaveBeenCalledWith('https://api.example.com/infer', {
@@ -294,13 +300,17 @@ describe('RHELLightspeedClient', () => {
         status: 422,
         statusText: 'Unprocessable Entity',
         json: jest.fn().mockResolvedValue({
-          detail: [{ msg: 'Question is required' }]
+          detail: [{ msg: 'Question is required' }],
         }),
       };
       mockFetch.mockResolvedValue(errorResponse as unknown as Response);
 
-      await expect(client.sendMessage('test', 'test')).rejects.toThrow(RHELLightspeedValidationError);
-      await expect(client.sendMessage('test', 'test')).rejects.toThrow('Question is required');
+      await expect(client.sendMessage('test', 'test')).rejects.toThrow(
+        RHELLightspeedValidationError
+      );
+      await expect(client.sendMessage('test', 'test')).rejects.toThrow(
+        'Question is required'
+      );
     });
 
     it('should throw RHELLightspeedServerError for 500+ responses', async () => {
@@ -309,13 +319,17 @@ describe('RHELLightspeedClient', () => {
         status: 500,
         statusText: 'Internal Server Error',
         json: jest.fn().mockResolvedValue({
-          detail: [{ msg: 'Server error occurred' }]
+          detail: [{ msg: 'Server error occurred' }],
         }),
       };
       mockFetch.mockResolvedValue(errorResponse as unknown as Response);
 
-      await expect(client.sendMessage('test', 'test')).rejects.toThrow(RHELLightspeedServerError);
-      await expect(client.sendMessage('test', 'test')).rejects.toThrow('Server error occurred');
+      await expect(client.sendMessage('test', 'test')).rejects.toThrow(
+        RHELLightspeedServerError
+      );
+      await expect(client.sendMessage('test', 'test')).rejects.toThrow(
+        'Server error occurred'
+      );
     });
 
     it('should throw AIClientError for other HTTP errors', async () => {
@@ -324,13 +338,17 @@ describe('RHELLightspeedClient', () => {
         status: 404,
         statusText: 'Not Found',
         json: jest.fn().mockResolvedValue({
-          detail: [{ msg: 'Endpoint not found' }]
+          detail: [{ msg: 'Endpoint not found' }],
         }),
       };
       mockFetch.mockResolvedValue(errorResponse as unknown as Response);
 
-      await expect(client.sendMessage('test', 'test')).rejects.toThrow(AIClientError);
-      await expect(client.sendMessage('test', 'test')).rejects.toThrow('Endpoint not found');
+      await expect(client.sendMessage('test', 'test')).rejects.toThrow(
+        AIClientError
+      );
+      await expect(client.sendMessage('test', 'test')).rejects.toThrow(
+        'Endpoint not found'
+      );
     });
 
     it('should handle JSON parsing errors in error responses', async () => {
@@ -342,22 +360,34 @@ describe('RHELLightspeedClient', () => {
       };
       mockFetch.mockResolvedValue(errorResponse as unknown as Response);
 
-      await expect(client.sendMessage('test', 'test')).rejects.toThrow(RHELLightspeedServerError);
-      await expect(client.sendMessage('test', 'test')).rejects.toThrow('Server error');
+      await expect(client.sendMessage('test', 'test')).rejects.toThrow(
+        RHELLightspeedServerError
+      );
+      await expect(client.sendMessage('test', 'test')).rejects.toThrow(
+        'Server error'
+      );
     });
 
     it('should handle network errors', async () => {
       mockFetch.mockRejectedValue(new Error('Network error'));
 
-      await expect(client.sendMessage('test', 'test')).rejects.toThrow(AIClientError);
-      await expect(client.sendMessage('test', 'test')).rejects.toThrow('Network error');
+      await expect(client.sendMessage('test', 'test')).rejects.toThrow(
+        AIClientError
+      );
+      await expect(client.sendMessage('test', 'test')).rejects.toThrow(
+        'Network error'
+      );
     });
 
     it('should handle unknown errors', async () => {
       mockFetch.mockRejectedValue('Unknown error');
 
-      await expect(client.sendMessage('test', 'test')).rejects.toThrow(AIClientError);
-      await expect(client.sendMessage('test', 'test')).rejects.toThrow('An unknown error occurred');
+      await expect(client.sendMessage('test', 'test')).rejects.toThrow(
+        AIClientError
+      );
+      await expect(client.sendMessage('test', 'test')).rejects.toThrow(
+        'An unknown error occurred'
+      );
     });
   });
 
@@ -368,7 +398,9 @@ describe('RHELLightspeedClient', () => {
     });
 
     it('should always return empty conversation history', async () => {
-      const history = await client.getConversationHistory('any-conversation-id');
+      const history = await client.getConversationHistory(
+        'any-conversation-id'
+      );
       expect(history).toEqual([]);
     });
 
@@ -377,7 +409,7 @@ describe('RHELLightspeedClient', () => {
         data: {
           text: 'RHEL response text',
           request_id: 'req-123',
-        }
+        },
       };
       (mockResponse.json as jest.Mock).mockResolvedValue(mockServerResponse);
       mockFetch.mockResolvedValue(mockResponse as Response);
