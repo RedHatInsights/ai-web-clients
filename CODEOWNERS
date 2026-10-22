@@ -3,29 +3,29 @@
 
 # All GitHub configuration requires review from admins
 # This prevents unauthorized modifications to CI/CD pipelines, custom actions, and repo processes
-/.github/ @RedHatInsights/experience-services-admins
+/.github/ @RedHatInsights/experience-services-package-admins
 
 # All Konflux tekton configuration changes review from admins
-#.tekton/** @RedHatInsights/experience-services-admins
+#.tekton/** @RedHatInsights/experience-services-package-admins
 
 # Protect package publish contents control
-/.npmignore @RedHatInsights/experience-services-admins
+/.npmignore @RedHatInsights/experience-services-package-admins
 
 # CODEOWNERS file itself requires admin review to prevent bypass attacks
 # Must come after wildcard so this rule takes precedence (last match wins)
-/CODEOWNERS @RedHatInsights/experience-services-admins
+/CODEOWNERS @RedHatInsights/experience-services-package-admins
 
 # Scanner policy (weakens required-check verification if edited)
-/security-policy.yml @RedHatInsights/experience-services-admins
+/security-policy.yml @RedHatInsights/experience-services-package-admins
 
 # Package lifecycle, publish & dependency control
-/package.json @RedHatInsights/experience-services-admins
-/package-lock.json @RedHatInsights/experience-services-admins
-/.releaserc.json @RedHatInsights/experience-services-admins
+/package.json @RedHatInsights/experience-services-package-admins
+/package-lock.json @RedHatInsights/experience-services-package-admins
+/.releaserc.json @RedHatInsights/experience-services-package-admins
 
 # Git hooks & commit tooling
-/.husky/ @RedHatInsights/experience-services-admins
-/commitlint.config.js @RedHatInsights/experience-services-admins
+/.husky/ @RedHatInsights/experience-services-package-admins
+/commitlint.config.js @RedHatInsights/experience-services-package-admins
 
 # Build / task orchestration
-/nx.json @RedHatInsights/experience-services-admins
+/nx.json @RedHatInsights/experience-services-package-admins
