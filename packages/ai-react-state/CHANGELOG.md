@@ -1,3 +1,18 @@
+## 0.16.1 (2026-10-22)
+
+### 🩹 Fixes
+
+- **deps:** update npm minor and patch dependencies ([#47](https://github.com/RedHatInsights/ai-web-clients/pull/47))
+
+### 🧱 Updated Dependencies
+
+- Updated ai-client-common to 0.14.1
+- Updated ai-client-state to 0.16.1
+
+### ❤️ Thank You
+
+- Charles Mulder @charlesmulder
+
 # Changelog
 
 This file was generated using [@jscutlery/semver](https://github.com/jscutlery/semver).

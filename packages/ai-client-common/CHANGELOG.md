@@ -1,3 +1,7 @@
+## 0.14.1 (2026-10-22)
+
+This was a version bump only for ai-client-common to align it with other projects, there were no code changes.
+
 # Changelog
 
 This file was generated using [@jscutlery/semver](https://github.com/jscutlery/semver).

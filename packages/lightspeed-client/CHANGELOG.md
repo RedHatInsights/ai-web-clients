@@ -1,3 +1,9 @@
+## 0.16.1 (2026-10-22)
+
+### 🧱 Updated Dependencies
+
+- Updated ai-client-common to 0.14.1
+
 # Changelog
 
 This file was generated using [@jscutlery/semver](https://github.com/jscutlery/semver).
