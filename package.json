@@ -11,6 +11,8 @@
   "scripts": {
     "prepare": "husky",
     "graph": "nx graph",
+    "lint": "nx run-many -t lint --output-style=stream",
+    "test": "nx run-many -t test --output-style=stream",
     "version": "nx release version",
     "version:dry-run": "nx release version --dry-run",
     "release": "nx release",
