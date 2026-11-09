@@ -25,6 +25,8 @@
 /renovate.json @RedHatInsights/experience-services-package-admins
 /packages/*/package.json @RedHatInsights/experience-services-package-admins
 /packages/*/project.json @RedHatInsights/experience-services-package-admins
+/apps/*/package.json @RedHatInsights/experience-services-package-admins
+/apps/*/project.json @RedHatInsights/experience-services-package-admins
 
 # Git hooks & commit tooling
 /.husky/ @RedHatInsights/experience-services-package-admins
