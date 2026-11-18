@@ -78,11 +78,11 @@
     "@typescript-eslint/eslint-plugin": "8.72.2",
     "@typescript-eslint/parser": "8.72.2",
     "@vitejs/plugin-react": "^4.7.0",
-    "@vitest/ui": "^4.0.0",
+    "@vitest/ui": "^4.1.12",
     "babel-jest": "^29.7.0",
     "concurrently": "^9.2.5",
     "core-js": "^3.51.0",
-    "cypress": "^16.2.1",
+    "cypress": "^16.3.0",
     "eslint": "9.39.5",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-import": "2.32.0",
@@ -100,7 +100,7 @@
     "nx": "23.3.1",
     "prettier": "^2.8.8",
     "rollup": "^4.68.2",
-    "sass": "^1.108.1",
+    "sass": "^1.108.2",
     "swc-loader": "0.2.7",
     "ts-jest": "^29.4.15",
     "ts-node": "10.9.2",
@@ -109,7 +109,7 @@
     "typescript-eslint": "8.72.2",
     "verdaccio": "^6.11.1",
     "vite": "^6.4.6",
-    "vitest": "^4.0.0"
+    "vitest": "^4.1.12"
   },
   "overrides": {
     "dompurify": "^3.4.17"
