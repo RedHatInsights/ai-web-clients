@@ -361,6 +361,228 @@ describe('MASClient', () => {
   });
 
   // -------------------------------------------------------------------------
+  // sendMessage (streaming) — widgets / HITL interactions
+  // -------------------------------------------------------------------------
+
+  describe('sendMessage (streaming) — widgets', () => {
+    it('surfaces a display-only widget.upserted event in additionalAttributes.widgets', async () => {
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ sessionId: 'session-abc-123' }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          body: ndjsonStream(
+            {
+              type: 'widget.upserted',
+              event_id: 'evt-1',
+              execution_id: 'exec-1',
+              invocation_id: 'inv-1',
+              node_uid: 'node-1',
+              payload: {
+                type: 'widget',
+                widgetId: 'w1',
+                widget: 'alert',
+                schemaVersion: '1',
+                revision: 1,
+                input: { message: 'hello' },
+              },
+              interaction: null,
+            },
+            { type: 'stream_end' }
+          ),
+        })
+        .mockResolvedValueOnce(completedChatState('Done'));
+
+      const chunks: IStreamChunk<MASAdditionalAttributes>[] = [];
+      const result = await client.sendMessage('session-abc-123', 'Hi', {
+        stream: true,
+        handleChunk: (c) => chunks.push(c),
+      });
+
+      const widgetChunk = chunks.find(
+        (c) => (c.additionalAttributes.widgets?.length ?? 0) > 0
+      );
+      expect(widgetChunk).toBeDefined();
+      expect(widgetChunk!.additionalAttributes.widgets![0]).toMatchObject({
+        widgetId: 'w1',
+        executionId: 'exec-1',
+        invocationId: 'inv-1',
+        revision: 1,
+        envelope: { widget: 'alert', input: { message: 'hello' } },
+      });
+      expect(widgetChunk!.additionalAttributes.hasPendingInteraction).toBe(
+        false
+      );
+      expect(result.additionalAttributes?.widgets).toHaveLength(1);
+    });
+
+    it('marks hasPendingInteraction true while an interaction.requested event is pending', async () => {
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ sessionId: 'session-abc-123' }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          body: ndjsonStream(
+            {
+              type: 'interaction.requested',
+              event_id: 'evt-2',
+              execution_id: 'exec-1',
+              invocation_id: 'inv-1',
+              node_uid: 'node-1',
+              payload: {
+                type: 'widget',
+                widgetId: 'w2',
+                widget: 'multiple-choice',
+                schemaVersion: '1',
+                revision: 1,
+                input: { title: 'Pick one' },
+              },
+              interaction: {
+                interaction_id: 'int-1',
+                revision: 1,
+                status: 'pending',
+                request: {
+                  key: 'choice',
+                  prompt: 'Pick one',
+                  answer_schema: {},
+                  timeout_seconds: null,
+                },
+                expires_at: null,
+                answer: null,
+              },
+            },
+            { type: 'stream_end' }
+          ),
+        })
+        .mockResolvedValueOnce(completedChatState(''));
+
+      const chunks: IStreamChunk<MASAdditionalAttributes>[] = [];
+      await client.sendMessage('session-abc-123', 'Hi', {
+        stream: true,
+        handleChunk: (c) => chunks.push(c),
+      });
+
+      const pendingChunk = chunks.find(
+        (c) => c.additionalAttributes.hasPendingInteraction
+      );
+      expect(pendingChunk).toBeDefined();
+      expect(
+        pendingChunk!.additionalAttributes.widgets![0].interaction
+      ).toMatchObject({ interactionId: 'int-1', status: 'pending' });
+    });
+
+    it('does not populate widgets for a turn with no widget packets', async () => {
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ sessionId: 'session-abc-123' }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          body: ndjsonStream({ type: 'stream_end' }),
+        })
+        .mockResolvedValueOnce(completedChatState('Done'));
+
+      const result = await client.sendMessage('session-abc-123', 'Hi', {
+        stream: true,
+      });
+
+      expect(result.additionalAttributes?.widgets).toBeUndefined();
+      expect(
+        result.additionalAttributes?.hasPendingInteraction
+      ).toBeUndefined();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // getSessionInteractions
+  // -------------------------------------------------------------------------
+
+  describe('getSessionInteractions', () => {
+    it('fetches session interactions by sessionId', async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve([]),
+      });
+
+      const result = await client.getSessionInteractions('session-abc-123');
+      expect(result).toEqual([]);
+      expect(mockFetch).toHaveBeenCalledWith(
+        'http://localhost:8002/api/sessions/session.interactions?sessionId=session-abc-123',
+        expect.objectContaining({ method: 'GET' })
+      );
+    });
+
+    it('includes executionId when provided', async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve([]),
+      });
+
+      await client.getSessionInteractions('session-abc-123', 'exec-1');
+      expect(mockFetch).toHaveBeenCalledWith(
+        'http://localhost:8002/api/sessions/session.interactions?sessionId=session-abc-123&executionId=exec-1',
+        expect.objectContaining({ method: 'GET' })
+      );
+    });
+
+    it('returns an empty array when the backend responds with a non-array', async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(null),
+      });
+
+      const result = await client.getSessionInteractions('session-abc-123');
+      expect(result).toEqual([]);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // replyToInteraction
+  // -------------------------------------------------------------------------
+
+  describe('replyToInteraction', () => {
+    it('posts the reply and returns the backend confirmation', async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            interaction_id: 'int-1',
+            status: 'answered',
+            revision: 2,
+          }),
+      });
+
+      const result = await client.replyToInteraction({
+        sessionId: 'session-abc-123',
+        executionId: 'exec-1',
+        interactionId: 'int-1',
+        revision: 1,
+        answer: { selected: 'OpenShift Container Platform' },
+      });
+
+      expect(result.status).toBe('answered');
+      expect(mockFetch).toHaveBeenCalledWith(
+        'http://localhost:8002/api/sessions/session.interaction.reply',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({
+            sessionId: 'session-abc-123',
+            executionId: 'exec-1',
+            interactionId: 'int-1',
+            revision: 1,
+            answer: { selected: 'OpenShift Container Platform' },
+          }),
+        })
+      );
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // getChatState
   // -------------------------------------------------------------------------
 

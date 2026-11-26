@@ -22,6 +22,11 @@ import {
   HealthCheckResponse,
   MASAdditionalAttributes,
 } from './types';
+import {
+  InteractionReply,
+  ReplyToInteractionResponse,
+  SessionInteractionEvent,
+} from './widget-types';
 import { DefaultStreamingHandler } from './default-streaming-handler';
 
 /**
@@ -340,6 +345,64 @@ export class MASClient implements IAIClient<MASAdditionalAttributes> {
       `/api/sessions/session.stream.status?sessionId=${sessionId}`,
       {
         method: 'GET',
+        ...options,
+      }
+    );
+  }
+
+  // --- Widget / HITL interaction methods ---
+
+  /**
+   * Fetches the latest widget and interaction state for a session.
+   *
+   * Returns the most recent saved state per display widget or pending/resolved
+   * interaction — not an ordered event history. Use after a reconnect, page
+   * refresh, or once a session reaches a terminal status to restore widget
+   * display state that the live stream may have missed.
+   *
+   * Omitting `executionId` selects the session's current run; pass it
+   * explicitly (one call per turn) when restoring a session that may span
+   * several conversation turns, so widgets from one turn don't leak onto
+   * another.
+   */
+  async getSessionInteractions(
+    sessionId: string,
+    executionId?: string,
+    options?: RequestOptions
+  ): Promise<SessionInteractionEvent[]> {
+    const params = new URLSearchParams({ sessionId });
+    if (executionId) {
+      params.set('executionId', executionId);
+    }
+    const result = await this.makeRequest<SessionInteractionEvent[]>(
+      `/api/sessions/session.interactions?${params.toString()}`,
+      {
+        method: 'GET',
+        ...options,
+      }
+    );
+    return Array.isArray(result) ? result : [];
+  }
+
+  /**
+   * Submits a human answer for a pending HITL interaction, unblocking the
+   * agent that is waiting on it.
+   *
+   * Replies are idempotent while the execution still accepts them — retrying
+   * with the exact same body on a network error/5xx is safe. A 409 means the
+   * answer was invalid, the request is stale/resolved, or the execution
+   * ended; callers should refetch saved state via `getSessionInteractions`
+   * rather than retry blindly.
+   */
+  async replyToInteraction(
+    reply: InteractionReply,
+    options?: RequestOptions
+  ): Promise<ReplyToInteractionResponse> {
+    return this.makeRequest<ReplyToInteractionResponse>(
+      '/api/sessions/session.interaction.reply',
+      {
+        method: 'POST',
+        body: JSON.stringify(reply),
         ...options,
       }
     );
