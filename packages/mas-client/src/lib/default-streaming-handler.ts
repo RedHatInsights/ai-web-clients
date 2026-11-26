@@ -9,6 +9,13 @@ import {
   SessionChatResponse,
 } from './types';
 import { StreamEvent, isEmpty } from './streaming-types';
+import { isWidgetStreamEvent } from './widget-types';
+import {
+  WidgetStore,
+  applySessionInteractionEvent,
+  createWidgetStore,
+  extractWidgetInstances,
+} from './widget-store';
 
 /**
  * NDJSON streaming handler for MAS session.subscribe endpoint.
@@ -20,6 +27,7 @@ import { StreamEvent, isEmpty } from './streaming-types';
 export class DefaultStreamingHandler {
   private messageBuffer = '';
   private agentMap = new Map<string, ActiveAgent>();
+  private widgetStore: WidgetStore = createWidgetStore();
   private streamPromise: Promise<IMessageResponse<MASAdditionalAttributes>>;
 
   constructor(
@@ -43,6 +51,23 @@ export class DefaultStreamingHandler {
       name: event.display_name,
       status,
     });
+  }
+
+  /**
+   * Widget-related fields to merge into every emitted chunk's
+   * `additionalAttributes`, once any widget/interaction event has arrived on
+   * this turn's stream. Omitted entirely (not an empty array) for ordinary
+   * turns that never touch a widget, so existing consumers see no change.
+   */
+  private widgetAttributes(): Partial<MASAdditionalAttributes> {
+    if (this.widgetStore.size === 0) return {};
+    const widgets = extractWidgetInstances(this.widgetStore);
+    return {
+      widgets,
+      hasPendingInteraction: widgets.some(
+        (widget) => widget.interaction?.status === 'pending'
+      ),
+    };
   }
 
   private async processStream(): Promise<
@@ -71,14 +96,38 @@ export class DefaultStreamingHandler {
         for (const line of lines) {
           if (!line.trim()) continue;
 
-          let event: StreamEvent;
+          let parsed: unknown;
           try {
-            event = JSON.parse(line.trim());
+            parsed = JSON.parse(line.trim());
           } catch {
             continue;
           }
 
-          if (isEmpty(event)) continue;
+          if (isEmpty(parsed)) continue;
+
+          // Widget/interaction packets ('widget.upserted', 'interaction.requested',
+          // 'interaction.updated') use a distinct envelope from the text/progress
+          // StreamEvent union below — route them into the widget store and
+          // surface the change immediately, without pausing the text stream
+          // (the agent may still emit llm_token events after an interaction is
+          // requested; it only actually pauses once the backend decides to).
+          if (isWidgetStreamEvent(parsed)) {
+            if (applySessionInteractionEvent(this.widgetStore, parsed)) {
+              const widgetChunk: IStreamChunk<MASAdditionalAttributes> = {
+                messageId: this.messageId,
+                answer: this.messageBuffer || 'Thinking...',
+                conversationId: this.sessionId,
+                additionalAttributes: {
+                  activeAgents: this.activeAgents(),
+                  ...this.widgetAttributes(),
+                },
+              };
+              this.handleChunk(widgetChunk);
+            }
+            continue;
+          }
+
+          const event = parsed as StreamEvent;
 
           switch (event.type) {
             case 'heartbeat':
@@ -96,7 +145,10 @@ export class DefaultStreamingHandler {
                   messageId: this.messageId,
                   answer: 'Thinking...',
                   conversationId: this.sessionId,
-                  additionalAttributes: { activeAgents: this.activeAgents() },
+                  additionalAttributes: {
+                    activeAgents: this.activeAgents(),
+                    ...this.widgetAttributes(),
+                  },
                 };
                 this.handleChunk(chunk);
               }
@@ -130,6 +182,7 @@ export class DefaultStreamingHandler {
                   status: 'FAILED',
                   status_message: event.error,
                   activeAgents: this.activeAgents(),
+                  ...this.widgetAttributes(),
                 },
               };
               this.handleChunk(errorChunk);
@@ -154,16 +207,19 @@ export class DefaultStreamingHandler {
           this.messageBuffer = accumulatedAnswer;
         }
 
+        const finalAdditionalAttributes: MASAdditionalAttributes = {
+          output: chatState.output,
+          status: chatState.status,
+          status_message: chatState.status_message,
+          activeAgents: this.activeAgents(),
+          ...this.widgetAttributes(),
+        };
+
         const finalChunk: IStreamChunk<MASAdditionalAttributes> = {
           messageId: this.messageId,
           answer: accumulatedAnswer,
           conversationId: this.sessionId,
-          additionalAttributes: {
-            output: chatState.output,
-            status: chatState.status,
-            status_message: chatState.status_message,
-            activeAgents: this.activeAgents(),
-          },
+          additionalAttributes: finalAdditionalAttributes,
         };
         this.handleChunk(finalChunk);
 
@@ -171,19 +227,14 @@ export class DefaultStreamingHandler {
           messageId: this.messageId,
           answer: accumulatedAnswer,
           conversationId: this.sessionId,
-          additionalAttributes: {
-            output: chatState.output,
-            status: chatState.status,
-            status_message: chatState.status_message,
-            activeAgents: this.activeAgents(),
-          },
+          additionalAttributes: finalAdditionalAttributes,
         };
       } catch (error) {
         return {
           messageId: this.messageId,
           answer: accumulatedAnswer || this.messageBuffer,
           conversationId: this.sessionId,
-          additionalAttributes: {},
+          additionalAttributes: this.widgetAttributes(),
         };
       }
     } catch (error) {

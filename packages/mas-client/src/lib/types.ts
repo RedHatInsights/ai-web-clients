@@ -1,3 +1,5 @@
+import type { StoredWidgetInstance } from './widget-store';
+
 // --- Session Creation ---
 
 export interface CreateSessionRequest {
@@ -123,4 +125,19 @@ export type MASAdditionalAttributes = {
   status?: SessionStatus;
   status_message?: string | null;
   activeAgents?: ActiveAgent[];
+  /**
+   * Widget/interaction instances seen so far for this turn, deduplicated by
+   * revision (see `widget-store.ts`). Populated as `widget.upserted` /
+   * `interaction.requested` / `interaction.updated` events arrive on the
+   * stream. A host UI watches this to know a render is expected — it is the
+   * single signal that ties a stream chunk to "a widget packet arrived".
+   */
+  widgets?: StoredWidgetInstance[];
+  /**
+   * True when at least one widget in `widgets` has a HITL interaction
+   * currently `pending` — i.e. the agent is paused awaiting a reply via
+   * `replyToInteraction`. Convenience flag so a host doesn't need to scan
+   * `widgets` just to know whether to block further input.
+   */
+  hasPendingInteraction?: boolean;
 };
